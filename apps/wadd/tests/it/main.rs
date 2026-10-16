@@ -6,6 +6,7 @@ mod common;
 
 mod api;
 mod cloud;
+mod devices;
 mod display;
 mod drives;
 mod github;

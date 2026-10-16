@@ -65,6 +65,8 @@ pub struct AppState {
     pub graph_root: std::sync::OnceLock<String>,
     /// What's saved on the disk outside the images (/v1/files).
     pub files: crate::files::Files,
+    /// The devices plugged in, and the wadspaces they're handed to.
+    pub devices: Arc<crate::devices::Devices>,
 }
 
 /// An ApiError as an HTTP response.
@@ -163,6 +165,10 @@ pub fn router(app: Arc<AppState>) -> Router {
         .route("/v1/signins", get(signins).post(signin_create))
         .route("/v1/signins/{id}", get(signin).put(signin_put).delete(signin_delete))
         .route("/v1/signins/{id}/signout", post(signin_sign_out))
+        .route("/v1/devices", get(devices))
+        .route("/v1/devices/{key}", axum::routing::put(device_put).delete(device_forget))
+        .route("/v1/devices/{key}/attach", post(device_attach))
+        .route("/v1/devices/{key}/detach", post(device_detach))
         .route("/v1/drives", get(drives))
         .route("/v1/browse", get(browse))
         .route("/v1/copies", post(copy_create))
@@ -549,6 +555,44 @@ async fn project_status(
     Path(id): Path<String>,
 ) -> Result<Json<ProjectStatus>, Failure> {
     Ok(Json(app.projects.status(&id).await?))
+}
+
+async fn devices(State(app): State<Arc<AppState>>) -> Json<Vec<wad_proto::v1::Device>> {
+    Json(app.devices.list())
+}
+
+/// Renames a device, or says where it goes.
+async fn device_put(
+    State(app): State<Arc<AppState>>,
+    Path(key): Path<String>,
+    Json(p): Json<wad_proto::v1::DevicePatch>,
+) -> Result<Json<wad_proto::v1::Device>, Failure> {
+    let name = p.name.map(|n| Some(n).filter(|n| !n.trim().is_empty()));
+    Ok(Json(app.devices.set(&key, name, p.remembered)?))
+}
+
+/// Forgets a device that isn't plugged in.
+async fn device_forget(State(app): State<Arc<AppState>>, Path(key): Path<String>) -> Result<StatusCode, Failure> {
+    app.devices.forget(&key)?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+/// Hands a device to a wadspace (now when it runs, and whenever it does).
+async fn device_attach(
+    State(app): State<Arc<AppState>>,
+    Path(key): Path<String>,
+    Json(to): Json<wad_proto::v1::DeviceTo>,
+) -> Result<Json<wad_proto::v1::Device>, Failure> {
+    Ok(Json(app.devices.attach(&key, &to.wadspace)?))
+}
+
+/// Takes a device back from a wadspace, for good.
+async fn device_detach(
+    State(app): State<Arc<AppState>>,
+    Path(key): Path<String>,
+    Json(to): Json<wad_proto::v1::DeviceTo>,
+) -> Result<Json<wad_proto::v1::Device>, Failure> {
+    Ok(Json(app.devices.detach(&key, &to.wadspace)?))
 }
 
 async fn signins(State(app): State<Arc<AppState>>) -> Json<Vec<SignIn>> {

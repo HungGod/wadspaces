@@ -337,7 +337,18 @@ impl Server {
             registry.clone(),
             bus.clone(),
         );
+        // Devices are handed to wadspaces only by root (rootful podman).
+        let devices = devices::Devices::new(
+            &config.daemon.state_dir,
+            devices::sysfs::Roots::default(),
+            Arc::new(devices::attach::HostHands),
+            registry_backend.clone(),
+            registry.clone(),
+            bus.clone(),
+            nix::unistd::Uid::effective().is_root(),
+        );
         let state = Arc::new(AppState {
+            devices,
             registry_backend,
             meter: metrics::Meter::default(),
             network: network::Network::new(None, bus.clone()),
@@ -442,11 +453,13 @@ impl Server {
         let relay = self.state.cloud.clone().map(|c| tokio::spawn(c.run()));
         let reconcile = registry.spawn_reconcile(self.reconcile_every);
         let netwatch = tokio::spawn(self.state.network.clone().run());
+        let devwatch = tokio::spawn(self.state.devices.clone().run());
         let autostart = tokio::spawn(registry.clone().autostart(Duration::from_secs(300)));
         let app = api::router(self.state.clone()).into_make_service_with_connect_info::<Peer>();
         let res = axum::serve(self.listener, app).with_graceful_shutdown(shutdown).await;
         reconcile.abort();
         netwatch.abort();
+        devwatch.abort();
         autostart.abort();
         if let Some(r) = relay {
             r.abort();

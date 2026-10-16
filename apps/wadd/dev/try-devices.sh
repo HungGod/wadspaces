@@ -11,7 +11,9 @@
 #     and go, as Chrome would;
 #   - raw USB (/dev/bus/usb/001/001, a root hub) opens the same way;
 #   - inside, root can't make a node, and a node of a kind not handed out
-#     (misc, 10:200) can't be opened.
+#     (misc, 10:200) can't be opened;
+#   - then wadd's own hands (devices::attach::HostHands, from its test
+#     binary) hand the gamepad over and take it back the same way.
 #
 #   sudo apps/wadd/dev/try-devices.sh
 #
@@ -117,5 +119,38 @@ mknod -m 0660 "$cr/dev/trymisc" c 10 200
 chown 1000:1000 "$cr/dev/trymisc"
 refuse "a kind not handed out (misc) can't be opened" inside python3 -c "import os; os.open('/dev/trymisc', os.O_RDWR)"
 refuse "not even by root inside" podman exec "$name" python3 -c "import os; os.open('/dev/trymisc', os.O_RDWR)"
+
+echo "== wadd's own hands"
+bin=${WADD_TEST_BIN:-}
+if [ -z "$bin" ]; then
+  bin=$(sudo -u "${SUDO_USER:-root}" bash -lc "cd '$root' && cargo test -q -p wadd --lib --no-run --message-format=json 2>/dev/null" |
+    python3 -I -c 'import json,sys
+for l in sys.stdin:
+    d = json.loads(l)
+    if d.get("reason") == "compiler-artifact" and d.get("executable") and d["target"]["name"] == "wadd" and d["profile"]["test"]:
+        print(d["executable"])' | tail -1)
+fi
+if [ -x "$bin" ]; then
+  inside python3 /tmp/devices-helper.py monitor input 5 >"$tmp/mon2" 2>&1 &
+  mon=$!
+  for _ in $(seq 50); do grep -q ready "$tmp/mon2" 2>/dev/null && break; sleep 0.1; done
+  WADD_TRY_PID=$pid WADD_TRY_NODE=$sys "$bin" devices::attach::hands_a_node_over --ignored -q >"$tmp/give" 2>&1 ||
+    { bad "wadd gives it"; sed 's/^/    /' "$tmp/give"; }
+  check "abc opens what wadd gave" inside python3 -c "import os; os.close(os.open('/dev/input/$ev', os.O_RDONLY))"
+  [ "$(stat -c '%u %a' "$cr/dev/input/$ev")" = "1000 660" ] && ok "abc's, 0660" || bad "abc's, 0660"
+  sleep 1
+  WADD_TRY_PID=$pid WADD_TRY_NODE=$sys WADD_TRY_TAKE=1 "$bin" devices::attach::hands_a_node_over --ignored -q >"$tmp/take" 2>&1 ||
+    { bad "wadd takes it"; sed 's/^/    /' "$tmp/take"; }
+  wait "$mon" || true
+  grep -q "heard add /dev/input/$ev joystick=1" "$tmp/mon2" && ok "libudev heard wadd's add" || bad "libudev heard wadd's add"
+  grep -q "heard remove /dev/input/$ev" "$tmp/mon2" && ok "libudev heard wadd's remove" || bad "libudev heard wadd's remove"
+  refuse "wadd took it away" inside test -e "/dev/input/$ev"
+  # A symlink the container plants leads only into the container.
+  podman exec "$name" sh -c 'rm -rf /run/udev/data && ln -s /etc /run/udev/data'
+  WADD_TRY_PID=$pid WADD_TRY_NODE=$sys "$bin" devices::attach::hands_a_node_over --ignored -q >/dev/null 2>&1 || true
+  [ -e "/etc/c$maj:$min" ] && bad "a planted symlink led out of the container" || ok "a planted symlink stays inside"
+else
+  bad "no wadd test binary (set WADD_TEST_BIN)"
+fi
 
 if [ "$failed" = 0 ]; then echo ok; else echo FAILED; exit 1; fi

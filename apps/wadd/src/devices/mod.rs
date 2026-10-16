@@ -13,8 +13,12 @@
 //! in every wadspace through the machine (sway, PipeWire, copies and
 //! mounts).
 
+pub mod attach;
+pub mod server;
 pub mod sysfs;
 pub mod uevent;
+
+pub use server::Devices;
 
 /// Character device majors wadd hands out that never change: input
 /// (evdev, joysticks), video4linux (webcams), ttyACM and ttyUSB (serial),

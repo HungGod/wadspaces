@@ -52,6 +52,9 @@ pub struct Machine {
     pub apps: HashMap<String, Vec<String>>,
     /// This app's unit goes away just as it's stopped (it exited by itself).
     pub app_gone_at_stop: Option<String>,
+    /// Running containers' first processes (a new one each start).
+    pub pids: HashMap<String, u32>,
+    pub next_pid: u32,
 }
 
 pub const TOKEN: &str = "ghp_TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT";
@@ -87,6 +90,8 @@ impl Backend for Fake {
         }
         let name = unit.trim_end_matches(".service").to_string();
         self.with(|m| {
+            m.next_pid += 1;
+            m.pids.insert(name.clone(), 4000 + m.next_pid);
             m.containers.insert(name, "running".into());
         });
         Ok(())
@@ -103,6 +108,7 @@ impl Backend for Fake {
         self.with(|m| {
             m.calls.push(format!("stop {unit}"));
             m.containers.remove(unit.trim_end_matches(".service"));
+            m.pids.remove(unit.trim_end_matches(".service"));
             m.apps.remove(unit);
         });
         Ok(())
@@ -120,6 +126,10 @@ impl Backend for Fake {
             m.apps.insert(unit.into(), ws.exec.clone());
         });
         Ok(())
+    }
+    async fn container_pid(&self, name: &str) -> Result<Option<u32>, String> {
+        let m = self.0.lock().unwrap();
+        Ok(m.pids.get(name).copied().filter(|_| m.containers.get(name).is_some_and(|s| s == "running")))
     }
     async fn unit_state(&self, unit: &str) -> Result<String, String> {
         Ok(if self.0.lock().unwrap().apps.contains_key(unit) { "active" } else { "inactive" }.into())

@@ -102,6 +102,9 @@ pub enum Event {
         #[serde(rename = "measuredAt")]
         measured_at: f64,
     },
+    /// The devices changed: plugged in or out, handed to a wadspace or
+    /// taken back, renamed (all of them, as GET /v1/devices has them).
+    Devices(Vec<Device>),
 }
 
 impl Event {
@@ -123,6 +126,7 @@ impl Event {
             Event::Notice { .. } => "notice",
             Event::Shortcut { .. } => "shortcut",
             Event::Storage { .. } => "storage",
+            Event::Devices(_) => "devices",
         }
     }
 }
@@ -365,6 +369,24 @@ pub struct Device {
     /// Never asked about yet: plugging it in asks where it goes.
     #[serde(default)]
     pub new: bool,
+}
+
+/// POST /v1/devices/{key}/attach and /detach.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DeviceTo {
+    pub wadspace: String,
+}
+
+/// PUT /v1/devices/{key}: a new name ("": its own again), and/or where it
+/// goes (the answer when it's new: none keeps it on the machine).
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DevicePatch {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub remembered: Option<Vec<String>>,
 }
 
 /// GET /v1/workspaces: a workspace on this machine.

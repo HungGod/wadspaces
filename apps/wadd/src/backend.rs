@@ -54,6 +54,11 @@ pub trait Backend: Send + Sync + 'static {
     async fn volume_mountpoint(&self, _name: &str) -> Option<String> {
         None
     }
+    /// A running container's first process, on the machine (None: it isn't
+    /// running).
+    async fn container_pid(&self, _name: &str) -> Result<Option<u32>, String> {
+        Err("no podman".into())
+    }
     /// The github_token secret (git's credentials for github.com).
     async fn github_token(&self) -> Option<String> {
         None
@@ -331,6 +336,14 @@ impl Backend for Real {
 
     async fn image_labels(&self, image: &str) -> Result<Option<serde_json::Map<String, serde_json::Value>>, String> {
         self.podman.image_labels(image).await.map_err(|e| e.to_string())
+    }
+
+    async fn container_pid(&self, name: &str) -> Result<Option<u32>, String> {
+        let info = self.podman.inspect_container(name).await.map_err(|e| e.to_string())?;
+        Ok(info
+            .and_then(|i| i.pointer("/State/Pid").and_then(serde_json::Value::as_u64))
+            .filter(|p| *p > 0)
+            .map(|p| p as u32))
     }
 
     async fn volume_mountpoint(&self, name: &str) -> Option<String> {
