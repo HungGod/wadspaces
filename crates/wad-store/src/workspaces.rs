@@ -221,7 +221,7 @@ pub fn check_workspaces(list: Vec<Value>) -> Result<Vec<Workspace>, Error> {
 
 /// `[{id, kind, mount, repo?, ref?, setup?, from?}]`: a workspace's projects,
 /// each at its own Desktop/<mount>. Entries from before (`{id, mount,
-/// path?}`, what a launch mounted) are dropped: nothing is mounted now.
+/// path?}`, what a launch mounted) are dropped; a mount is `kind: "mount"`.
 fn check_projects(v: Option<&Value>, where_: &str) -> Result<Vec<WorkspaceProject>, Error> {
     let Some(v) = v.filter(|v| !v.is_null()) else { return Ok(vec![]) };
     let list = v.as_array().ok_or_else(|| err(format!("{where_}: projects must be a list")))?;
@@ -255,7 +255,10 @@ fn check_projects(v: Option<&Value>, where_: &str) -> Result<Vec<WorkspaceProjec
                     return Err(err(format!("{where_}: {mount}'s setup command is too long")));
                 }
             }
-            ProjectKind::Copy => {
+            ProjectKind::Copy | ProjectKind::Mount => {
+                if parsed.kind == ProjectKind::Mount && parsed.from.as_ref().is_none_or(|f| f.paths.len() != 1) {
+                    return Err(err(format!("{where_}: {mount} mounts one folder or file")));
+                }
                 if let Some(f) = &parsed.from {
                     let on_drive = f.drive.is_some();
                     let ok = f.paths.len() <= 64
@@ -272,7 +275,7 @@ fn check_projects(v: Option<&Value>, where_: &str) -> Result<Vec<WorkspaceProjec
                         && f.machine_id.len() <= 128
                         && !f.machine_id.contains(char::is_control);
                     if !ok {
-                        return Err(err(format!("{where_}: {mount} is copied from paths that aren't")));
+                        return Err(err(format!("{where_}: {mount} comes from paths that aren't")));
                     }
                 }
             }

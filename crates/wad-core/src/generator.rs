@@ -2,7 +2,7 @@
 //! (`wad-<id>.container`, which the registry installs), and WadBrowser's
 //! config (`/etc/wadspaces/wadbrowser.conf`: what links open in), which the
 //! layers' build folders carry (layers.rs). Project files are never in an
-//! image: wadd mounts them when it launches.
+//! image: a wadspace takes them in when it starts, or wadd mounts them.
 
 use serde_json::Value;
 
@@ -116,12 +116,23 @@ fn workspace_unit(w: &Value, state_dir: &str, rootless_uid: Option<u32>) -> Stri
     for v in js::strs(w, "volumes") {
         lines.push(format!("Volume={v}"));
     }
-    // Projects aren't mounted: the wadspace clones them, or copies them in,
-    // into its own /config. What it copies from is wadd's copy of the files,
-    // read-only (a copy's, or a GitHub project's clone from when wadd kept
-    // them on the machine, for it to start from).
+    // A GitHub project or a copy isn't mounted: the wadspace clones it, or
+    // copies it in, into its own /config. What it copies from is wadd's copy
+    // of the files, read-only (a copy's, or a GitHub project's clone from when
+    // wadd kept them on the machine, for it to start from). A mount is the
+    // machine's own folder or file (`path`, which wadd found here; none: not
+    // on this machine), read-write and never relabelled (no :z: it's the
+    // user's), so the container runs without SELinux separation.
+    let mut mounted = false;
     for p in js::arr(w, "projects") {
         let id = js::field(p, "id");
+        if js::field(p, "kind") == "mount" {
+            if let Some(path) = p.get("path").filter(|x| js::truthy(x)) {
+                lines.push(format!("Volume={}:/config/Desktop/{}:rw", js::string(path), js::field(p, "mount")));
+                mounted = true;
+            }
+            continue;
+        }
         lines.push(format!("Volume={state_dir}/copies/{id}:{COPIES_ROOT}/{id}:ro,z"));
     }
     // Saved sign-ins: each its folder on the host (`path`, wadd's), read-write
@@ -141,7 +152,7 @@ fn workspace_unit(w: &Value, state_dir: &str, rootless_uid: Option<u32>) -> Stri
         // the same runtime dir.
         lines.push("Environment=PULSE_SERVER=unix:/run/wadspaces-display/pulse/native".into());
     }
-    if native {
+    if native || mounted {
         lines.push("SecurityLabelDisable=true".into());
     }
     for d in js::strs(w, "devices") {
@@ -192,5 +203,25 @@ mod tests {
         });
         let got = super::quadlet(&w, super::STATE_DIR, None);
         assert_eq!(got, include_str!("../../../fixtures/quadlet/wad-writing-signins.container"));
+    }
+
+    #[test]
+    fn a_mount_is_the_machines_folder_read_write_and_never_relabelled() {
+        let w = json!({
+            "id": "writing", "name": "Writing", "image": "localhost/wadspaces-writing:latest", "display": "stream",
+            "port": 3101, "env": {"PUID": "1000"},
+            "projects": [
+                {"id": "p1", "kind": "github", "mount": "Notes", "repo": "HungGod/Notes"},
+                {"id": "mount-a1", "kind": "mount", "mount": "Thesis", "path": "/var/home/wad/Thesis"},
+                {"id": "mount-b2", "kind": "mount", "mount": "Elsewhere"},
+            ],
+        });
+        let got = super::quadlet(&w, super::STATE_DIR, None);
+        assert_eq!(got, include_str!("../../../fixtures/quadlet/wad-writing-mount.container"));
+        // Not on this machine: nothing to mount, and SELinux stays on for a streamed one.
+        let mut away = w.clone();
+        away["projects"][1].as_object_mut().unwrap().remove("path");
+        let got = super::quadlet(&away, super::STATE_DIR, None);
+        assert!(!got.contains("/config/Desktop") && !got.contains("SecurityLabelDisable"), "{got}");
     }
 }

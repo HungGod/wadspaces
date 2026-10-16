@@ -281,13 +281,22 @@ impl Server {
         let signins =
             signins::SignIns::new(&d.state_dir, d.signins_dir.clone(), d.projects_uid, registry.clone(), bus.clone());
         {
-            // Before a container starts: its sign-ins, its projects.json, and
-            // the folders its copies are mounted from.
+            // Before a container starts: its mounts found here, then its
+            // sign-ins, its projects.json (no mount that isn't here), and the
+            // folders its copies are mounted from.
+            let found = copies.clone();
+            registry.on_mounts(move |ws| {
+                let copies = found.clone();
+                Box::pin(async move { copies.find_mounts(&ws).await })
+            });
             let (signins, copies, state_dir) = (Arc::downgrade(&signins), copies.clone(), d.state_dir.clone());
+            let reg = Arc::downgrade(&registry);
             registry.on_prepare(move |ws| {
                 signins.upgrade().map_or(Ok(()), |s| s.prepare(ws))?;
                 copies.prepare(ws)?;
-                wad_store::projects::write_manifest(&state_dir, &ws.id, &ws.projects)
+                let mounts = reg.upgrade().map(|r| r.mounts_of(&ws.id)).unwrap_or_default();
+                let here = copies::projects_here(ws, &mounts);
+                wad_store::projects::write_manifest(&state_dir, &ws.id, &here)
                     .map(drop)
                     .map_err(|e| format!("projects.json: {e}"))
             });

@@ -60,8 +60,10 @@ const PROJECTS_LABEL: &str = "io.wadspaces.projects";
 /// Of the progress bar; starting the workspace is the rest.
 const STEP1_SHARE: f64 = 0.9;
 const KEEP_FINISHED: usize = 20;
-/// The base's label value whose wadspaces clone and copy in their projects.
-const PROJECTS_IN: &str = "2";
+/// The base's label value from which its wadspaces clone and copy in their
+/// projects, and from which they take mounts.
+const PROJECTS_IN: u32 = 2;
+const MOUNTS_IN: u32 = 3;
 pub const OLD_BASE: &str = "this image was built on an older base; rebuild its template to have projects";
 
 fn now() -> f64 {
@@ -454,6 +456,8 @@ impl Launches {
                 let clone = self.projects.projects_dir.join(&p.id);
                 clone.join(".git").exists().then_some(Stage::Clone(clone))
             }
+            // Found when the wadspace starts (Copies::find_mounts).
+            ProjectKind::Mount => None,
         }
     }
 
@@ -611,6 +615,23 @@ impl Launches {
             format!(" with {}", ws.projects.iter().map(|p| p.mount.as_str()).collect::<Vec<_>>().join(", "))
         };
         self.line(id, &format!("» launching {}{with}", ws.name));
+        for p in ws.projects.iter().filter(|p| p.kind == ProjectKind::Mount) {
+            let Some(from) = &p.from else { continue };
+            let line = match (&from.drive, from.paths.first()) {
+                (Some(d), _) => {
+                    format!(
+                        "{}: mounted from the drive {}",
+                        p.mount,
+                        if d.label.is_empty() { &d.uuid } else { &d.label }
+                    )
+                }
+                (None, Some(path)) if self.copies.is_here(&from.machine_id) => {
+                    format!("{}: mounted from {path}; changes save to this machine", p.mount)
+                }
+                _ => format!("{} is mounted only on the machine it's from, so it isn't in this one", p.mount),
+            };
+            self.line(id, &line);
+        }
         let mut step1: Vec<BoxFuture<'_, Result<(), String>>> = vec![];
         if ws.kind == wad_proto::v1::Kind::Container {
             step1.push(self.image(id, &ws).boxed());
@@ -636,8 +657,15 @@ impl Launches {
             let Some(labels) = self.backend.image_labels(&ws.image).await? else {
                 return Err(format!("{} isn't on this machine; build {} in WadSpaces first", ws.image, ws.name));
             };
-            let projects_in = labels.get(PROJECTS_LABEL).and_then(Value::as_str) == Some(PROJECTS_IN);
-            if !ws.projects.is_empty() && !projects_in {
+            let level = labels.get(PROJECTS_LABEL).and_then(Value::as_str).and_then(|v| v.parse::<u32>().ok());
+            let needs = if ws.projects.iter().any(|p| p.kind == ProjectKind::Mount) {
+                MOUNTS_IN
+            } else if ws.projects.is_empty() {
+                0
+            } else {
+                PROJECTS_IN
+            };
+            if needs > 0 && level.is_none_or(|l| l < needs) {
                 return Err(OLD_BASE.to_string());
             }
             Ok(())

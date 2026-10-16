@@ -881,7 +881,8 @@ pub fn workspace_for(w: &Value, template: &Value, setup: &Value, opts: &Value) -
 /// A stack's projects as wadd takes them: `[{id, kind, mount, repo?, ref?,
 /// setup?, from?}]`. A GitHub one is cloned by the wadspace; a copy is
 /// copied in once (`from`: where its files are, for a machine that hasn't
-/// copied them yet). Anything else is left out.
+/// copied them yet); a mount is the machine's folder or file at `from`,
+/// mounted read-write. Anything else is left out.
 fn workspace_projects(custom: &Value) -> Vec<Value> {
     let mut out = Vec::new();
     for p in js::arr(custom, "projects") {
@@ -899,8 +900,8 @@ fn workspace_projects(custom: &Value) -> Vec<Value> {
                     e.insert("setup".into(), s(p, "setup").into());
                 }
             }
-            "copy" => {
-                e.insert("kind".into(), "copy".into());
+            k @ ("copy" | "mount") => {
+                e.insert("kind".into(), k.into());
                 e.insert("mount".into(), s(p, "as").into());
                 let src = &p["source"];
                 let mut from = Obj::new();

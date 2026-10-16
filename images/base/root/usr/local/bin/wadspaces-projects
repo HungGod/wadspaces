@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-"""This wadspace's projects: cloned and copied in, never mounted.
+"""This wadspace's projects: cloned or copied in, or mounted by wadd.
 
     wadspaces-projects --init <desktop-dir> <state-dir>   at every start, as root
     wadspaces-projects --sync <desktop-dir> <state-dir>   then, as abc, in the background
@@ -10,17 +10,22 @@ wadd lists them in /run/wadspaces-extra/projects.json (version 2):
     {"version": 2, "projects": [
         {"id": "<id>", "kind": "github", "mount": "Writing", "name": "Writing",
          "repo": "owner/name", "ref": "main", "setup": "npm install", "setupHash": "<hash>"},
-        {"id": "<id>", "kind": "copy", "mount": "Notes", "name": "Notes"}]}
+        {"id": "<id>", "kind": "copy", "mount": "Notes", "name": "Notes"},
+        {"id": "<id>", "kind": "mount", "mount": "Thesis", "name": "Thesis"}]}
 
 Each lives at <desktop-dir>/<mount>, inside the wadspace's own /config, so it
-outlasts the container like the rest of its home.
+outlasts the container like the rest of its home. A mount is the exception:
+the machine's own folder or file, which wadd mounts there read-write (listed
+only when it's on this machine); nothing here makes, owns or fills it.
 
 --init (init-wadspaces-workspace, before the desktop): makes each project's
-folder (empty until it's cloned or copied in) and places an NN-project-<id>
+folder (empty until it's cloned or copied in; a mount is there already) and
+places an NN-project-<id>
 launcher that opens it, at the project's place in layout.json or after the
 rest, when something here opens a folder in a window (VS Code, or a file
 manager). Launchers for projects that are gone are retired; their folders
-stay, with whatever is in them.
+stay, with whatever is in them (a mount's leaves an empty folder where it was
+mounted, which goes).
 
 --sync (svc-wadspaces-projects, after it; it never holds the desktop up):
   - a GitHub project with no files yet is cloned (with the github_token
@@ -75,7 +80,7 @@ def projects() -> list[dict]:
         ok = ID_RE.match(str(p.get("id", ""))) and MOUNT_RE.match(str(p.get("mount", ""))) and p["mount"] not in (".", "..")
         if p.get("kind") == "github":
             ok = ok and REPO_RE.match(str(p.get("repo", ""))) and (not p.get("ref") or REF_RE.match(str(p["ref"])))
-        elif p.get("kind") != "copy":
+        elif p.get("kind") not in ("copy", "mount"):
             ok = False
         if ok:
             out.append(p)
@@ -152,16 +157,23 @@ def empty(path: str) -> bool:
 def init(desktop: str, state: str) -> int:
     os.makedirs(state, exist_ok=True)
     seeded_path = os.path.join(state, "seeded-projects")
+    mounted_path = os.path.join(state, "mounted-projects")
     before = read_set(seeded_path)
+    mounted_before = read_set(mounted_path)
     pos = positions()
     icons = opens_folders()
     if not icons:
         log("nothing here opens a folder in a window; projects get no desktop icon")
     placed: list[str] = []
     extra = 80
-    for p in projects():
+    listed = projects()
+    for p in listed:
         path = os.path.join(desktop, p["mount"])
-        if not os.path.exists(path):
+        if p["kind"] == "mount":
+            if not os.path.exists(path):
+                log(f"{p['mount']} isn't mounted; no launcher")
+                continue
+        elif not os.path.exists(path):
             os.makedirs(path)
             shutil.chown(path, "abc", "abc")
         if not icons:
@@ -184,6 +196,16 @@ def init(desktop: str, state: str) -> int:
                 pass
     with open(seeded_path, "w") as f:
         f.write("".join(f"{n}\n" for n in placed))
+    # Where a mount was: the empty folder its mount point left behind goes.
+    mounted = {p["mount"] for p in listed if p["kind"] == "mount"}
+    for name in mounted_before - mounted - {p["mount"] for p in listed}:
+        if MOUNT_RE.match(name) and name not in (".", ".."):
+            try:
+                os.rmdir(os.path.join(desktop, name))
+            except OSError:
+                pass
+    with open(mounted_path, "w") as f:
+        f.write("".join(f"{n}\n" for n in sorted(mounted)))
     return 0
 
 
@@ -304,6 +326,8 @@ def sync(desktop: str, state: str) -> int:
                     log(f"{p['mount']} has files but isn't a git repository; left as it is")
                     continue
                 setup(p, path, state)
+            elif p["kind"] == "mount":
+                continue
             else:
                 if os.path.exists(mark):
                     continue

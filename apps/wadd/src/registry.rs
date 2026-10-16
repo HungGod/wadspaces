@@ -15,7 +15,7 @@ use std::time::Duration;
 use serde_json::{Value, json};
 use tokio::task::JoinHandle;
 use tokio::time::Instant;
-use wad_proto::v1::{Display, Event, Kind, Phase, Workspace, WorkspaceState};
+use wad_proto::v1::{Display, Event, Kind, Phase, ProjectKind, Workspace, WorkspaceState};
 use wad_proto::{ApiError, ErrorCode};
 use wad_store::runs::RunLog;
 
@@ -54,6 +54,11 @@ pub struct Registry {
     on_list: Mutex<Option<Box<dyn Fn() + Send + Sync>>>,
     /// Gets what a container mounts ready, just before it starts.
     on_prepare: Mutex<Option<PrepareHook>>,
+    /// Finds a workspace's mounts on this machine, just before it starts.
+    on_mounts: Mutex<Option<Arc<MountsHook>>>,
+    /// Each workspace's mounts found here: project id → the folder or file.
+    /// Its unit mounts these; a mount that isn't here is left out.
+    mounts: Mutex<HashMap<String, Mounts>>,
     /// Ephemeral workspaces seen running: once one stops, it goes.
     ran: Mutex<std::collections::HashSet<String>>,
     /// What runs, in the order it started (Super+N and the switcher follow it).
@@ -64,6 +69,9 @@ pub struct Registry {
 
 type ReadyHook = Box<dyn Fn(&str) + Send + Sync>;
 type PrepareHook = Box<dyn Fn(&Workspace) -> Result<(), String> + Send + Sync>;
+/// A mount project's id → where it is on this machine.
+pub type Mounts = std::collections::BTreeMap<String, String>;
+type MountsHook = dyn Fn(Workspace) -> futures_util::future::BoxFuture<'static, Result<Mounts, String>> + Send + Sync;
 
 /// Which native workspaces have a window on screen, and whether there's a
 /// compositor to have one in at all.
@@ -106,11 +114,19 @@ fn not_found(id: &str) -> ApiError {
 }
 
 /// A workspace as wad-core's unit renderer takes it (wadd's YAML shape), its
-/// sign-ins at their folders in `signins_dir`.
-pub fn wadd_spec(ws: &Workspace, signins_dir: &std::path::Path) -> Value {
+/// sign-ins at their folders in `signins_dir` and its mounts where `mounts`
+/// found them.
+pub fn wadd_spec(ws: &Workspace, signins_dir: &std::path::Path, mounts: &Mounts) -> Value {
     let env: serde_json::Map<String, Value> =
         ws.env.iter().map(|(k, v)| (k.clone(), Value::String(v.clone()))).collect();
-    let projects: Vec<Value> = ws.projects.iter().map(|p| json!({"id": p.id, "mount": p.mount})).collect();
+    let projects: Vec<Value> = ws
+        .projects
+        .iter()
+        .map(|p| match p.kind {
+            ProjectKind::Mount => json!({"id": p.id, "kind": "mount", "mount": p.mount, "path": mounts.get(&p.id)}),
+            _ => json!({"id": p.id, "mount": p.mount}),
+        })
+        .collect();
     let signins: Vec<Value> = ws
         .signins
         .iter()
@@ -150,6 +166,8 @@ impl Registry {
             on_ready: Mutex::new(None),
             on_list: Mutex::new(None),
             on_prepare: Mutex::new(None),
+            on_mounts: Mutex::new(None),
+            mounts: Mutex::default(),
             ran: Mutex::default(),
             up_order: Mutex::default(),
         })
@@ -158,10 +176,15 @@ impl Registry {
     /// The unit wadd writes for a workspace.
     pub fn unit_text(&self, ws: &Workspace) -> String {
         wad_core::generator::quadlet(
-            &wadd_spec(ws, &self.settings.signins_dir),
+            &wadd_spec(ws, &self.settings.signins_dir, &self.mounts_of(&ws.id)),
             &self.settings.state_dir.to_string_lossy(),
             self.settings.rootless_uid,
         )
+    }
+
+    /// The mounts found for a workspace when it last started.
+    pub fn mounts_of(&self, id: &str) -> Mounts {
+        self.mounts.lock().unwrap().get(id).cloned().unwrap_or_default()
     }
 
     /// The units for these workspaces: one per container (an app's unit is
@@ -258,6 +281,39 @@ impl Registry {
     /// sign-ins). An error stops the start.
     pub fn on_prepare(&self, f: impl Fn(&Workspace) -> Result<(), String> + Send + Sync + 'static) {
         *self.on_prepare.lock().unwrap() = Some(Box::new(f));
+    }
+
+    /// Calls `f` before a container starts, to find its mounts on this
+    /// machine (project id → folder or file). An error stops the start.
+    pub fn on_mounts(
+        &self,
+        f: impl Fn(Workspace) -> futures_util::future::BoxFuture<'static, Result<Mounts, String>> + Send + Sync + 'static,
+    ) {
+        *self.on_mounts.lock().unwrap() = Some(Arc::new(f));
+    }
+
+    /// Finds a workspace's mounts here and, when they changed, rewrites the
+    /// units so its unit mounts them.
+    async fn find_mounts(&self, ws: &Workspace) -> Result<(), String> {
+        let hook = self.on_mounts.lock().unwrap().clone();
+        let found = match hook {
+            Some(f) if ws.projects.iter().any(|p| p.kind == ProjectKind::Mount) => f(ws.clone()).await?,
+            _ => Mounts::new(),
+        };
+        let changed = {
+            let mut all = self.mounts.lock().unwrap();
+            let old = all.get(&ws.id);
+            if old.is_none_or(|m| *m != found) && !(old.is_none() && found.is_empty()) {
+                all.insert(ws.id.clone(), found);
+                true
+            } else {
+                false
+            }
+        };
+        if changed {
+            self.backend.install_units(self.units(&self.workspaces())).await?;
+        }
+        Ok(())
     }
 
     /// Calls `f` whenever set_workspaces changes the list (hotkeys follow it).
@@ -561,6 +617,7 @@ impl Registry {
             // Its unit mounts the extra folder (projects, sign-ins, wallpaper).
             crate::images::ensure_extra(&self.settings.state_dir, &ws.id)
                 .map_err(|e| format!("its extra folder: {e}"))?;
+            self.find_mounts(ws).await?;
             if let Some(f) = self.on_prepare.lock().unwrap().as_ref() {
                 f(ws)?;
             }

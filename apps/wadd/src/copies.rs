@@ -16,16 +16,20 @@
 //!   cloning afresh.
 //! - `DELETE /v1/copies/{id}`: when no wadspace uses it any more (WadSpaces
 //!   knows); refused while one here does.
+//!
+//! A mount (a project the user chose to mount rather than copy) is the one
+//! exception: the machine's own folder or file, mounted read-write, found
+//! here by [`Copies::find_mounts`] just before its wadspace starts.
 
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use wad_proto::v1::{CopyFrom, CopyMade, Workspace};
+use wad_proto::v1::{CopyFrom, CopyMade, DriveRef, ProjectKind, Workspace, WorkspaceProject};
 use wad_proto::{ApiError, ErrorCode};
 
 use crate::drives::{self, Drives};
 use crate::projects::MachineRef;
-use crate::registry::Registry;
+use crate::registry::{Mounts, Registry};
 
 /// Room left on the disk after a copy.
 const MARGIN_BYTES: u64 = 1 << 30;
@@ -36,6 +40,12 @@ fn bad(msg: impl Into<String>) -> ApiError {
 
 fn internal(e: impl std::fmt::Display) -> ApiError {
     ApiError::new(ErrorCode::Internal, e.to_string())
+}
+
+/// A workspace's projects that are here: every one but a mount that wasn't
+/// found on this machine (what its projects.json lists).
+pub fn projects_here(ws: &Workspace, mounts: &Mounts) -> Vec<WorkspaceProject> {
+    ws.projects.iter().filter(|p| p.kind != ProjectKind::Mount || mounts.contains_key(&p.id)).cloned().collect()
 }
 
 pub struct Copies {
@@ -70,15 +80,80 @@ impl Copies {
     }
 
     /// Before a container starts: a folder (empty until there's a copy) for
-    /// each of its projects, which its unit mounts.
+    /// each of its projects, which its unit mounts (a mount has none).
     pub fn prepare(&self, ws: &Workspace) -> Result<(), String> {
-        for p in &ws.projects {
+        for p in ws.projects.iter().filter(|p| p.kind != ProjectKind::Mount) {
             let path = self.path(&p.id);
             if !path.exists() {
                 std::fs::create_dir_all(&path).map_err(|e| format!("{}: {e}", path.display()))?;
             }
         }
         Ok(())
+    }
+
+    /// Where a workspace's mounts are on this machine: a drive's folder (the
+    /// drive mounted first), or a path on this machine inside the folder
+    /// roots. One from another machine is left out; one that should be here
+    /// but isn't stops the start, so the wadspace never gets an empty folder
+    /// in its place.
+    pub async fn find_mounts(&self, ws: &Workspace) -> Result<Mounts, String> {
+        let mut found = Mounts::new();
+        for p in ws.projects.iter().filter(|p| p.kind == ProjectKind::Mount) {
+            let Some(path) = self.mount_of(p).await? else { continue };
+            found.insert(p.id.clone(), path.to_string_lossy().into_owned());
+        }
+        Ok(found)
+    }
+
+    /// Where one mount is here (None: on another machine).
+    async fn mount_of(&self, p: &WorkspaceProject) -> Result<Option<PathBuf>, String> {
+        let as_ = &p.mount;
+        let from = p.from.as_ref().ok_or_else(|| format!("{as_} says nothing about what it mounts"))?;
+        let first = from.paths.first().map(String::as_str).unwrap_or("");
+        // A folder on a drive wadd mounted when it was picked: the drive's
+        // mounted again first, wherever the folder was picked.
+        let in_drive = first
+            .strip_prefix(drives::DRIVES_DIR)
+            .and_then(|r| r.strip_prefix('/'))
+            .map(|r| r.split_once('/').unwrap_or((r, "")))
+            .filter(|(uuid, _)| wad_core::projects::is_drive_uuid(uuid));
+        let drive = from.drive.clone().or_else(|| {
+            in_drive.map(|(uuid, _)| DriveRef { uuid: uuid.into(), label: String::new(), fstype: String::new() })
+        });
+        let first = match (&from.drive, in_drive) {
+            (None, Some((_, sub))) => sub,
+            _ => first,
+        };
+        let path = match &drive {
+            Some(d) => {
+                let name = if d.label.is_empty() { &d.uuid } else { &d.label };
+                let mp = self
+                    .drives
+                    .mount(&d.uuid, &d.label, &d.fstype)
+                    .await
+                    .map_err(|e| format!("{as_} is on the drive {name}: plug it in ({e})"))?;
+                let sub = wad_store::folders::clean_subpath(first).map_err(|e| e.to_string())?;
+                drives::folder_on(&mp, &sub).ok_or_else(|| format!("{as_}: {sub} is outside the drive {name}"))?
+            }
+            None => {
+                if !self.is_here(&from.machine_id) {
+                    return Ok(None);
+                }
+                PathBuf::from(
+                    wad_store::folders::resolve_folder(first, &self.roots, true).map_err(|e| format!("{as_}: {e}"))?,
+                )
+            }
+        };
+        if std::fs::metadata(&path).is_err() {
+            return Err(format!("{as_} mounts {}, which isn't there", path.display()));
+        }
+        Ok(Some(path))
+    }
+
+    /// Whether a machine id is this machine.
+    pub fn is_here(&self, machine_id: &str) -> bool {
+        let (here, _) = (self.machine)();
+        machine_id == here || (here == wad_store::projects::LOCAL && machine_id.is_empty())
     }
 
     /// A copy of these paths on this machine (POST /v1/copies).
@@ -110,8 +185,7 @@ impl Copies {
                 drives::folder_on(&mp, &sub).ok_or_else(|| format!("{sub} is outside the drive {name}"))?
             }
             None => {
-                let (here, _) = (self.machine)();
-                if from.machine_id != here && !(here == wad_store::projects::LOCAL && from.machine_id.is_empty()) {
+                if !self.is_here(&from.machine_id) {
                     return Err("its files are on another machine: it's copied in when it starts there".into());
                 }
                 let p = from.paths.first().ok_or("it names no files")?;

@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
-# Tries projects for real on this laptop, as you: nothing is mounted, the
-# wadspace clones and copies them in itself. wadd (with your rootless podman)
-# installs a stack whose projects are:
+# Tries projects for real on this laptop, as you: the wadspace clones and
+# copies them in itself, but for one the user chose to mount. wadd (with your
+# rootless podman) installs a stack whose projects are:
 #   - a GitHub repo (octocat/Hello-World: public and tiny), cloned inside;
 #   - a GitHub repo wadd had cloned on the machine (octocat/Spoon-Knife, with
 #     an uncommitted file), which moves in instead of being cloned again;
 #   - a copy made ahead (POST /v1/copies) of a folder here;
-#   - a copy from before copies (a folder project's), made at launch.
+#   - a copy from before copies (a folder project's), made at launch;
+#   - a folder here, mounted read-write (what's written inside lands here).
 # Then: a restart fast-forwards a clean clone, leaves a changed one alone,
 # and copies nothing again; a throwaway run clones and copies afresh.
 #
@@ -23,10 +24,11 @@ dir=$root/.build/wadd-try-projects
 sock=$dir/wadd.sock
 image=localhost/wadspaces-template-trypj:latest
 rm -rf "$dir"
-mkdir -p "$dir/state" "$dir/projects" "$dir/signins" "$dir/home/Notes/drafts" "$dir/home/Photos"
+mkdir -p "$dir/state" "$dir/projects" "$dir/signins" "$dir/home/Notes/drafts" "$dir/home/Photos" "$dir/home/Thesis"
 echo "my notes" >"$dir/home/Notes/todo.md"
 echo "chapter one" >"$dir/home/Notes/drafts/one.md"
 echo "a photo" >"$dir/home/Photos/beach.jpg"
+echo "chapter one" >"$dir/home/Thesis/one.md"
 podman image exists localhost/wadspaces-base:trixie || { echo "no base: images/build.sh --only base" >&2; exit 1; }
 [ -S "$XDG_RUNTIME_DIR/podman/podman.sock" ] || systemctl --user start podman.socket
 
@@ -35,7 +37,7 @@ cat >"$dir/Containerfile" <<'EOF'
 FROM localhost/wadspaces-base:trixie
 COPY root/ /
 RUN chmod +x /usr/local/bin/* /etc/s6-overlay/s6-rc.d/*/run
-LABEL io.wadspaces.projects="2"
+LABEL io.wadspaces.projects="3"
 EOF
 podman build -q -t "$image" -f "$dir/Containerfile" "$root/images/base" >/dev/null
 
@@ -106,7 +108,8 @@ stack=$(cat <<JSON
    {"id":"hello","kind":"github","repo":"octocat/Hello-World","as":"Hello"},
    {"id":"spoon","kind":"github","repo":"octocat/Spoon-Knife","as":"Spoon","setup":"echo set up > .setup-ran"},
    {"id":"$copy_id","kind":"copy","source":{"machineId":"local","paths":["$dir/home/Notes"]},"as":"Notes","files":2,"bytes":21},
-   {"id":"photos","kind":"copy","source":{"machineId":"local","paths":["$dir/home/Photos"]},"as":"Photos"}]},
+   {"id":"photos","kind":"copy","source":{"machineId":"local","paths":["$dir/home/Photos"]},"as":"Photos"},
+   {"id":"mount-thesis","kind":"mount","source":{"machineId":"local","paths":["$dir/home/Thesis"]},"as":"Thesis"}]},
  "createdAt":"t","updatedAt":"t"}
 JSON
 )
@@ -119,7 +122,8 @@ w["env"] = [e for e in w["env"] if e[0] != "WADSPACES_WAYLAND"] + [["WADSPACES_W
 print(json.dumps(w))' "$rt_name" | send PUT /v1/workspaces/trypj >/dev/null
 grep -q "copies/hello:/run/wadspaces-copies/hello:ro" "$XDG_RUNTIME_DIR/containers/systemd/wad-trypj.container" ||
   fail "the unit doesn't mount the copies"
-grep -q "/config/Desktop" "$XDG_RUNTIME_DIR/containers/systemd/wad-trypj.container" && fail "the unit mounts a project"
+grep -q "/config/Desktop" "$XDG_RUNTIME_DIR/containers/systemd/wad-trypj.container" &&
+  fail "the unit mounts a project before it starts"
 
 launch() { # body; restart
   local id out
@@ -145,6 +149,16 @@ echo "== inside"
 inside wad-trypj 'ls ~/Desktop; echo; head -1 ~/Desktop/Hello/README; cat ~/Desktop/Spoon/wip.md ~/Desktop/Notes/drafts/one.md ~/Desktop/Photos/beach.jpg'
 inside wad-trypj 'cd ~/Desktop/Hello && git status --short --branch | head -1' || fail "Hello isn't a clone"
 inside wad-trypj 'stat -c "%U %n" ~/Desktop/Hello/README ~/Desktop/Notes/todo.md'
+grep -q "home/Thesis:/config/Desktop/Thesis:rw" "$XDG_RUNTIME_DIR/containers/systemd/wad-trypj.container" ||
+  fail "the unit doesn't mount Thesis"
+echo "== the mount: the machine's own folder, read-write both ways"
+inside wad-trypj 'cat ~/Desktop/Thesis/one.md && echo "written inside" > ~/Desktop/Thesis/two.md'
+[ "$(cat "$dir/home/Thesis/two.md")" = "written inside" ] || fail "what's written inside isn't on the machine"
+[ "$(stat -c %u "$dir/home/Thesis/two.md")" = "$(id -u)" ] || fail "two.md isn't yours"
+echo "edited here" >>"$dir/home/Thesis/one.md"
+inside wad-trypj 'grep -q "edited here" ~/Desktop/Thesis/one.md' || fail "the machine's change isn't inside"
+inside wad-trypj 'grep -qx Thesis ~/.wadspaces/mounted-projects' || fail "Thesis isn't remembered as a mount"
+echo "  both ways"
 for _ in $(seq 30); do inside wad-trypj 'test -f ~/Desktop/Spoon/.setup-ran' && break; sleep 1; done
 inside wad-trypj 'test -f ~/Desktop/Spoon/.setup-ran' || fail "Spoon's setup didn't run"
 echo "  Spoon's setup ran once"
@@ -157,6 +171,7 @@ launch '{"kind":"workspace","workspace":"trypj"}' | grep -E "status|part"
 projects_log wad-trypj "Spoon has uncommitted changes" | tail -6
 inside wad-trypj 'cd ~/Desktop/Hello && git status --short --branch | head -1'
 inside wad-trypj 'test ! -e ~/Desktop/Notes/todo.md' || fail "Notes was copied in again"
+[ "$(stat -c %u "$dir/home/Thesis")" = "$(id -u)" ] || fail "Thesis was chowned at start"
 
 echo "== a throwaway run: cloned and copied afresh, then gone"
 run=$(launch '{"kind":"run","from":"trypj","overrides":{}}' | sed -n 's/.*| ws: \(run-trypj-[a-z0-9]*\).*/\1/p')

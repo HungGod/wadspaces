@@ -235,8 +235,9 @@ impl Kind {
     }
 }
 
-/// How a project gets into a wadspace. Nothing is mounted: its files live
-/// inside the wadspace (its /config), at ~/Desktop/<mount>.
+/// How a project gets into a wadspace, at ~/Desktop/<mount>. A GitHub one
+/// or a copy lives inside the wadspace (its /config); a mount is the
+/// machine's own folder, there only on that machine.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum ProjectKind {
@@ -245,6 +246,9 @@ pub enum ProjectKind {
     Github,
     /// Files from a machine, copied in once.
     Copy,
+    /// A folder or file on a machine, mounted read-write: changes land on
+    /// the machine. `from` says where; one path.
+    Mount,
 }
 
 /// A drive a copy came from (a drive project from before copies).
@@ -289,7 +293,8 @@ pub struct WorkspaceProject {
     /// Run once after it's cloned (and again when it changes).
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub setup: String,
-    /// A copy's source, for one this machine hasn't made yet.
+    /// A copy's source, for one this machine hasn't made yet; a mount's
+    /// folder or file.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub from: Option<CopyFrom>,
 }

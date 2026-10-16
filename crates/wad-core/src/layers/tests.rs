@@ -588,3 +588,16 @@ fn a_version_2_wadspace_becomes_a_stack() {
     assert_eq!((novel["template"].as_str(), novel.get("extensions")), (Some("writing"), None));
     assert!(novel["customization"]["secrets"].get("groups").is_none());
 }
+
+#[test]
+fn a_mount_goes_to_wadd_with_where_it_is() {
+    let custom = json!({ "projects": [
+        { "id": "mount-a1", "kind": "mount", "source": { "machineId": "m1", "paths": ["/var/home/wad/Thesis"] }, "as": "Thesis" },
+        { "id": "x", "kind": "later", "as": "X" },
+    ] });
+    assert_eq!(
+        super::workspace_projects(&custom),
+        [json!({ "id": "mount-a1", "kind": "mount", "mount": "Thesis",
+                 "from": { "machineId": "m1", "paths": ["/var/home/wad/Thesis"] } })]
+    );
+}

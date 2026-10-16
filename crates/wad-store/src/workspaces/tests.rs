@@ -70,7 +70,18 @@ fn refusals_say_where() {
         ),
         (
             vec![a(json!({"projects": [{"id": "p", "kind": "copy", "mount": "M", "from": {"paths": ["rel/x"]}}]}))],
-            "copied from paths that aren't",
+            "comes from paths that aren't",
+        ),
+        (vec![a(json!({"projects": [{"id": "p", "kind": "mount", "mount": "M"}]}))], "M mounts one folder or file"),
+        (
+            vec![a(
+                json!({"projects": [{"id": "p", "kind": "mount", "mount": "M", "from": {"paths": ["/var/home/a", "/var/home/b"]}}]}),
+            )],
+            "M mounts one folder or file",
+        ),
+        (
+            vec![a(json!({"projects": [{"id": "p", "kind": "mount", "mount": "M", "from": {"paths": ["rel/x"]}}]}))],
+            "comes from paths that aren't",
         ),
         (
             vec![a(
@@ -99,6 +110,11 @@ fn refusals_say_where() {
             .projects
             .is_empty()
     );
+    // A mount: one path on a machine, or on a drive.
+    let m = |from: Value| a(json!({"projects": [{"id": "p", "kind": "mount", "mount": "M", "from": from}]}));
+    let ok = check_workspaces(vec![m(json!({"machineId": "m1", "paths": ["/var/home/wad/Thesis"]}))]).unwrap();
+    assert_eq!(ok[0].projects[0].kind, wad_proto::v1::ProjectKind::Mount);
+    assert!(check_workspaces(vec![m(json!({"drive": {"uuid": "1234-ABCD"}, "paths": ["2026"]}))]).is_ok());
     // Two may name the same hotkey: Super+N follows what runs.
     assert!(check_workspaces(vec![a(json!({"hotkey": 1})), a(json!({"id": "b", "hotkey": 1}))]).is_ok());
 }

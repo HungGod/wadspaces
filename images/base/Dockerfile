@@ -163,10 +163,11 @@ ENV BROWSER=/usr/local/bin/wadbrowser-link
 # Dolphin, staged for its feature (a layer of its own: it changes rarely).
 COPY --from=dolphin / /usr/local/lib/wadspaces/dolphin/
 
-# Projects are never mounted: a wadspace clones its GitHub projects and
-# copies in the rest itself, into its /config (wadspaces-projects, and
-# svc-wadspaces-projects in the background). wadd gives projects only to
-# images built on a base that does: "2" (older bases had them mounted).
-LABEL io.wadspaces.projects="2"
+# A wadspace clones its GitHub projects and copies in the rest itself, into
+# its /config (wadspaces-projects, and svc-wadspaces-projects in the
+# background); a mount (the user's choice) is the machine's folder, which
+# wadd mounts and nothing here owns. wadd gives projects only to images
+# built on a base that does: "2" clones and copies, "3" takes mounts too.
+LABEL io.wadspaces.projects="3"
 
 VOLUME /config

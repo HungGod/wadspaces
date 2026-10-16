@@ -97,6 +97,16 @@ fn copy(id: &str, mount: &str, from: Option<CopyFrom>) -> WorkspaceProject {
     }
 }
 
+fn mount(id: &str, as_: &str, from: CopyFrom) -> WorkspaceProject {
+    WorkspaceProject { kind: ProjectKind::Mount, ..copy(id, as_, Some(from)) }
+}
+
+fn mounts_in(e: &Env) {
+    e.fake.with(|m| {
+        m.image_labels.insert(IMAGE.into(), json!({"io.wadspaces.projects": "3"}).as_object().unwrap().clone());
+    });
+}
+
 async fn env() -> Env {
     let d = tempfile::tempdir().unwrap();
     let tmp = wad_store::folders::realpath(d.path());
@@ -144,10 +154,16 @@ async fn env() -> Env {
     let machine: wadd::projects::MachineRef = Arc::new(|| ("local".to_string(), "Surface".to_string()));
     let copies = Arc::new(Copies::new(&state, vec![home.clone()], 1000, machine.clone(), drives.clone(), reg.clone()));
     {
-        let (copies, state) = (copies.clone(), state.clone());
+        let found = copies.clone();
+        reg.on_mounts(move |ws| {
+            let copies = found.clone();
+            Box::pin(async move { copies.find_mounts(&ws).await })
+        });
+        let (copies, state, r) = (copies.clone(), state.clone(), Arc::downgrade(&reg));
         reg.on_prepare(move |ws| {
             copies.prepare(ws)?;
-            wad_store::projects::write_manifest(&state, &ws.id, &ws.projects).map(drop).map_err(|e| e.to_string())
+            let here = wadd::copies::projects_here(ws, &r.upgrade().unwrap().mounts_of(&ws.id));
+            wad_store::projects::write_manifest(&state, &ws.id, &here).map(drop).map_err(|e| e.to_string())
         });
     }
     let projects = Arc::new(Projects::new(
@@ -354,6 +370,88 @@ async fn an_image_from_an_older_base_is_refused_for_projects() {
     assert_eq!(starts(&e, "wad-a.service"), 0);
     // Without projects that image is fine.
     with_projects(&e, vec![]).await;
+    assert_eq!(launch(&e, "a", false).await.launch.status, LaunchStatus::Done);
+}
+
+#[tokio::test]
+async fn a_mount_is_the_machines_own_folder_read_write() {
+    let e = env().await;
+    mounts_in(&e);
+    let home = e.home().to_string_lossy().into_owned();
+    let here = CopyFrom { machine_id: "local".into(), drive: None, paths: vec![format!("{home}/Notes")] };
+    let away = CopyFrom { machine_id: "m2".into(), drive: None, paths: vec!["/var/home/wad/Desk".into()] };
+    let stick = CopyFrom {
+        machine_id: String::new(),
+        drive: Some(DriveRef { uuid: STICK.into(), label: "STICK".into(), fstype: "exfat".into() }),
+        paths: vec!["Books".into()],
+    };
+    with_projects(
+        &e,
+        vec![
+            github("vault", "Writing"),
+            mount("m1", "Notes", here),
+            mount("m2", "Desk", away),
+            mount("m3", "Books", stick),
+        ],
+    )
+    .await;
+    let l = launch(&e, "a", false).await;
+    assert_eq!(l.launch.status, LaunchStatus::Done, "{l:?}");
+    let parts: Vec<&str> = l.launch.parts.iter().map(|p| p.key.as_str()).collect();
+    assert_eq!(parts, ["image"], "nothing to copy for a mount");
+    for want in [
+        format!("Notes: mounted from {home}/Notes; changes save to this machine"),
+        "Desk is mounted only on the machine it's from, so it isn't in this one".into(),
+        "Books: mounted from the drive STICK".into(),
+    ] {
+        assert!(l.lines.contains(&want), "{want} in {:?}", l.lines);
+    }
+    let u = unit(&e, "wad-a.container");
+    assert!(u.contains(&format!("Volume={home}/Notes:/config/Desktop/Notes:rw\n")), "{u}");
+    assert!(u.contains(&format!("Volume={}/stick/Books:/config/Desktop/Books:rw\n", e.tmp.display())), "{u}");
+    assert!(!u.contains("Desktop/Desk:") && !u.contains("copies/m1"), "{u}");
+    assert!(u.contains("SecurityLabelDisable=true"), "a mount is never relabelled: {u}");
+    assert!(!e.tmp.join("state/copies/m1").exists(), "a mount has no copies folder");
+    let manifest: Value =
+        serde_json::from_slice(&std::fs::read(e.tmp.join("state/extra/a/projects.json")).unwrap()).unwrap();
+    let listed: Vec<(&str, &str)> = manifest["projects"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|p| (p["mount"].as_str().unwrap(), p["kind"].as_str().unwrap()))
+        .collect();
+    assert_eq!(listed, [("Writing", "github"), ("Notes", "mount"), ("Books", "mount")]);
+}
+
+#[tokio::test]
+async fn a_mount_that_isnt_there_stops_the_start() {
+    let e = env().await;
+    mounts_in(&e);
+    let home = e.home().to_string_lossy().into_owned();
+    let gone = CopyFrom { machine_id: "local".into(), drive: None, paths: vec![format!("{home}/Gone")] };
+    with_projects(&e, vec![mount("m1", "Gone", gone)]).await;
+    let l = launch(&e, "a", false).await;
+    assert_eq!(l.launch.status, LaunchStatus::Error, "{l:?}");
+    assert!(l.launch.error.as_deref().unwrap_or("").contains("isn't there"), "{l:?}");
+    assert_eq!(starts(&e, "wad-a.service"), 0, "never with an empty folder in its place");
+    // Outside the folder roots: refused too.
+    let etc = CopyFrom { machine_id: "local".into(), drive: None, paths: vec!["/etc".into()] };
+    with_projects(&e, vec![mount("m1", "Etc", etc)]).await;
+    let l = launch(&e, "a", false).await;
+    assert!(l.launch.error.as_deref().unwrap_or("").contains("isn't inside"), "{l:?}");
+}
+
+#[tokio::test]
+async fn a_mount_needs_a_base_that_takes_mounts() {
+    let e = env().await;
+    let home = e.home().to_string_lossy().into_owned();
+    let here = CopyFrom { machine_id: "local".into(), drive: None, paths: vec![format!("{home}/Notes")] };
+    with_projects(&e, vec![mount("m1", "Notes", here)]).await;
+    let l = launch(&e, "a", false).await;
+    assert_eq!((l.launch.status, l.launch.error.as_deref()), (LaunchStatus::Error, Some(OLD_BASE)));
+    // A newer base still has GitHub projects and copies.
+    mounts_in(&e);
+    with_projects(&e, vec![github("vault", "Writing")]).await;
     assert_eq!(launch(&e, "a", false).await.launch.status, LaunchStatus::Done);
 }
 
