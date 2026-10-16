@@ -36,6 +36,7 @@ async fn setup(list: Vec<Workspace>) -> Setup {
             signins_dir: "/s".into(),
             state_dir: dir.path().into(),
             rootless_uid: Some(1000),
+            device_rules: vec![],
             poll: Duration::from_secs(1),
         },
     );

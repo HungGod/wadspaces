@@ -137,6 +137,7 @@ async fn env() -> Env {
             signins_dir: tmp.join("signins"),
             state_dir: state.clone(),
             rootless_uid: Some(1000),
+            device_rules: vec![],
             poll: Duration::from_millis(10),
         },
     );

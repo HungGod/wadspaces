@@ -62,6 +62,7 @@ async fn env_with(icons: Option<Arc<Icons>>) -> Env {
             signins_dir: d.path().join("signins"),
             state_dir: state.clone(),
             rootless_uid: Some(1000),
+            device_rules: vec![],
             poll: Duration::from_millis(10),
         },
     );

@@ -39,6 +39,7 @@ async fn setup(list: Vec<Workspace>) -> Setup {
             signins_dir: dir.path().join("signins"),
             state_dir: dir.path().join("state"),
             rootless_uid: None,
+            device_rules: vec![],
             poll: Duration::from_secs(1),
         },
     );

@@ -158,6 +158,12 @@ fn workspace_unit(w: &Value, state_dir: &str, rootless_uid: Option<u32>) -> Stri
     for d in js::strs(w, "devices") {
         lines.push(format!("AddDevice={d}"));
     }
+    // Devices wadd can attach while it runs (USB, gamepads, webcams, serial,
+    // security keys): their nodes may be opened, not made ("rw", no "m";
+    // wadd makes them, apps/wadd/src/devices).
+    for r in js::strs(w, "device_rules") {
+        lines.push(format!("PodmanArgs=\"--device-cgroup-rule={r}\""));
+    }
     if let Some(s) = w.get("shm_size").filter(|s| js::truthy(s)) {
         lines.push(format!("ShmSize={}", js::string(s)));
     }
@@ -203,6 +209,16 @@ mod tests {
         });
         let got = super::quadlet(&w, super::STATE_DIR, None);
         assert_eq!(got, include_str!("../../../fixtures/quadlet/wad-writing-signins.container"));
+    }
+
+    #[test]
+    fn devices_wadd_attaches_may_be_opened_not_made() {
+        let w = json!({
+            "id": "writing", "name": "Writing", "image": "localhost/wadspaces-writing:latest", "display": "host",
+            "devices": ["/dev/dri"], "device_rules": ["c 189:* rw", "c 241:* rw"],
+        });
+        let got = super::quadlet(&w, super::STATE_DIR, None);
+        assert_eq!(got, include_str!("../../../fixtures/quadlet/wad-writing-devices.container"));
     }
 
     #[test]

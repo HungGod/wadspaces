@@ -9,6 +9,7 @@ pub mod backend;
 pub mod builds;
 pub mod cloud;
 pub mod copies;
+pub mod devices;
 pub mod diagnostics;
 pub mod display;
 pub mod drives;
@@ -221,6 +222,7 @@ impl Server {
                 state_dir: d.state_dir.clone(),
                 // Rootless podman maps you to this uid inside (PUID 1000).
                 rootless_uid: (uid != 0).then_some(uid),
+                device_rules: if uid == 0 { devices::machine_cgroup_rules() } else { vec![] },
                 poll: Duration::from_secs(1),
             },
         );
