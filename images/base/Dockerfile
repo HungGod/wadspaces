@@ -98,6 +98,8 @@ RUN \
   locale-gen && \
   echo "**** abc can sudo, as in the Selkies base ****" && \
   usermod -aG sudo abc && \
+  echo "**** abc's shell is bash (the base's /bin/false ends a terminal at once) ****" && \
+  usermod -s /bin/bash abc && \
   echo "abc ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/abc && \
   chmod 440 /etc/sudoers.d/abc && \
   echo "**** cleanup ****" && \
