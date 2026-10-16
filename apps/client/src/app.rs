@@ -199,7 +199,7 @@ fn snapshot(w: &gtk::ApplicationWindow, dir: std::path::PathBuf) {
             crate::modal::escape();
         }
         crate::shell::go(crate::shell::Page::Machines);
-        for tab in ["wadspaces", "history", "storage", "files", "diagnostics"] {
+        for tab in ["wadspaces", "history", "storage", "files", "devices", "diagnostics"] {
             crate::pages::machines::show_tab(tab);
             let name = if tab == "wadspaces" { "machines".to_string() } else { format!("machines-{tab}") };
             for t in [wad_gtk::Theme::Dark, wad_gtk::Theme::Light] {

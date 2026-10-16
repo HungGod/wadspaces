@@ -5,6 +5,7 @@
 //! every 30 s while the page shows), and what's done to them goes through
 //! their relays.
 
+mod devices;
 mod diagnostics;
 mod files;
 mod history;
@@ -231,6 +232,14 @@ pub(crate) async fn send<T: DeserializeOwned + Send + 'static>(
     rt::run(async move { Wadd::here().send::<T>(method, &path, body.as_ref()).await }).await.map_err(|e| e.to_string())
 }
 
+/// A call to wadd here whose answer isn't needed, only that it worked.
+pub(crate) async fn act(method: Method, path: String, body: Option<Value>) -> Result<(), String> {
+    if crate::fake::on() {
+        return Err("Not on a made-up machine.".into());
+    }
+    rt::run(async move { Wadd::here().act(method, &path, body.as_ref()).await }).await.map_err(|e| e.to_string())
+}
+
 /// Start, stop or restart a wadspace on a machine: here through wadd, on
 /// another through its relay.
 pub fn container_action(m: &Machine, id: &str, action: &'static str, done: impl FnOnce() + 'static) {
@@ -262,6 +271,7 @@ fn tabs(m: &Machine) -> Vec<(&'static str, Option<&'static str>, &'static str)> 
     if m.here && m.up {
         t.push(("storage", Some("hard-drive"), "Storage"));
         t.push(("files", Some("folder-open"), "Files"));
+        t.push(("devices", Some("usb"), "Devices"));
     }
     t.push(("diagnostics", Some("stethoscope"), "Diagnostics"));
     t
@@ -475,6 +485,7 @@ impl Page {
                 "history" => history::view(),
                 "storage" => storage::view(),
                 "files" => files::view(),
+                "devices" => devices::view(),
                 "diagnostics" => diagnostics::view(machine.to_string()),
                 _ => wadspaces::view(machine.to_string()),
             };

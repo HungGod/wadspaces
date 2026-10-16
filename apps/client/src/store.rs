@@ -33,6 +33,8 @@ impl Topic {
     pub const STORAGE: Topic = Topic(1 << 11);
     /// The machine's saved sign-ins and tokens (GET /v1/signins, /v1/secrets).
     pub const SIGNINS: Topic = Topic(1 << 12);
+    /// The devices plugged in, and Bluetooth (GET /v1/devices, /v1/bluetooth).
+    pub const DEVICES: Topic = Topic(1 << 13);
     pub const NONE: Topic = Topic(0);
 
     pub fn any(self, other: Topic) -> bool {
@@ -67,6 +69,9 @@ pub struct AppState {
     pub signins: Option<Vec<wad_proto::v1::SignIn>>,
     /// The machine's tokens, by name (never their values).
     pub secrets: Vec<wad_proto::v1::SecretInfo>,
+    /// What's plugged in, and which wadspaces have it.
+    pub devices: Vec<wad_proto::v1::Device>,
+    pub bluetooth: Option<wad_proto::v1::BluetoothStatus>,
 }
 
 /// A job's log, with lines from `from` on (an event repeats or skips none).
@@ -283,6 +288,15 @@ impl Store {
                         Topic::ACTIVITY
                     }
                     Event::Storage { .. } => Topic::STORAGE,
+                    Event::Devices(d) => {
+                        s.devices = d;
+                        Topic::DEVICES
+                    }
+                    Event::Bluetooth(b) => {
+                        let changed = s.bluetooth.as_ref() != Some(&b);
+                        s.bluetooth = Some(b);
+                        if changed { Topic::DEVICES } else { Topic::NONE }
+                    }
                     // Something wadd tells whoever's watching: a toast.
                     Event::Notice { text } => {
                         gtk::glib::idle_add_local_once(move || {

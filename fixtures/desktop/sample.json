@@ -25,7 +25,8 @@
     "wadspaces": [
       { "version": 3, "id": "cosmic-bodybuilding", "owner": "me", "order": 1, "template": "writing",
         "customization": { "name": "Cosmic Bodybuilding", "description": "Writing Cosmic Bodybuilding.", "wallpaper": { "type": "image", "value": "/wallpapers/cosmic-bodybuilding.png" },
-          "projects": [{ "id": "writing", "kind": "github", "repo": "HungGod/Writing", "as": "Writing" }], "secrets": { "bySlot": {} } },
+          "projects": [{ "id": "writing", "kind": "github", "repo": "HungGod/Writing", "as": "Writing" },
+            { "id": "mount-thesis", "kind": "mount", "source": { "machineId": "m-surface", "paths": ["/var/home/wad/Thesis"] }, "as": "Thesis" }], "secrets": { "bySlot": {} } },
         "createdAt": "2026-09-22T00:00:00.000Z", "updatedAt": "2026-09-22T00:00:00.000Z" },
       { "version": 3, "id": "vanua-academy", "owner": "me", "order": 2, "template": "dev", "extensions": "vanua-academy-dev",
         "customization": { "name": "VanuaAcademy", "description": "Building Vanua Academy.", "wallpaper": { "type": "image", "value": "/wallpapers/vanua-academy.png" },
@@ -45,12 +46,27 @@
     ]
   },
   "workspaces": [
-    { "id": "cosmic-bodybuilding", "name": "Cosmic Bodybuilding", "image": "localhost/wadspaces-template-writing:latest", "display": "host", "port": null, "hotkey": 1, "icon": null, "enabled": true, "autostart": false, "containerName": "wad-cosmic-bodybuilding", "containerPort": 3000, "env": [], "secrets": [], "volumes": [], "devices": [], "shmSize": "1g", "projects": [] }
+    { "id": "cosmic-bodybuilding", "name": "Cosmic Bodybuilding", "image": "localhost/wadspaces-template-writing:latest", "display": "host", "port": null, "hotkey": 1, "icon": null, "enabled": true, "autostart": false, "containerName": "wad-cosmic-bodybuilding", "containerPort": 3000, "env": [], "secrets": [], "volumes": [], "devices": [], "shmSize": "1g", "projects": [] },
+    { "id": "vanua-academy", "name": "Vanua Academy", "image": "localhost/wadspaces-template-dev:latest", "display": "host", "port": null, "hotkey": 2, "icon": null, "enabled": true, "autostart": false, "containerName": "wad-vanua-academy", "containerPort": 3000, "env": [], "secrets": [], "volumes": [], "devices": [], "shmSize": "1g", "projects": [] }
   ],
   "states": [
     { "id": "cosmic-bodybuilding", "container": "running", "phase": "ready", "message": null, "error": null, "imagePresent": true, "since": 1792020000 }
   ],
   "wadd": {
+    "/v1/devices": [
+      { "key": "usb:2dc8:6101:E417D8", "name": "8BitDo Pro 2", "bus": "usb", "kind": "gamepad", "attachable": true, "present": true, "attached": ["cosmic-bodybuilding"], "remembered": ["cosmic-bodybuilding"], "new": false },
+      { "key": "usb:046d:085b:9F3A", "name": "Logitech C925e", "bus": "usb", "kind": "webcam", "attachable": true, "present": true, "attached": [], "remembered": ["vanua-academy"], "new": false },
+      { "key": "usb:1050:0407:2291", "name": "YubiKey 5 NFC", "bus": "usb", "kind": "securityKey", "attachable": true, "present": false, "attached": [], "remembered": ["cosmic-bodybuilding", "vanua-academy"], "new": false },
+      { "key": "bt:11:22:33:44:55:66", "name": "WH-1000XM5", "bus": "bluetooth", "kind": "audio", "attachable": false, "present": true, "attached": [], "remembered": [], "new": false },
+      { "key": "usb:045e:0922@1-1.3", "name": "Microsoft Surface Keyboard", "bus": "usb", "kind": "keyboard", "attachable": false, "present": true, "attached": [], "remembered": [], "new": false }
+    ],
+    "/v1/bluetooth": {
+      "available": true, "powered": true, "discovering": false,
+      "devices": [
+        { "address": "11:22:33:44:55:66", "name": "WH-1000XM5", "kind": "audio", "paired": true, "connected": true, "busy": false },
+        { "address": "A0:AB:51:12:34:56", "name": "DualSense Wireless Controller", "kind": "gamepad", "paired": true, "connected": false, "busy": false }
+      ]
+    },
     "/v1/github/repos": {
       "login": "dwadsworth",
       "repos": [
