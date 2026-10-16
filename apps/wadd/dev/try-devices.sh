@@ -11,7 +11,7 @@
 #     and go, as Chrome would;
 #   - raw USB (/dev/bus/usb/001/001, a root hub) opens the same way;
 #   - inside, root can't make a node, and a node of a kind not handed out
-#     (misc, 10:200) can't be opened;
+#     (vcs, 7:0; not misc: podman always allows /dev/net/tun) can't be opened;
 #   - then wadd's own hands (devices::attach::HostHands, from its test
 #     binary) hand the gamepad over and take it back the same way.
 #
@@ -65,6 +65,8 @@ podman run -d --rm --name "$name" --security-opt label=disable --entrypoint slee
 pid=$(podman inspect -f '{{.State.Pid}}' "$name")
 cr=/proc/$pid/root
 podman cp "$helper" "$name:/tmp/devices-helper.py"
+# What the base's init-desktop-config does at start, before any app watches.
+podman exec "$name" sh -c 'mkdir -p /run/udev/data && touch /run/udev/control'
 inside() { podman exec -u 1000 "$name" "$@"; }
 check "libudev is in the image" inside sh -c 'ls /usr/lib/*/libudev.so.1'
 
@@ -81,7 +83,7 @@ echo "  $ev ($maj:$min) at $sys"
 grep -q "ID_INPUT_JOYSTICK=1" "/run/udev/data/c$maj:$min" && ok "udev calls it a joystick" || bad "udev calls it a joystick"
 refuse "not in the wadspace yet" inside test -e "/dev/input/$ev"
 
-echo "== handed to the wadspace"
+echo "== handed to the wadspace (to a libudev watching from before)"
 inside python3 /tmp/devices-helper.py monitor input 6 >"$tmp/mon" 2>&1 &
 mon=$!
 for _ in $(seq 50); do grep -q ready "$tmp/mon" 2>/dev/null && break; sleep 0.1; done
@@ -115,10 +117,10 @@ import os; f = os.open('/dev/bus/usb/001/001', os.O_RDWR); d = os.read(f, 18); a
 
 echo "== what the wadspace can't do"
 refuse "root inside can't make a node" podman exec "$name" mknod /tmp/made c 13 0
-mknod -m 0660 "$cr/dev/trymisc" c 10 200
-chown 1000:1000 "$cr/dev/trymisc"
-refuse "a kind not handed out (misc) can't be opened" inside python3 -c "import os; os.open('/dev/trymisc', os.O_RDWR)"
-refuse "not even by root inside" podman exec "$name" python3 -c "import os; os.open('/dev/trymisc', os.O_RDWR)"
+mknod -m 0660 "$cr/dev/tryvcs" c 7 0
+chown 1000:1000 "$cr/dev/tryvcs"
+refuse "a kind not handed out (vcs) can't be opened" inside python3 -c "import os; os.open('/dev/tryvcs', os.O_RDONLY)"
+refuse "not even by root inside" podman exec "$name" python3 -c "import os; os.open('/dev/tryvcs', os.O_RDONLY)"
 
 echo "== wadd's own hands"
 bin=${WADD_TEST_BIN:-}

@@ -35,6 +35,12 @@ if ! ls /dev/dri/renderD* > /dev/null 2>&1; then
     printf 'pixman' > /run/s6/container_environment/WLR_RENDERER
 fi
 
+# Devices wadd hands over while it runs (apps/wadd/src/devices) come with
+# udev's events, and libudev listens for those only where udevd seems to run:
+# its control socket must be there before any app (Chrome) starts watching.
+mkdir -p /run/udev/data
+[[ -e /run/udev/control ]] || : > /run/udev/control
+
 CONF="/config/.config/labwc"
 mkdir -p "${CONF}"
 cp /defaults/labwc-rc.xml "${CONF}/rc.xml"
