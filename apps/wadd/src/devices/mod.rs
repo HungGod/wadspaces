@@ -32,10 +32,11 @@ pub fn cgroup_rules(proc_devices: &str) -> Vec<String> {
             continue;
         }
         let Some((major, name)) = line.split_once(char::is_whitespace) else { continue };
-        if chars && DYNAMIC.contains(&name.trim()) {
-            if let Ok(m) = major.parse() {
-                majors.push(m);
-            }
+        if chars
+            && DYNAMIC.contains(&name.trim())
+            && let Ok(m) = major.parse()
+        {
+            majors.push(m);
         }
     }
     majors.sort_unstable();
