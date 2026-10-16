@@ -2361,6 +2361,7 @@ fn snapshot(hud: Rc<Hud>, app: gtk::Application, dir: std::path::PathBuf) {
                 attached: attached.iter().map(|s| s.to_string()).collect(),
                 remembered: remembered.iter().map(|s| s.to_string()).collect(),
                 new,
+                ejected: false,
             };
         hud.devices.win.present();
         hud.devices.on_bluetooth(BluetoothStatus {
@@ -2392,6 +2393,16 @@ fn snapshot(hud: Rc<Hud>, app: gtk::Application, dir: std::path::PathBuf) {
         hud.devices.on_devices(vec![
             dev("usb:2dc8:6101:1", "8BitDo Pro 2", DeviceKind::Gamepad, true, true, &["writing"], &["writing"], false),
             dev("usb:046d:085b:2", "Logitech C925e", DeviceKind::Webcam, true, true, &[], &["iq-dev"], false),
+            dev(
+                "usb:0480:0820:4",
+                "TOSHIBA External",
+                DeviceKind::Storage,
+                true,
+                true,
+                &["writing"],
+                &["writing"],
+                false,
+            ),
             dev("usb:1050:0407:3", "YubiKey 5 NFC", DeviceKind::SecurityKey, true, true, &[], &[], true),
             dev("bt:11:22:33:44:55:66", "WH-1000XM5", DeviceKind::Audio, false, true, &[], &[], false),
             dev("usb:045e:0922@1-1", "Surface Keyboard", DeviceKind::Keyboard, false, true, &[], &[], false),

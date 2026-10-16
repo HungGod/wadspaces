@@ -146,6 +146,7 @@ pub fn parse_lsblk(text: &str) -> Vec<Drive> {
             mountpoint: mountpoints(d).into_iter().next(),
             removable: flag(d.get("rm")) || flag(d.get("hotplug")),
             model: model.as_deref().map(str::trim).filter(|m| !m.is_empty()).map(String::from),
+            disk: Some(disk_of(i)).filter(|d| !d.is_empty()),
         });
     }
     out

@@ -83,6 +83,7 @@ async fn setup_in(dir: Arc<tempfile::TempDir>, list: Vec<Workspace>, fake: Fake)
             state_dir: dir.path().into(),
             rootless_uid: Some(1000),
             device_rules: vec![],
+            drives_dir: None,
             poll: Duration::from_secs(1),
         },
     );

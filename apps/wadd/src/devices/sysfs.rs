@@ -14,11 +14,13 @@ use wad_proto::v1::{DeviceBus, DeviceKind};
 pub struct Roots {
     pub sys: PathBuf,
     pub udev_data: PathBuf,
+    /// The machine's mounts (PID 1's: wadd's own namespace is ProtectSystem's).
+    pub mountinfo: PathBuf,
 }
 
 impl Default for Roots {
     fn default() -> Self {
-        Self { sys: "/sys".into(), udev_data: "/run/udev/data".into() }
+        Self { sys: "/sys".into(), udev_data: "/run/udev/data".into(), mountinfo: "/proc/1/mountinfo".into() }
     }
 }
 
@@ -76,7 +78,12 @@ const HANDED_SUBSYSTEMS: [&str; 5] = ["input", "hidraw", "video4linux", "tty", "
 pub fn attachable(kind: DeviceKind) -> bool {
     matches!(
         kind,
-        DeviceKind::Gamepad | DeviceKind::Webcam | DeviceKind::SecurityKey | DeviceKind::Serial | DeviceKind::Other
+        DeviceKind::Gamepad
+            | DeviceKind::Webcam
+            | DeviceKind::SecurityKey
+            | DeviceKind::Serial
+            | DeviceKind::Storage
+            | DeviceKind::Other
     )
 }
 
@@ -103,7 +110,35 @@ pub fn scan(roots: &Roots) -> BTreeMap<String, Found> {
         f.nodes.sort_by(|a, b| a.devname.cmp(&b.devname));
         f.kind = kind_of(f.kind, &f.nodes, roots);
     }
+    // The disk the system runs from (the stick, on a machine) is nobody's
+    // to hand out or eject.
+    let system = system_mounts(&std::fs::read_to_string(&roots.mountinfo).unwrap_or_default());
+    out.retain(|_, f| {
+        !f.nodes.iter().any(|n| {
+            n.subsystem == "block" && system.iter().any(|(mm, src)| *mm == (n.major, n.minor) || *src == n.devname)
+        })
+    });
     out
+}
+
+/// The devices the system's own mounts are on: (major, minor) and source,
+/// from a mountinfo (btrfs gives anonymous numbers: its source tells).
+pub fn system_mounts(mountinfo: &str) -> Vec<((u32, u32), String)> {
+    mountinfo
+        .lines()
+        .filter_map(|line| {
+            let (pre, post) = line.split_once(" - ")?;
+            let f: Vec<&str> = pre.split_whitespace().collect();
+            let at = *f.get(4)?;
+            let system = matches!(at, "/" | "/sysroot" | "/var" | "/etc" | "/usr") || at.starts_with("/boot");
+            if !system {
+                return None;
+            }
+            let (ma, mi) = f.get(2)?.split_once(':')?;
+            let src = post.split_whitespace().nth(1).unwrap_or("").to_string();
+            Some(((ma.parse().ok()?, mi.parse().ok()?), src))
+        })
+        .collect()
 }
 
 /// A folder's entries, resolved (sysfs's bus lists are symlinks).
@@ -314,7 +349,11 @@ mod tests {
     impl Tree {
         fn new() -> Self {
             let d = tempfile::tempdir().unwrap();
-            let roots = Roots { sys: d.path().join("sys"), udev_data: d.path().join("udev") };
+            let roots = Roots {
+                sys: d.path().join("sys"),
+                udev_data: d.path().join("udev"),
+                mountinfo: d.path().join("mountinfo"),
+            };
             for p in ["bus/usb/devices", "bus/hid/devices", "class"] {
                 std::fs::create_dir_all(roots.sys.join(p)).unwrap();
             }
@@ -425,6 +464,26 @@ mod tests {
         );
         // No serial: keyed by its port.
         assert!(scan(&t.roots).contains_key("usb:2341:0043@1-5"));
+    }
+
+    #[test]
+    fn the_disk_the_system_runs_from_isnt_listed() {
+        let t = Tree::new();
+        let stick = t.usb("2-1", &usb_files("18a5", "0243", "STORE N GO"));
+        t.node(&stick, "2-1:1.0/host0/target0:0:0/0:0:0:0/block/sda", "block", "sda", (8, 0), &[]);
+        t.node(&stick, "2-1:1.0/host0/target0:0:0/0:0:0:0/block/sda/sda3", "block", "sda3", (8, 3), &[]);
+        let disk = t.usb("2-2", &usb_files("0480", "0820", "EXTERNAL_USB"));
+        t.node(&disk, "2-2:1.0/host1/target1:0:0/1:0:0:0/block/sdb", "block", "sdb", (8, 16), &[]);
+        std::fs::write(
+            &t.roots.mountinfo,
+            "1 0 8:3 / /sysroot rw - xfs /dev/sda3 rw\n2 1 8:3 /ostree/deploy/x/var /var rw - xfs /dev/sda3 rw\n",
+        )
+        .unwrap();
+        let names: Vec<String> = scan(&t.roots).into_values().map(|f| f.name).collect();
+        assert_eq!(names, ["EXTERNAL_USB"]);
+        // btrfs: anonymous numbers, its source tells.
+        let btrfs = "30 1 0:35 /root / rw - btrfs /dev/sdb rw\n";
+        assert_eq!(system_mounts(btrfs), [((0, 35), "/dev/sdb".to_string())]);
     }
 
     #[test]

@@ -34,7 +34,23 @@ pub trait Hands: Send + Sync {
     fn give(&self, pid: u32, nodes: &[NodeOp]) -> Result<(), String>;
     /// Takes the nodes away, then tells it they went.
     fn take(&self, pid: u32, nodes: &[NodeOp]) -> Result<(), String>;
+
+    // Drives, on the machine itself (PID 1's mounts, which wadspaces'
+    // ~/Drives follow: super::server).
+
+    /// Makes a folder (and its parents) where wadspaces' drives go.
+    fn make_dir(&self, dir: &Path) -> Result<(), String>;
+    /// Mounts `src` (a drive's mount) at `dst` too, making `dst`.
+    fn bind(&self, src: &Path, dst: &Path) -> Result<(), String>;
+    /// Unmounts `dst` and removes its folder. Busy (files open on it) is an
+    /// error, unless `force`: then it's detached, and goes once they close.
+    fn unbind(&self, dst: &Path, force: bool) -> Result<(), String>;
+    /// Writes a disk's cache out and turns it off (`sdb`): safe to unplug.
+    fn power_off(&self, disk: &str) -> Result<(), String>;
 }
+
+/// "busy" in words, for a mount something still uses.
+pub const BUSY: &str = "something still has files open on it";
 
 /// The owner of what's made inside: abc (PUID 1000), the wadspace's user.
 const OWNER: u32 = 1000;
@@ -63,6 +79,62 @@ impl Hands for HostHands {
             Ok(())
         })?;
         tell(pid, nodes.iter().map(|n| &n.event))
+    }
+
+    fn make_dir(&self, dir: &Path) -> Result<(), String> {
+        let dir = dir.to_path_buf();
+        inside(1, move || std::fs::create_dir_all(&dir).map_err(|e| format!("{}: {e}", dir.display())))
+    }
+
+    fn bind(&self, src: &Path, dst: &Path) -> Result<(), String> {
+        let (src, dst) = (src.to_path_buf(), dst.to_path_buf());
+        inside(1, move || {
+            std::fs::create_dir_all(&dst).map_err(|e| format!("{}: {e}", dst.display()))?;
+            let c = |p: &Path| std::ffi::CString::new(p.as_os_str().as_encoded_bytes()).map_err(|e| e.to_string());
+            let (s, d) = (c(&src)?, c(&dst)?);
+            // SAFETY: mount(2) with valid C strings.
+            let r = unsafe {
+                libc::mount(s.as_ptr(), d.as_ptr(), std::ptr::null(), libc::MS_BIND | libc::MS_REC, std::ptr::null())
+            };
+            if r < 0 {
+                let e = std::io::Error::last_os_error();
+                let _ = std::fs::remove_dir(&dst);
+                return Err(format!("{}: {e}", dst.display()));
+            }
+            Ok(())
+        })
+    }
+
+    fn unbind(&self, dst: &Path, force: bool) -> Result<(), String> {
+        let dst = dst.to_path_buf();
+        inside(1, move || {
+            let d = std::ffi::CString::new(dst.as_os_str().as_encoded_bytes()).map_err(|e| e.to_string())?;
+            let flags = if force { libc::MNT_DETACH } else { 0 };
+            // SAFETY: umount2(2) with a valid C string.
+            if unsafe { libc::umount2(d.as_ptr(), flags) } < 0 {
+                let e = std::io::Error::last_os_error();
+                match e.raw_os_error() {
+                    Some(libc::EBUSY) => return Err(BUSY.into()),
+                    // Not mounted (any more): only its folder to go.
+                    Some(libc::EINVAL) | Some(libc::ENOENT) => {}
+                    _ => return Err(format!("{}: {e}", dst.display())),
+                }
+            }
+            let _ = std::fs::remove_dir(&dst);
+            Ok(())
+        })
+    }
+
+    fn power_off(&self, disk: &str) -> Result<(), String> {
+        if disk.is_empty() || !disk.chars().all(|c| c.is_ascii_alphanumeric()) {
+            return Err(format!("{disk:?} isn't a disk"));
+        }
+        // SAFETY: sync(2) has no arguments.
+        unsafe { libc::sync() };
+        // Removing the SCSI disk flushes its cache and stops it; the USB
+        // device stays until it's pulled.
+        let p = format!("/sys/block/{disk}/device/delete");
+        std::fs::write(&p, "1").map_err(|e| format!("turning {disk} off: {e}"))
     }
 }
 
@@ -224,4 +296,23 @@ fn hands_a_node_over() {
     };
     let r = if take { HostHands.take(pid, &[op]) } else { HostHands.give(pid, &[op]) };
     r.unwrap();
+}
+
+/// WADD_TRY_BIND=<src>:<dst> binds on the machine; WADD_TRY_UNBIND=<dst>
+/// unbinds (prints "busy" when files are open): try-devices.sh's drive part.
+#[cfg(test)]
+#[test]
+#[ignore = "root: mounts on the machine"]
+fn binds_a_drive_on_the_machine() {
+    if let Ok(v) = std::env::var("WADD_TRY_BIND") {
+        let (src, dst) = v.split_once(':').unwrap();
+        HostHands.bind(Path::new(src), Path::new(dst)).unwrap();
+    }
+    if let Ok(dst) = std::env::var("WADD_TRY_UNBIND") {
+        match HostHands.unbind(Path::new(&dst), false) {
+            Ok(()) => println!("unbound"),
+            Err(e) if e == BUSY => println!("busy"),
+            Err(e) => panic!("{e}"),
+        }
+    }
 }

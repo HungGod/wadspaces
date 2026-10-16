@@ -13,7 +13,10 @@
 #   - inside, root can't make a node, and a node of a kind not handed out
 #     (vcs, 7:0; not misc: podman always allows /dev/net/tun) can't be opened;
 #   - then wadd's own hands (devices::attach::HostHands, from its test
-#     binary) hand the gamepad over and take it back the same way.
+#     binary) hand the gamepad over and take it back the same way;
+#   - a drive (a tmpfs standing in for one) bound by wadd on the machine
+#     after the wadspace started shows up in its ~/Drives (rslave), and
+#     can't be taken out while a file in there is open.
 #
 #   sudo apps/wadd/dev/try-devices.sh
 #
@@ -29,7 +32,12 @@ name=wadtry-devices
 tmp=$(mktemp -d)
 loaded=0
 pad=
+drive_dir=/run/wadspaces-drives/attached/$name
+drive_src=/run/wadspaces-drives/try-$$
 finish() {
+  umount -l "$drive_dir/TRY" 2>/dev/null || true
+  umount -l "$drive_src" 2>/dev/null || true
+  rm -rf "$drive_dir" "$drive_src"
   [ -n "$pad" ] && kill "$pad" 2>/dev/null && wait "$pad" 2>/dev/null || true
   podman rm -f -t 0 "$name" >/dev/null 2>&1 || true
   [ "$loaded" = 1 ] && podman rmi -i "$image" >/dev/null 2>&1 || true
@@ -61,7 +69,9 @@ done
 echo "  rules: ${rules[*]}"
 
 echo "== a running wadspace (as native ones run: no SELinux separation)"
-podman run -d --rm --name "$name" --security-opt label=disable --entrypoint sleep "${rules[@]}" "$image" infinity >/dev/null
+mkdir -p "$drive_dir"
+podman run -d --rm --name "$name" --security-opt label=disable --entrypoint sleep "${rules[@]}" \
+  -v "$drive_dir:/config/Drives:rslave" "$image" infinity >/dev/null
 pid=$(podman inspect -f '{{.State.Pid}}' "$name")
 cr=/proc/$pid/root
 podman cp "$helper" "$name:/tmp/devices-helper.py"
@@ -151,6 +161,24 @@ if [ -x "$bin" ]; then
   podman exec "$name" sh -c 'rm -rf /run/udev/data && ln -s /etc /run/udev/data'
   WADD_TRY_PID=$pid WADD_TRY_NODE=$sys "$bin" devices::attach::hands_a_node_over --ignored -q >/dev/null 2>&1 || true
   [ -e "/etc/c$maj:$min" ] && bad "a planted symlink led out of the container" || ok "a planted symlink stays inside"
+  echo "== a drive, into a wadspace that's running"
+  mkdir -p "$drive_src"
+  mount -t tmpfs -o size=1m,uid=1000,gid=1000 trydrive "$drive_src"
+  echo "on the drive" >"$drive_src/hello.txt"
+  WADD_TRY_BIND="$drive_src:$drive_dir/TRY" "$bin" devices::attach::binds_a_drive_on_the_machine --ignored -q >/dev/null 2>&1 ||
+    bad "wadd binds it"
+  check "abc reads it at ~/Drives/TRY" inside sh -c 'grep -q "on the drive" /config/Drives/TRY/hello.txt'
+  check "abc writes to it" inside sh -c 'echo back > /config/Drives/TRY/back.txt'
+  [ -f "$drive_src/back.txt" ] && ok "what abc wrote is on the drive" || bad "what abc wrote is on the drive"
+  inside sh -c 'exec 3</config/Drives/TRY/hello.txt; sleep 4' &
+  holder=$!
+  sleep 1
+  out=$(WADD_TRY_UNBIND="$drive_dir/TRY" "$bin" devices::attach::binds_a_drive_on_the_machine --ignored --nocapture -q 2>&1)
+  grep -q busy <<<"$out" && ok "not taken out while a file is open" || { bad "not taken out while a file is open"; echo "$out" | sed 's/^/    /'; }
+  wait "$holder" 2>/dev/null || true
+  out=$(WADD_TRY_UNBIND="$drive_dir/TRY" "$bin" devices::attach::binds_a_drive_on_the_machine --ignored --nocapture -q 2>&1)
+  grep -q unbound <<<"$out" && ok "taken out once it's closed" || { bad "taken out once it's closed"; echo "$out" | sed 's/^/    /'; }
+  refuse "gone from ~/Drives" inside test -e /config/Drives/TRY/hello.txt
 else
   bad "no wadd test binary (set WADD_TEST_BIN)"
 fi

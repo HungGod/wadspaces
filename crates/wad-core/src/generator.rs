@@ -164,6 +164,11 @@ fn workspace_unit(w: &Value, state_dir: &str, rootless_uid: Option<u32>) -> Stri
     for r in js::strs(w, "device_rules") {
         lines.push(format!("PodmanArgs=\"--device-cgroup-rule={r}\""));
     }
+    // Its ~/Drives: the drives wadd binds into this folder on the machine,
+    // followed as they come and go (rslave), running or not.
+    if let Some(d) = w.get("drives_dir").filter(|d| js::truthy(d)) {
+        lines.push(format!("Volume={}:/config/Drives:rslave", js::string(d)));
+    }
     if let Some(s) = w.get("shm_size").filter(|s| js::truthy(s)) {
         lines.push(format!("ShmSize={}", js::string(s)));
     }
@@ -216,6 +221,7 @@ mod tests {
         let w = json!({
             "id": "writing", "name": "Writing", "image": "localhost/wadspaces-writing:latest", "display": "host",
             "devices": ["/dev/dri"], "device_rules": ["c 189:* rw", "c 241:* rw"],
+            "drives_dir": "/run/wadspaces-drives/attached/writing",
         });
         let got = super::quadlet(&w, super::STATE_DIR, None);
         assert_eq!(got, include_str!("../../../fixtures/quadlet/wad-writing-devices.container"));

@@ -36,6 +36,9 @@ pub fn kind_icon(kind: DeviceKind) -> &'static str {
 
 /// Where a device is, in words.
 pub fn whereabouts(d: &Device, names: &dyn Fn(&str) -> String) -> String {
+    if d.ejected {
+        return "Ejected · safe to unplug".into();
+    }
     if !d.attachable {
         return if d.present { "Works in every wadspace".into() } else { "Not connected".into() };
     }
@@ -43,6 +46,7 @@ pub fn whereabouts(d: &Device, names: &dyn Fn(&str) -> String) -> String {
     match (d.present, d.attached.is_empty(), d.remembered.is_empty()) {
         (false, _, true) => "Not plugged in".into(),
         (false, _, false) => format!("Not plugged in · goes to {}", list(&d.remembered)),
+        (true, false, _) if d.kind == DeviceKind::Storage => format!("In {} · ~/Drives", list(&d.attached)),
         (true, false, _) => format!("In {}", list(&d.attached)),
         (true, true, false) => format!("Goes to {} when it starts", list(&d.remembered)),
         (true, true, true) => "On the machine".into(),
@@ -92,7 +96,7 @@ impl Panel {
         let title = label("Devices", "title");
         title.set_halign(gtk::Align::Start);
         card.append(&title);
-        let sub = label("Plugged into this machine. Pick the wadspaces each one goes to.", "sub");
+        let sub = label("Pick the wadspaces each one goes to. Drives are at ~/Drives.", "sub");
         sub.set_wrap(true);
         sub.set_xalign(0.0);
         card.append(&sub);
@@ -324,8 +328,10 @@ impl Panel {
         let names = |id: &str| self.name_of(id);
         let handed: Vec<&Device> = devices.iter().filter(|d| d.attachable).collect();
         if handed.is_empty() {
-            let l =
-                label("Plug in a gamepad, webcam, security key or other USB device to hand it to a wadspace.", "sub");
+            let l = label(
+                "Plug in a drive, gamepad, webcam, security key or other USB device to hand it to a wadspace.",
+                "sub",
+            );
             l.set_wrap(true);
             l.set_xalign(0.0);
             self.list.append(&l);
@@ -333,11 +339,26 @@ impl Panel {
         for d in handed {
             let block = gtk::Box::new(gtk::Orientation::Vertical, 4);
             let row = Self::row(&d.name, d.kind, &whereabouts(d, &names));
-            if !d.present {
+            if !d.present || d.ejected {
                 row.add_css_class("dim-row");
             }
+            // A drive: Eject, before it's pulled out.
+            if d.kind == DeviceKind::Storage && d.present && !d.ejected {
+                let eject = button("Eject", &["small-button"]);
+                eject.set_valign(gtk::Align::Center);
+                eject.set_tooltip_text(Some("Take it out of its wadspaces and turn it off, to unplug it safely"));
+                let (p, key) = (self.clone(), d.key.clone());
+                eject.connect_clicked(move |b| {
+                    b.set_sensitive(false);
+                    let (w, key, p2) = (p.wadd.clone(), key.clone(), p.clone());
+                    background(move || w.device_eject(&key), move |r| p2.done(r));
+                });
+                row.append(&eject);
+            }
             block.append(&row);
-            block.append(&self.chips(d));
+            if !d.ejected {
+                block.append(&self.chips(d));
+            }
             self.list.append(&block);
         }
         let shared: Vec<&Device> = devices.iter().filter(|d| !d.attachable && d.present).collect();
@@ -568,6 +589,7 @@ mod tests {
             attached: attached.iter().map(|s| s.to_string()).collect(),
             remembered: remembered.iter().map(|s| s.to_string()).collect(),
             new: false,
+            ejected: false,
         }
     }
 

@@ -15,6 +15,7 @@ SecurityLabelDisable=true
 AddDevice=/dev/dri
 PodmanArgs="--device-cgroup-rule=c 189:* rw"
 PodmanArgs="--device-cgroup-rule=c 241:* rw"
+Volume=/run/wadspaces-drives/attached/writing:/config/Drives:rslave
 Pull=missing
 
 [Service]

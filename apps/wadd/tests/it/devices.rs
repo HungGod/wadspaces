@@ -13,14 +13,18 @@ use wadd::devices::uevent;
 use wadd::events::Bus;
 use wadd::registry::{Registry, Settings};
 
+use crate::common::host::FakeHost;
 use crate::common::{self, Fake};
+use wadd::drives::Drives;
 
 const PAD: &str = "usb:2dc8:6101:PAD1";
 const KB: &str = "usb:04d9:0006@1-6";
 
-/// What the hands did: "give <pid> <nodes>" / "take <pid> <nodes>".
+/// What the hands did: "give <pid> <nodes>" / "take <pid> <nodes>", and
+/// on the machine "bind <src> <dst>", "unbind <dst>[ force]", "off <disk>"
+/// (paths under the tempdir as "~").
 #[derive(Default, Clone)]
-struct Recorder(Arc<Mutex<Vec<String>>>);
+struct Recorder(Arc<Mutex<Vec<String>>>, Arc<Mutex<Option<PathBuf>>>, Arc<Mutex<bool>>);
 
 impl Recorder {
     fn calls(&self) -> Vec<String> {
@@ -48,6 +52,43 @@ impl Hands for Recorder {
         self.line("take", pid, nodes);
         Ok(())
     }
+    fn make_dir(&self, dir: &Path) -> Result<(), String> {
+        std::fs::create_dir_all(dir).map_err(|e| e.to_string())
+    }
+    fn bind(&self, src: &Path, dst: &Path) -> Result<(), String> {
+        std::fs::create_dir_all(dst).unwrap();
+        let line = format!("bind {} {}", self.short(src), self.short(dst));
+        self.0.lock().unwrap().push(line);
+        Ok(())
+    }
+    fn unbind(&self, dst: &Path, force: bool) -> Result<(), String> {
+        if *self.2.lock().unwrap() && !force {
+            return Err(wadd::devices::attach::BUSY.into());
+        }
+        let line = format!("unbind {}{}", self.short(dst), if force { " force" } else { "" });
+        self.0.lock().unwrap().push(line);
+        let _ = std::fs::remove_dir(dst);
+        Ok(())
+    }
+    fn power_off(&self, disk: &str) -> Result<(), String> {
+        self.0.lock().unwrap().push(format!("off {disk}"));
+        Ok(())
+    }
+}
+
+impl Recorder {
+    /// A path, with the tempdir as "~".
+    fn short(&self, p: &Path) -> String {
+        let root = self.1.lock().unwrap().clone().unwrap_or_default();
+        match p.strip_prefix(&root) {
+            Ok(rest) => format!("~/{}", rest.display()),
+            Err(_) => p.display().to_string(),
+        }
+    }
+    /// Unmounting finds files open (until it's set back).
+    fn busy(&self, yes: bool) {
+        *self.2.lock().unwrap() = yes;
+    }
 }
 
 /// A machine's sysfs and udev database, in a tempdir.
@@ -57,7 +98,7 @@ struct Tree {
 
 impl Tree {
     fn new(dir: &Path) -> Self {
-        let roots = Roots { sys: dir.join("sys"), udev_data: dir.join("udev") };
+        let roots = Roots { sys: dir.join("sys"), udev_data: dir.join("udev"), mountinfo: dir.join("mountinfo") };
         for p in ["bus/usb/devices", "bus/hid/devices", "class"] {
             std::fs::create_dir_all(roots.sys.join(p)).unwrap();
         }
@@ -110,6 +151,21 @@ impl Tree {
         );
     }
 
+    /// A USB drive at 1-4: the disk sdb, with the fixture's sdb1 (STICK, exFAT).
+    fn drive(&self) {
+        let d = self.plug("1-4", "0480", "0820", "TOSH1", "EXTERNAL_USB");
+        self.node(&d, "", "usb", "bus/usb/002/004", (189, 131), &[]);
+        let blk = "1-4:1.0/host1/target1:0:0/1:0:0:0/block/sdb";
+        self.node(&d, blk, "block", "sdb", (8, 16), &[]);
+        self.node(&d, &format!("{blk}/sdb1"), "block", "sdb1", (8, 17), &[]);
+    }
+
+    /// The drive after ejecting: its disk gone, the USB device still there.
+    fn drive_off(&self) {
+        let d = self.roots.sys.join("devices/pci0000:00/usb1/1-4");
+        std::fs::remove_dir_all(d.join("1-4:1.0/host1")).unwrap();
+    }
+
     fn keyboard(&self) {
         let d = self.plug("1-6", "04d9", "0006", "", "Keyboard");
         self.node(&d, "1-6:1.0/input/input20/event20", "input", "input/event20", (13, 84), &["ID_INPUT_KEYBOARD=1"]);
@@ -125,6 +181,7 @@ struct Env {
     devices: Arc<Devices>,
     state: PathBuf,
     bus: Bus,
+    host: FakeHost,
 }
 
 async fn env(available: bool) -> Env {
@@ -151,6 +208,7 @@ async fn env(available: bool) -> Env {
             state_dir: state.clone(),
             rootless_uid: None,
             device_rules: vec![],
+            drives_dir: None,
             poll: Duration::from_millis(10),
         },
     );
@@ -159,16 +217,21 @@ async fn env(available: bool) -> Env {
         .await
         .unwrap();
     let hands = Recorder::default();
+    *hands.1.lock().unwrap() = Some(tmp.clone());
+    let host = FakeHost::new(None);
+    let drives = Arc::new(Drives::new(1000, Arc::new(host.clone()), true));
     let devices = Devices::new(
         &state,
         tree.roots.clone(),
         Arc::new(hands.clone()),
+        drives,
+        tmp.join("attached"),
         Arc::new(fake.clone()),
         reg.clone(),
         bus.clone(),
         available,
     );
-    Env { _d: d, tree, fake, reg, hands, devices, state, bus }
+    Env { _d: d, tree, fake, reg, hands, devices, state, bus, host }
 }
 
 impl Env {
@@ -396,4 +459,82 @@ async fn paired_bluetooth_devices_are_listed_and_a_pad_is_handed_out() {
     e.tick().await;
     assert_eq!(e.hands.calls(), [format!("give {} /dev/input/event30", e.pid("a"))]);
     assert!(e.device("bt:A0:AB:51:12:34:56").present);
+}
+
+const DRIVE: &str = "usb:0480:0820:TOSH1";
+
+#[tokio::test]
+async fn a_drive_goes_into_its_wadspaces_drives_running_or_not() {
+    let e = env(true).await;
+    e.run(&["a"]).await;
+    e.tree.drive();
+    e.tick().await;
+    let d = e.device(DRIVE);
+    assert_eq!((d.kind, d.attachable, d.new), (DeviceKind::Storage, true, true), "asked about, like any device");
+    // a runs, b doesn't: both get it, at ~/Drives/<its label>.
+    e.devices.set(DRIVE, None, Some(vec!["a".into(), "b".into()])).unwrap();
+    e.devices.reconcile().await;
+    assert_eq!(
+        e.hands.calls(),
+        [
+            "bind /run/wadspaces-drives/5E3F-1A2B ~/attached/a/STICK",
+            "bind /run/wadspaces-drives/5E3F-1A2B ~/attached/b/STICK",
+        ],
+        "mounted on the machine once, no USB node handed out"
+    );
+    assert!(e.host.calls().iter().any(|c| c[0] == "systemd-mount"));
+    assert_eq!(e.device(DRIVE).attached, ["a", "b"]);
+    // Out of b only.
+    e.devices.detach(DRIVE, "b").unwrap();
+    e.devices.reconcile().await;
+    assert_eq!(e.hands.calls(), ["unbind ~/attached/b/STICK"]);
+}
+
+#[tokio::test]
+async fn ejecting_takes_a_drive_out_unmounts_it_and_turns_it_off() {
+    let e = env(true).await;
+    e.tree.drive();
+    e.tick().await;
+    e.devices.attach(DRIVE, "a").unwrap();
+    e.devices.reconcile().await;
+    e.hands.calls();
+    // Something in a has files open: refused, and it stays.
+    e.hands.busy(true);
+    let err = e.devices.eject(DRIVE).await.unwrap_err();
+    assert!(err.message.contains("in use in A"), "{err:?}");
+    assert!(!e.device(DRIVE).ejected);
+    e.devices.reconcile().await;
+    assert!(e.hands.calls().is_empty(), "still bound, nothing redone");
+    e.hands.busy(false);
+    let d = e.devices.eject(DRIVE).await.unwrap();
+    assert!(d.ejected && d.attached.is_empty());
+    assert_eq!(e.hands.calls(), ["unbind ~/attached/a/STICK", "unbind /run/wadspaces-drives/5E3F-1A2B", "off sdb"]);
+    // The disk's gone; the USB device stays until it's pulled: still a
+    // drive (safe to unplug), never handed out as raw USB.
+    e.tree.drive_off();
+    e.tick().await;
+    let d = e.device(DRIVE);
+    assert_eq!((d.kind, d.ejected, d.present), (DeviceKind::Storage, true, true));
+    assert!(e.hands.calls().is_empty());
+    // Unplugged, then plugged in again: back in a.
+    e.tree.unplug("1-4");
+    e.tick().await;
+    assert!(!e.device(DRIVE).ejected);
+    e.tree.drive();
+    e.tick().await;
+    assert_eq!(e.hands.calls(), ["bind /run/wadspaces-drives/5E3F-1A2B ~/attached/a/STICK"]);
+}
+
+#[tokio::test]
+async fn a_drive_pulled_out_without_ejecting_is_let_go() {
+    let e = env(true).await;
+    e.tree.drive();
+    e.tick().await;
+    e.devices.attach(DRIVE, "a").unwrap();
+    e.devices.reconcile().await;
+    e.hands.calls();
+    e.tree.unplug("1-4");
+    e.tick().await;
+    assert_eq!(e.hands.calls(), ["unbind ~/attached/a/STICK force"]);
+    assert!(e.device(DRIVE).attached.is_empty());
 }

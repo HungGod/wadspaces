@@ -143,6 +143,11 @@ impl Wadd {
         self.post(&format!("/v1/devices/{key}/{how}"), json!({ "wadspace": wadspace }))
     }
 
+    /// Takes a drive out of its wadspaces and turns it off (safe to unplug).
+    pub fn device_eject(&self, key: &str) -> Result<(), String> {
+        self.post(&format!("/v1/devices/{key}/eject"), json!({}))
+    }
+
     /// Where a device goes (the answer for a new one: none keeps it here).
     pub fn device_remembered(&self, key: &str, wadspaces: &[String]) -> Result<(), String> {
         self.put::<Value>(&format!("/v1/devices/{key}"), json!({ "remembered": wadspaces })).map(drop)

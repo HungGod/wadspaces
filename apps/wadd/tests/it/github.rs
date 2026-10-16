@@ -49,6 +49,7 @@ async fn env() -> Env {
             state_dir: state.clone(),
             rootless_uid: None,
             device_rules: vec![],
+            drives_dir: None,
             poll: Duration::from_millis(10),
         },
     );

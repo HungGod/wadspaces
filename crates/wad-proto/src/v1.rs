@@ -372,6 +372,9 @@ pub struct Device {
     /// Never asked about yet: plugging it in asks where it goes.
     #[serde(default)]
     pub new: bool,
+    /// A drive that was ejected: safe to unplug.
+    #[serde(default)]
+    pub ejected: bool,
 }
 
 /// GET /v1/bluetooth: the machine's Bluetooth (BlueZ).
@@ -779,6 +782,9 @@ pub struct Drive {
     pub mountpoint: Option<String>,
     pub removable: bool,
     pub model: Option<String>,
+    /// The disk it's on (the kernel's name: "sdb").
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub disk: Option<String>,
 }
 
 /// GET /v1/projects/{id}/status: where its folder is, whether a launch can

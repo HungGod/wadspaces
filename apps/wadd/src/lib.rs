@@ -224,6 +224,7 @@ impl Server {
                 // Rootless podman maps you to this uid inside (PUID 1000).
                 rootless_uid: (uid != 0).then_some(uid),
                 device_rules: if uid == 0 { devices::machine_cgroup_rules() } else { vec![] },
+                drives_dir: (uid == 0).then(|| devices::server::ATTACHED.into()),
                 poll: Duration::from_secs(1),
             },
         );
@@ -251,6 +252,9 @@ impl Server {
             })
         };
         let drives = Arc::new(drives::Drives::new(d.projects_uid, Arc::new(drives::System), uid == 0));
+        let devices_drives = drives.clone();
+        // The device server, once it's made (before a wadspace starts: its ~/Drives).
+        let devices_cell: Arc<std::sync::OnceLock<std::sync::Weak<devices::Devices>>> = Arc::default();
         let copies = Arc::new(copies::Copies::new(
             &d.state_dir,
             d.folder_roots.clone(),
@@ -294,7 +298,13 @@ impl Server {
             });
             let (signins, copies, state_dir) = (Arc::downgrade(&signins), copies.clone(), d.state_dir.clone());
             let reg = Arc::downgrade(&registry);
+            let devs = devices_cell.clone();
             registry.on_prepare(move |ws| {
+                if ws.display == wad_proto::v1::Display::Host
+                    && let Some(d) = devs.get().and_then(std::sync::Weak::upgrade)
+                {
+                    d.prepare(&ws.id).map_err(|e| format!("its ~/Drives: {e}"))?;
+                }
                 signins.upgrade().map_or(Ok(()), |s| s.prepare(ws))?;
                 copies.prepare(ws)?;
                 let mounts = reg.upgrade().map(|r| r.mounts_of(&ws.id)).unwrap_or_default();
@@ -343,11 +353,14 @@ impl Server {
             &config.daemon.state_dir,
             devices::sysfs::Roots::default(),
             Arc::new(devices::attach::HostHands),
+            devices_drives,
+            devices::server::ATTACHED.into(),
             registry_backend.clone(),
             registry.clone(),
             bus.clone(),
             nix::unistd::Uid::effective().is_root(),
         );
+        let _ = devices_cell.set(Arc::downgrade(&devices));
         let state = Arc::new(AppState {
             bluetooth: bluetooth::Bluetooth::new(None, None, bus.clone()),
             devices,

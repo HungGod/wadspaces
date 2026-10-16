@@ -57,6 +57,7 @@
       { "key": "usb:2dc8:6101:E417D8", "name": "8BitDo Pro 2", "bus": "usb", "kind": "gamepad", "attachable": true, "present": true, "attached": ["cosmic-bodybuilding"], "remembered": ["cosmic-bodybuilding"], "new": false },
       { "key": "usb:046d:085b:9F3A", "name": "Logitech C925e", "bus": "usb", "kind": "webcam", "attachable": true, "present": true, "attached": [], "remembered": ["vanua-academy"], "new": false },
       { "key": "usb:1050:0407:2291", "name": "YubiKey 5 NFC", "bus": "usb", "kind": "securityKey", "attachable": true, "present": false, "attached": [], "remembered": ["cosmic-bodybuilding", "vanua-academy"], "new": false },
+      { "key": "usb:0480:0820:TOSH1", "name": "TOSHIBA External", "bus": "usb", "kind": "storage", "attachable": true, "present": true, "attached": ["cosmic-bodybuilding"], "remembered": ["cosmic-bodybuilding"], "new": false },
       { "key": "bt:11:22:33:44:55:66", "name": "WH-1000XM5", "bus": "bluetooth", "kind": "audio", "attachable": false, "present": true, "attached": [], "remembered": [], "new": false },
       { "key": "usb:045e:0922@1-1.3", "name": "Microsoft Surface Keyboard", "bus": "usb", "kind": "keyboard", "attachable": false, "present": true, "attached": [], "remembered": [], "new": false }
     ],

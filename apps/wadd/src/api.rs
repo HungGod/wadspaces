@@ -171,6 +171,7 @@ pub fn router(app: Arc<AppState>) -> Router {
         .route("/v1/devices/{key}", axum::routing::put(device_put).delete(device_forget))
         .route("/v1/devices/{key}/attach", post(device_attach))
         .route("/v1/devices/{key}/detach", post(device_detach))
+        .route("/v1/devices/{key}/eject", post(device_eject))
         .route("/v1/bluetooth", get(bluetooth))
         .route("/v1/bluetooth/power", post(bluetooth_power))
         .route("/v1/bluetooth/scan", post(bluetooth_scan))
@@ -644,6 +645,14 @@ async fn bluetooth_device(
         _ => return Err(Failure(ApiError::new(ErrorCode::NotFound, "no such endpoint"))),
     }
     Ok(StatusCode::ACCEPTED)
+}
+
+/// Takes a drive out of every wadspace, unmounts it and turns it off.
+async fn device_eject(
+    State(app): State<Arc<AppState>>,
+    Path(key): Path<String>,
+) -> Result<Json<wad_proto::v1::Device>, Failure> {
+    Ok(Json(app.devices.eject(&key).await?))
 }
 
 async fn signins(State(app): State<Arc<AppState>>) -> Json<Vec<SignIn>> {

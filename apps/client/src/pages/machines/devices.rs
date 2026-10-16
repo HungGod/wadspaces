@@ -45,6 +45,9 @@ fn spaces(s: &AppState) -> Vec<(String, String, bool)> {
 
 /// Where a device is, in words.
 pub fn whereabouts(d: &Device, name: &dyn Fn(&str) -> String) -> String {
+    if d.ejected {
+        return "Ejected · safe to unplug".into();
+    }
     if !d.attachable {
         return if d.present { "Works in every wadspace, through this machine".into() } else { "Not connected".into() };
     }
@@ -52,6 +55,7 @@ pub fn whereabouts(d: &Device, name: &dyn Fn(&str) -> String) -> String {
     match (d.present, d.attached.is_empty(), d.remembered.is_empty()) {
         (false, _, true) => "Not plugged in".into(),
         (false, _, false) => format!("Not plugged in · goes to {}", list(&d.remembered)),
+        (true, false, _) if d.kind == DeviceKind::Storage => format!("In {} · ~/Drives", list(&d.attached)),
         (true, false, _) => format!("In {}", list(&d.attached)),
         (true, true, false) => format!("Goes to {} when it starts", list(&d.remembered)),
         (true, true, true) => "On this machine only".into(),
@@ -87,7 +91,7 @@ pub fn view() -> gtk::Widget {
         "Devices",
         Some("usb"),
         Some(
-            "Gamepads, webcams, security keys and other USB devices go to the wadspaces you pick, whenever both are about.",
+            "Drives, gamepads, webcams, security keys and other USB devices go to the wadspaces you pick, whenever both are about. A drive's files are in ~/Drives there.",
         ),
     );
     let shared = ui::panel("Works in every wadspace", Some("monitor-smartphone"), None);
@@ -148,7 +152,7 @@ pub fn view() -> gtk::Widget {
             dev_body.append(&ui::empty_state(
                 "usb",
                 "Nothing to hand out",
-                Some("Plug in a gamepad, webcam or security key."),
+                Some("Plug in a drive, gamepad, webcam or security key."),
             ));
         }
         for d in handed {
@@ -209,10 +213,31 @@ fn device_row(d: &Device, spaces: &[(String, String, bool)], name: &dyn Fn(&str)
     let block = gtk::Box::new(gtk::Orientation::Vertical, 8);
     block.add_css_class("device-block");
     let head = row_head(d.kind, &d.name, &whereabouts(d, name));
-    if !d.present {
+    if !d.present || d.ejected {
         head.add_css_class("dim");
     }
     let key = d.key.clone();
+    // A drive: Eject, before it's pulled out.
+    if d.kind == DeviceKind::Storage && d.present && !d.ejected {
+        let eject = ui::button("Eject", Some("unplug"), Variant::Ghost, Size::Sm);
+        eject.set_valign(gtk::Align::Center);
+        eject.set_tooltip_text(Some("Take it out of its wadspaces and turn it off, to unplug it safely"));
+        let key = key.clone();
+        eject.connect_clicked(move |b| {
+            b.set_sensitive(false);
+            let (path, b) = (format!("/v1/devices/{key}/eject"), b.clone());
+            glib::spawn_future_local(async move {
+                match send::<serde_json::Value>(Method::POST, path, Some(json!({}))).await {
+                    Ok(_) => crate::toast::show("Safe to unplug", None, crate::toast::Tone::Info),
+                    Err(e) => {
+                        crate::toast::error("Couldn't eject it", &e);
+                        b.set_sensitive(true);
+                    }
+                }
+            });
+        });
+        head.append(&eject);
+    }
     let mut items: Vec<ui::MenuItem> = vec![(
         "Rename",
         "pencil",
@@ -268,7 +293,9 @@ fn device_row(d: &Device, spaces: &[(String, String, bool)], name: &dyn Fn(&str)
         });
         chips.insert(&chip, -1);
     }
-    block.append(&chips);
+    if !d.ejected {
+        block.append(&chips);
+    }
     block
 }
 
@@ -358,6 +385,7 @@ mod tests {
             attached: vec!["a".into()],
             remembered: vec!["a".into(), "b".into()],
             new: false,
+            ejected: false,
         };
         let name = |id: &str| id.to_uppercase();
         assert_eq!(whereabouts(&d, &name), "In A");

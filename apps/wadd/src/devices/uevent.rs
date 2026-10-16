@@ -279,7 +279,11 @@ mod tests {
     #[test]
     fn a_nodes_event_carries_its_udev_database() {
         let d = tempfile::tempdir().unwrap();
-        let roots = Roots { sys: d.path().join("sys"), udev_data: d.path().join("udev") };
+        let roots = Roots {
+            sys: d.path().join("sys"),
+            udev_data: d.path().join("udev"),
+            mountinfo: d.path().join("mountinfo"),
+        };
         let dir = roots.sys.join("devices/virtual/input/input9/event9");
         std::fs::create_dir_all(&dir).unwrap();
         std::fs::write(dir.join("uevent"), "MAJOR=13\nMINOR=73\nDEVNAME=input/event9\n").unwrap();

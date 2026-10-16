@@ -37,6 +37,9 @@ pub struct Settings {
     /// Device cgroup rules for native workspaces (devices wadd attaches
     /// while they run; rootful podman only), devices::machine_cgroup_rules.
     pub device_rules: Vec<String>,
+    /// Where native workspaces' ~/Drives are on the machine, one folder each
+    /// (rootful only: devices::server::ATTACHED).
+    pub drives_dir: Option<PathBuf>,
     /// Between readiness checks.
     pub poll: Duration,
 }
@@ -119,7 +122,13 @@ fn not_found(id: &str) -> ApiError {
 /// A workspace as wad-core's unit renderer takes it (wadd's YAML shape), its
 /// sign-ins at their folders in `signins_dir` and its mounts where `mounts`
 /// found them.
-pub fn wadd_spec(ws: &Workspace, signins_dir: &std::path::Path, mounts: &Mounts, device_rules: &[String]) -> Value {
+pub fn wadd_spec(
+    ws: &Workspace,
+    signins_dir: &std::path::Path,
+    mounts: &Mounts,
+    device_rules: &[String],
+    drives_dir: Option<&std::path::Path>,
+) -> Value {
     let env: serde_json::Map<String, Value> =
         ws.env.iter().map(|(k, v)| (k.clone(), Value::String(v.clone()))).collect();
     let projects: Vec<Value> = ws
@@ -142,6 +151,7 @@ pub fn wadd_spec(ws: &Workspace, signins_dir: &std::path::Path, mounts: &Mounts,
         "env": env, "secrets": ws.secrets, "volumes": ws.volumes, "devices": ws.devices,
         "shm_size": ws.shm_size, "projects": projects, "signins": signins,
         "device_rules": if ws.display == Display::Host { device_rules } else { &[] },
+        "drives_dir": drives_dir.filter(|_| ws.display == Display::Host).map(|d| d.join(&ws.id).to_string_lossy().into_owned()),
     })
 }
 
@@ -180,7 +190,13 @@ impl Registry {
     /// The unit wadd writes for a workspace.
     pub fn unit_text(&self, ws: &Workspace) -> String {
         wad_core::generator::quadlet(
-            &wadd_spec(ws, &self.settings.signins_dir, &self.mounts_of(&ws.id), &self.settings.device_rules),
+            &wadd_spec(
+                ws,
+                &self.settings.signins_dir,
+                &self.mounts_of(&ws.id),
+                &self.settings.device_rules,
+                self.settings.drives_dir.as_deref(),
+            ),
             &self.settings.state_dir.to_string_lossy(),
             self.settings.rootless_uid,
         )
