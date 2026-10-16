@@ -13,6 +13,9 @@
 //! in every wadspace through the machine (sway, PipeWire, copies and
 //! mounts).
 
+pub mod sysfs;
+pub mod uevent;
+
 /// Character device majors wadd hands out that never change: input
 /// (evdev, joysticks), video4linux (webcams), ttyACM and ttyUSB (serial),
 /// usb_device (raw USB, /dev/bus/usb).

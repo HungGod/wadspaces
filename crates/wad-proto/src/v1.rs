@@ -316,6 +316,57 @@ pub struct CopyMade {
     pub bytes: u64,
 }
 
+/// How a device is connected to the machine.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum DeviceBus {
+    Usb,
+    Bluetooth,
+}
+
+/// What a device is. Gamepads, webcams, security keys, serial ports and
+/// other USB devices are handed to wadspaces; keyboards, mice, sound and
+/// drives work in every wadspace through the machine.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum DeviceKind {
+    Gamepad,
+    Webcam,
+    SecurityKey,
+    Serial,
+    Other,
+    Keyboard,
+    Mouse,
+    Audio,
+    Storage,
+}
+
+/// GET /v1/devices: a device the machine has, or has had.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Device {
+    /// What it's known by across plugs: `usb:<vid>:<pid>:<serial>`,
+    /// `usb:<vid>:<pid>@<port>` (no serial), or `bt:<MAC>`.
+    pub key: String,
+    /// Its own name, or the one it was given.
+    pub name: String,
+    pub bus: DeviceBus,
+    pub kind: DeviceKind,
+    /// Handed to wadspaces (the rest work in every wadspace already).
+    pub attachable: bool,
+    /// Plugged in (Bluetooth: connected) now.
+    pub present: bool,
+    /// The running wadspaces that have it now.
+    #[serde(default)]
+    pub attached: Vec<String>,
+    /// The wadspaces it goes back to: when it's plugged in, or when they start.
+    #[serde(default)]
+    pub remembered: Vec<String>,
+    /// Never asked about yet: plugging it in asks where it goes.
+    #[serde(default)]
+    pub new: bool,
+}
+
 /// GET /v1/workspaces: a workspace on this machine.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
