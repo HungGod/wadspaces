@@ -61,6 +61,9 @@ pub struct Space {
     pub kind: Option<String>,
     #[serde(default = "yes")]
     pub enabled: bool,
+    /// "host" (a window here) or "stream".
+    #[serde(default)]
+    pub display: Option<String>,
     /// A wadspace's desktop icons (fetched ahead, for the switcher).
     #[serde(default)]
     pub desktop: Vec<DesktopIcon>,
@@ -392,6 +395,7 @@ mod tests {
             name: name.into(),
             kind: kind.map(String::from),
             enabled,
+            display: None,
             desktop: vec![],
         };
         let spaces = [

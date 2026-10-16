@@ -28,6 +28,7 @@
 
 mod audio;
 mod clips;
+mod devices;
 mod model;
 mod notes;
 mod power;
@@ -531,6 +532,9 @@ struct Hud {
     bright_button: gtk::Button,
     sound_button: gtk::Button,
     sound_icon: gtk::Image,
+    /// What's plugged in, and which wadspaces have it.
+    devices_button: gtk::Button,
+    devices: Rc<devices::Panel>,
     power_button: gtk::Button,
     clock: gtk::Label,
     battery: gtk::Box,
@@ -609,6 +613,7 @@ impl Hud {
         let bright_button = icon_pill(&icon(BRIGHTNESS_ICON, BAR_ICON), "Brightness");
         let sound_icon = icon(audio::icon(None), BAR_ICON);
         let sound_button = icon_pill(&sound_icon, "Volume");
+        let devices_button = icon_pill(&icon("media-removable-symbolic", BAR_ICON), "Devices");
         let power_button = icon_pill(&icon("system-shutdown-symbolic", BAR_ICON), "Power");
         // WadNotes: away or back; its menu does the rest.
         let notes_button = gtk::Button::new();
@@ -635,6 +640,7 @@ impl Hud {
             net.upcast_ref(),
             bright_button.upcast_ref(),
             sound_button.upcast_ref(),
+            devices_button.upcast_ref(),
         ] {
             row.append(w);
         }
@@ -860,7 +866,10 @@ impl Hud {
         tip_card.append(&tip_text);
         tip_win.set_child(Some(&tip_card));
 
+        let devices = devices::Panel::build(app, wadd.clone());
         let hud = Rc::new(Hud {
+            devices,
+            devices_button,
             wadd,
             state: RefCell::default(),
             show_left: Cell::new(false),
@@ -957,6 +966,8 @@ impl Hud {
         hud.net.connect_clicked(move |_| h.open_wifi());
         let h = hud.clone();
         hud.power_button.connect_clicked(move |_| h.power.present());
+        let h = hud.clone();
+        hud.devices_button.connect_clicked(move |_| h.devices.open());
         for (b, action) in [(&restart, "reboot"), (&shutdown, "poweroff")] {
             let h = hud.clone();
             b.connect_clicked(move |_| {
@@ -998,6 +1009,7 @@ impl Hud {
             hud.net.upcast_ref(),
             hud.bright_button.upcast_ref(),
             hud.sound_button.upcast_ref(),
+            hud.devices_button.upcast_ref(),
             hud.power_button.upcast_ref(),
             hud.battery.upcast_ref(),
             hud.clock.upcast_ref(),
@@ -2051,8 +2063,24 @@ impl Hud {
                     self.follow_view();
                 }
             }
+            Incoming::Event(name, data) if name == "devices" => {
+                if let Ok(list) = serde_json::from_value(data) {
+                    self.devices.on_devices(list);
+                }
+            }
+            Incoming::Event(name, data) if name == "bluetooth" => {
+                if let Ok(s) = serde_json::from_value(data) {
+                    self.devices.on_bluetooth(s);
+                }
+            }
+            Incoming::Event(name, data) if name == "workspaceState" => {
+                if let (Some(id), Some(c)) = (data["id"].as_str(), data["container"].as_str()) {
+                    self.devices.on_state(id, c == "running");
+                }
+            }
             Incoming::Event(name, data) if name == "workspaces" => {
                 if let Ok(list) = serde_json::from_value::<Vec<model::Space>>(data) {
+                    self.devices.on_spaces(&list);
                     self.state.borrow_mut().workspaces = list;
                     self.follow_view();
                     self.prefetch();
@@ -2307,12 +2335,67 @@ fn snapshot(hud: Rc<Hud>, app: gtk::Application, dir: std::path::PathBuf) {
         name: name.into(),
         kind: kind.map(String::from),
         enabled: true,
+        display: None,
         desktop: vec![],
     })
     .collect();
     hud.follow_view();
     for s in [notes::Section::Notes, notes::Section::Tasks, notes::Section::Calendar] {
         hud.show_section(s, true);
+    }
+    // Devices: a pad in Writing, a webcam waiting for IQ Dev, a security
+    // key just plugged in (its question up), headphones and Bluetooth.
+    {
+        use wad_proto::v1::{BluetoothDevice, BluetoothStatus, Device, DeviceBus, DeviceKind};
+        let spaces = hud.state.borrow().workspaces.clone();
+        hud.devices.on_spaces(&spaces);
+        hud.devices.on_state("writing", true);
+        let dev =
+            |key: &str, name: &str, kind, attachable, present, attached: &[&str], remembered: &[&str], new| Device {
+                key: key.into(),
+                name: name.into(),
+                bus: if key.starts_with("bt:") { DeviceBus::Bluetooth } else { DeviceBus::Usb },
+                kind,
+                attachable,
+                present,
+                attached: attached.iter().map(|s| s.to_string()).collect(),
+                remembered: remembered.iter().map(|s| s.to_string()).collect(),
+                new,
+            };
+        hud.devices.win.present();
+        hud.devices.on_bluetooth(BluetoothStatus {
+            available: true,
+            powered: true,
+            discovering: true,
+            devices: vec![
+                BluetoothDevice {
+                    address: "11:22:33:44:55:66".into(),
+                    name: "WH-1000XM5".into(),
+                    kind: DeviceKind::Audio,
+                    paired: true,
+                    connected: true,
+                    rssi: None,
+                    busy: false,
+                },
+                BluetoothDevice {
+                    address: "A0:AB:51:12:34:56".into(),
+                    name: "DualSense Wireless Controller".into(),
+                    kind: DeviceKind::Gamepad,
+                    paired: false,
+                    connected: false,
+                    rssi: Some(-48),
+                    busy: false,
+                },
+            ],
+            prompt: None,
+        });
+        hud.devices.on_devices(vec![
+            dev("usb:2dc8:6101:1", "8BitDo Pro 2", DeviceKind::Gamepad, true, true, &["writing"], &["writing"], false),
+            dev("usb:046d:085b:2", "Logitech C925e", DeviceKind::Webcam, true, true, &[], &["iq-dev"], false),
+            dev("usb:1050:0407:3", "YubiKey 5 NFC", DeviceKind::SecurityKey, true, true, &[], &[], true),
+            dev("bt:11:22:33:44:55:66", "WH-1000XM5", DeviceKind::Audio, false, true, &[], &[], false),
+            dev("usb:045e:0922@1-1", "Surface Keyboard", DeviceKind::Keyboard, false, true, &[], &[], false),
+        ]);
     }
     hud.notes.tick();
     hud.open_notes_menu();
@@ -2330,6 +2413,8 @@ fn snapshot(hud: Rc<Hud>, app: gtk::Application, dir: std::path::PathBuf) {
             (&hud.notes.win, "notes"),
             (&hud.notes.reminder.win, "reminder"),
             (&hud.notes_menu.win, "notes-menu"),
+            (&hud.devices.win, "devices"),
+            (&hud.devices.ask_win, "device-ask"),
         ] {
             save_png(win, &dir.join(format!("{name}.png")));
         }

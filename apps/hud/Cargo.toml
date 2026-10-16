@@ -22,11 +22,11 @@ wad-notes.workspace = true
 # WadNotes' preview: markdown to Pango markup (notes/markup.rs).
 pulldown-cmark = { version = "0.13", default-features = false }
 chrono = { version = "0.4.45", default-features = false, features = ["std", "clock"] }
+wad-proto.workspace = true
 
 [dev-dependencies]
 # The client's tests talk to the Rust wadd itself, in-process.
 wadd = { path = "../wadd" }
 wad-config.workspace = true
-wad-proto.workspace = true
 tempfile.workspace = true
 tokio.workspace = true

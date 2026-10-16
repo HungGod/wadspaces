@@ -134,6 +134,14 @@ button.catcher, button.catcher:hover, button.catcher:active {
 .net-row.active { background: @accent_soft; }
 .net-row .tag { color: @faint; font-size: 12px; }
 .net-row .bars { color: @muted; font-size: 11px; min-width: 34px; }
+.device-row { padding: 4px 2px; }
+.device-row image { color: @muted; }
+.dim-row { opacity: 0.55; }
+.chip { background: @surface2; color: @muted; border: 1px solid @line; border-radius: 999px; padding: 2px 10px; font-size: 12px; min-height: 0; box-shadow: none; }
+.chip:hover { background: @surface3; }
+.chip:checked { background: @accent_soft; color: @fg; border-color: @accent; }
+.chip.running { font-weight: 600; }
+.code { font-size: 28px; font-weight: 600; letter-spacing: 4px; color: @fg; }
 .status { background: @surface2; border: 1px solid @line; border-radius: 14px; padding: 10px 14px; color: @fg; }
 scrollbar slider { min-width: 6px; min-height: 6px; margin: 0; }
 entry, passwordentry {

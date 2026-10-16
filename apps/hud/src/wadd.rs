@@ -133,6 +133,43 @@ impl Wadd {
         self.post("/v1/network/wifi/disconnect", json!({}))
     }
 
+    pub fn devices(&self) -> Result<Vec<wad_proto::v1::Device>, String> {
+        self.get("/v1/devices")
+    }
+
+    /// Hands a device to a wadspace (on), or takes it back (off).
+    pub fn device_to(&self, key: &str, wadspace: &str, on: bool) -> Result<(), String> {
+        let how = if on { "attach" } else { "detach" };
+        self.post(&format!("/v1/devices/{key}/{how}"), json!({ "wadspace": wadspace }))
+    }
+
+    /// Where a device goes (the answer for a new one: none keeps it here).
+    pub fn device_remembered(&self, key: &str, wadspaces: &[String]) -> Result<(), String> {
+        self.put::<Value>(&format!("/v1/devices/{key}"), json!({ "remembered": wadspaces })).map(drop)
+    }
+
+    pub fn bluetooth(&self) -> Result<wad_proto::v1::BluetoothStatus, String> {
+        self.get("/v1/bluetooth")
+    }
+
+    /// "power" or "scan", on or off.
+    pub fn bluetooth_switch(&self, what: &str, on: bool) -> Result<(), String> {
+        self.post(&format!("/v1/bluetooth/{what}"), json!({ "on": on }))
+    }
+
+    /// pair | connect | disconnect | forget.
+    pub fn bluetooth_device(&self, address: &str, action: &str) -> Result<(), String> {
+        self.post(&format!("/v1/bluetooth/{address}/{action}"), json!({}))
+    }
+
+    pub fn bluetooth_answer(&self, id: u64, accept: bool, pin: Option<String>) -> Result<(), String> {
+        let mut body = json!({ "id": id, "accept": accept });
+        if let Some(p) = pin {
+            body["pin"] = p.into();
+        }
+        self.post("/v1/bluetooth/prompt", body)
+    }
+
     /// A workspace's icon (`/v1/workspaces/<id>/icon`), as bytes.
     pub fn bytes(&self, path: &str) -> Option<Vec<u8>> {
         let (status, body) = self.call("GET", path, None, Some(Duration::from_secs(20))).ok()?.text(8 << 20).ok()?;
