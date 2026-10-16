@@ -266,16 +266,24 @@ impl Preview {
             ("dir", id) => {
                 let m = s.folders().and_then(|f| f.mounts.iter().find(|m| m["id"] == id).cloned()).unwrap_or_default();
                 let as_ = m["as"].as_str().unwrap_or_default();
-                let from = if m["kind"] == "github" {
-                    format!("cloned from {}", m["repo"].as_str().unwrap_or_default())
-                } else {
-                    let files = m["files"].as_u64().unwrap_or(0);
-                    format!(
-                        "copied from this machine{}",
-                        if files > 0 { format!(" ({files} files)") } else { String::new() }
-                    )
+                let text = match m["kind"].as_str() {
+                    Some("github") => format!(
+                        "~/Desktop/{as_}: cloned from {}. The files live in this wadspace.",
+                        m["repo"].as_str().unwrap_or_default()
+                    ),
+                    Some("mount") => format!(
+                        "~/Desktop/{as_}: {} on its machine, mounted. Changes save there, and only there has it.",
+                        m["source"]["paths"][0].as_str().unwrap_or_default()
+                    ),
+                    _ => {
+                        let files = m["files"].as_u64().unwrap_or(0);
+                        format!(
+                            "~/Desktop/{as_}: copied from this machine{}. The files live in this wadspace.",
+                            if files > 0 { format!(" ({files} files)") } else { String::new() }
+                        )
+                    }
                 };
-                vec![p(&format!("~/Desktop/{as_}: {from}. The files live in this wadspace.")).upcast()]
+                vec![p(&text).upcast()]
             }
             (_, "vscode") => {
                 let exts = s.vscode().map(|v| v.extensions.clone()).unwrap_or_default();

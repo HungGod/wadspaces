@@ -278,8 +278,14 @@ fn projects(w: &Value) -> gtk::Widget {
     for p in list {
         let row = gtk::Box::new(gtk::Orientation::Horizontal, 10);
         row.add_css_class("drawer-row");
-        let github = s(&p, "kind") == "github";
-        let i = Icon::new(if github { "folder-git-2" } else { "hard-drive-download" }, 16);
+        let i = Icon::new(
+            match s(&p, "kind") {
+                "github" => "folder-git-2",
+                "mount" => "folder-symlink",
+                _ => "hard-drive-download",
+            },
+            16,
+        );
         i.add_css_class("muted");
         row.append(&i);
         let l = gtk::Label::new(Some(&format!("~/Desktop/{}", s(&p, "as"))));
@@ -287,7 +293,11 @@ fn projects(w: &Value) -> gtk::Widget {
         l.set_xalign(0.0);
         l.set_ellipsize(gtk::pango::EllipsizeMode::End);
         row.append(&l);
-        let from = if github { format!("cloned from {}", s(&p, "repo")) } else { "copied in".into() };
+        let from = match s(&p, "kind") {
+            "github" => format!("cloned from {}", s(&p, "repo")),
+            "mount" => format!("mounted from {}", p["source"]["paths"][0].as_str().unwrap_or_default()),
+            _ => "copied in".into(),
+        };
         let f = gtk::Label::new(Some(&from));
         f.add_css_class("small-muted");
         f.set_ellipsize(gtk::pango::EllipsizeMode::End);

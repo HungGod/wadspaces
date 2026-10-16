@@ -3,10 +3,12 @@
 //! per group of WadBrowser's apps), new or picked from the keys there are
 //! of the same kind.
 //!
-//! Projects are cloned or copied in, never mounted: GitHub repositories are
-//! cloned (New project makes one on GitHub), and folders or files on this
-//! machine are copied (wadd makes the copy now; the wadspace takes it in
-//! when it starts).
+//! Projects are cloned or copied in: GitHub repositories are cloned (New
+//! project makes one on GitHub), and folders or files on this machine are
+//! copied (wadd makes the copy now; the wadspace takes it in when it
+//! starts). Or, when the user picks Mount instead of Copy, a folder or file
+//! on this machine is mounted read-write: changes save to the machine, and
+//! the wadspace has it only on this machine.
 
 use std::cell::{Cell, RefCell};
 use std::rc::{Rc, Weak};
@@ -227,18 +229,30 @@ struct Projects {
     picking: RefCell<Option<(bool, Option<String>)>>,
     picked: RefCell<Vec<String>>,
     copying: Cell<bool>,
+    /// The picker mounts what's picked rather than copying it.
+    mounting: Cell<bool>,
 }
 
 fn s<'a>(v: &'a Value, k: &str) -> &'a str {
     v.get(k).and_then(Value::as_str).unwrap_or("")
 }
 
-/// What a project is, to tell two apart: a repo, or a copy (by its id).
+/// What a project is, to tell two apart: a repo, a mount (by what it
+/// mounts), or a copy (by its id).
 fn project_key(m: &Value) -> String {
-    if s(m, "kind") == "github" {
-        format!("github:{}", s(m, "repo").to_lowercase())
-    } else {
-        format!("copy:{}", s(m, "id"))
+    match s(m, "kind") {
+        "github" => format!("github:{}", s(m, "repo").to_lowercase()),
+        "mount" => format!("mount:{}", m["source"]["paths"][0].as_str().unwrap_or("")),
+        _ => format!("copy:{}", s(m, "id")),
+    }
+}
+
+/// A project's icon: a repo, a mount, or a copy.
+fn project_icon(m: &Value) -> &'static str {
+    match s(m, "kind") {
+        "github" => "folder-git-2",
+        "mount" => "folder-symlink",
+        _ => "hard-drive",
     }
 }
 
@@ -284,6 +298,10 @@ fn project_text(m: &Value) -> String {
     if s(m, "kind") == "github" {
         return format!("cloned from {}", s(m, "repo"));
     }
+    if s(m, "kind") == "mount" {
+        let path = m["source"]["paths"][0].as_str().unwrap_or("");
+        return format!("mounted from {path} · changes save to that machine");
+    }
     let drive = &m["source"]["drive"];
     let from = if drive.is_object() {
         let label = if s(drive, "label").is_empty() { s(drive, "uuid") } else { s(drive, "label") };
@@ -303,7 +321,7 @@ fn project_text(m: &Value) -> String {
 fn project_face(m: &Value) -> gtk::Box {
     let b = gtk::Box::new(gtk::Orientation::Horizontal, 6);
     b.add_css_class("mount-face");
-    b.append(&Icon::new(if s(m, "kind") == "github" { "folder-git-2" } else { "hard-drive" }, 13));
+    b.append(&Icon::new(project_icon(m), 13));
     let n = gtk::Label::new(Some(s(m, "as")));
     n.add_css_class("proj-name");
     b.append(&n);
@@ -351,7 +369,10 @@ fn load_repos(ed: Weak<Editor>) {
 fn fill_projects(ed: &Rc<Editor>, p: &Rc<Projects>, b: &gtk::Box) {
     let d = draft_of(ed);
     let f = folders(&d);
-    let n = note("Cloned or copied into the wadspace: the files live inside it, at ~/Desktop. Nothing is mounted.");
+    let n = note(
+        "Cloned or copied into the wadspace: the files live inside it, at ~/Desktop. A mounted folder stays \
+         on this machine: changes save here, and the wadspace has it only here.",
+    );
     n.add_css_class("proj-note");
     b.append(&n);
     for m in &f.mounts {
@@ -405,8 +426,8 @@ fn fill_projects(ed: &Rc<Editor>, p: &Rc<Projects>, b: &gtk::Box) {
     copy.add_css_class("copy-row");
     let busy = p.copying.get();
     let folder =
-        ui::button(if busy { "Copying…" } else { "Copy a folder" }, Some("hard-drive"), Variant::Ghost, Size::Sm);
-    let files = ui::button("Copy files", Some("plus"), Variant::Ghost, Size::Sm);
+        ui::button(if busy { "Copying…" } else { "Add a folder" }, Some("hard-drive"), Variant::Ghost, Size::Sm);
+    let files = ui::button("Add files", Some("plus"), Variant::Ghost, Size::Sm);
     for (btn, want_files) in [(&folder, false), (&files, true)] {
         btn.set_sensitive(!busy);
         let (w, p) = (Rc::downgrade(ed), p.clone());
@@ -446,18 +467,12 @@ fn fill_projects(ed: &Rc<Editor>, p: &Rc<Projects>, b: &gtk::Box) {
         l.add_css_class("faint");
         sug.insert(&l, -1);
         for m in elsewhere {
-            let github = s(&m, "kind") == "github";
-            let chip = ui::button(
-                s(&m, "as"),
-                Some(if github { "folder-git-2" } else { "hard-drive" }),
-                Variant::Ghost,
-                Size::Sm,
-            );
+            let chip = ui::button(s(&m, "as"), Some(project_icon(&m)), Variant::Ghost, Size::Sm);
             chip.add_css_class("sug");
-            chip.set_tooltip_text(Some(&if github {
-                format!("Clone {}", s(&m, "repo"))
-            } else {
-                format!("Copy {} in too", s(&m, "as"))
+            chip.set_tooltip_text(Some(&match s(&m, "kind") {
+                "github" => format!("Clone {}", s(&m, "repo")),
+                "mount" => format!("Mount {} here too", s(&m, "as")),
+                _ => format!("Copy {} in too", s(&m, "as")),
             }));
             let w = Rc::downgrade(ed);
             chip.connect_clicked(move |_| {
@@ -650,15 +665,34 @@ async fn create_project(name: &str) -> Result<String, String> {
     Ok(repo)
 }
 
+/// What the picker's button says: what's picked, copied or mounted.
+fn go_text(files: bool, mounting: bool, picked: usize) -> String {
+    match (files, mounting) {
+        (false, false) => "Copy this folder".into(),
+        (false, true) => "Mount this folder".into(),
+        (true, false) if picked == 0 => "Copy files".into(),
+        (true, false) => format!("Copy {picked} file{}", if picked == 1 { "" } else { "s" }),
+        (true, true) if picked > 1 => "Mount one file at a time".into(),
+        (true, true) => "Mount this file".into(),
+    }
+}
+
+/// Whether the picker's button can go with these files picked: any to copy,
+/// one to mount.
+fn go_ready(mounting: bool, picked: usize) -> bool {
+    if mounting { picked == 1 } else { picked > 0 }
+}
+
 /// Folders (and files) on this machine, inside the places wadd lets you
-/// copy from: a folder, or files, to copy in.
+/// copy from: a folder, or files, to copy in or (Mount) to mount.
 fn machine_picker(ed: &Rc<Editor>, p: &Rc<Projects>) -> gtk::Widget {
     let (files, at) = p.picking.borrow().clone().unwrap_or((false, None));
+    let mounting = p.mounting.get();
     let pick = gtk::Box::new(gtk::Orientation::Vertical, 0);
     pick.add_css_class("picker");
     let head = gtk::Box::new(gtk::Orientation::Horizontal, 8);
     head.add_css_class("picker-head");
-    head.append(&gtk::Label::new(Some(if files { "Copy files" } else { "Copy a folder" })));
+    head.append(&gtk::Label::new(Some(if files { "Add files" } else { "Add a folder" })));
     let path = gtk::Label::new(Some(at.as_deref().unwrap_or("Places you can copy from")));
     path.add_css_class("picker-path");
     path.set_hexpand(true);
@@ -684,12 +718,37 @@ fn machine_picker(ed: &Rc<Editor>, p: &Rc<Projects>) -> gtk::Widget {
     ls.set_propagate_natural_height(true);
     ls.set_child(Some(&list));
     pick.append(&ls);
-    let foot = gtk::Box::new(gtk::Orientation::Horizontal, 0);
+    let foot = gtk::Box::new(gtk::Orientation::Horizontal, 8);
     foot.add_css_class("picker-foot");
-    let go = ui::button(if files { "Copy files" } else { "Copy this folder" }, None, Variant::Secondary, Size::Sm);
+    // Copy (the default) or Mount: the machine's own folder, read-write.
+    let how = gtk::Box::new(gtk::Orientation::Horizontal, 0);
+    how.add_css_class("linked");
+    how.add_css_class("copy-or-mount");
+    let copy_b = gtk::ToggleButton::with_label("Copy");
+    let mount_b = gtk::ToggleButton::with_label("Mount");
+    mount_b.set_group(Some(&copy_b));
+    copy_b.set_tooltip_text(Some("Copied into the wadspace: its own files, wherever it starts"));
+    mount_b.set_tooltip_text(Some("This machine's own folder or file: changes save here, and only here has it"));
+    (if mounting { &mount_b } else { &copy_b }).set_active(true);
+    for (b, yes) in [(&copy_b, false), (&mount_b, true)] {
+        b.add_css_class("small");
+        let (w, pp) = (Rc::downgrade(ed), p.clone());
+        b.connect_toggled(move |b| {
+            if b.is_active() && pp.mounting.get() != yes {
+                pp.mounting.set(yes);
+                if let Some(ed) = w.upgrade() {
+                    ed.redraw();
+                }
+            }
+        });
+        how.append(b);
+    }
+    foot.append(&how);
+    let picked_now = p.picked.borrow().len();
+    let go = ui::button(&go_text(files, mounting, picked_now), None, Variant::Secondary, Size::Sm);
     go.set_hexpand(true);
     go.set_halign(gtk::Align::End);
-    go.set_sensitive(false);
+    go.set_sensitive(files && go_ready(mounting, picked_now));
     foot.append(&go);
     pick.append(&foot);
 
@@ -760,9 +819,9 @@ fn machine_picker(ed: &Rc<Editor>, p: &Rc<Projects>) -> gtk::Widget {
                         p.push(path.clone());
                     }
                     if let Some(go) = gw.upgrade() {
-                        go.set_sensitive(!p.is_empty());
-                        let n = p.len();
-                        ui::set_text(&go, &format!("Copy {n} file{}", if n == 1 { "" } else { "s" }));
+                        let mounting = pp2.mounting.get();
+                        go.set_sensitive(go_ready(mounting, p.len()));
+                        ui::set_text(&go, &go_text(true, mounting, p.len()));
                     }
                 });
                 list.append(&c);
@@ -778,10 +837,45 @@ fn machine_picker(ed: &Rc<Editor>, p: &Rc<Projects>) -> gtk::Widget {
         go.connect_clicked(move |_| {
             let Some(ed) = w.upgrade() else { return };
             let paths = if files { pp.picked.borrow().clone() } else { here.iter().cloned().collect() };
-            copy_in(&ed, &pp, paths);
+            if pp.mounting.get() {
+                mount_in(&ed, &pp, paths);
+            } else {
+                copy_in(&ed, &pp, paths);
+            }
         });
     });
     pick.upcast()
+}
+
+/// This machine's id, as projects from it name it.
+fn this_machine() -> String {
+    store().read_now(|s| s.cloud.as_ref().and_then(|c| c.machine_id.clone())).unwrap_or_else(|| "local".into())
+}
+
+/// A name for what's at these paths: the one's own name, or "Files".
+fn picked_name(paths: &[String]) -> String {
+    if paths.len() == 1 {
+        paths[0].trim_end_matches('/').rsplit('/').next().unwrap_or("Files").to_string()
+    } else {
+        "Files".into()
+    }
+}
+
+/// A folder or file on this machine, mounted read-write when the wadspace
+/// starts here (wadd finds it then; nothing is made now).
+fn mount_in(ed: &Rc<Editor>, p: &Rc<Projects>, paths: Vec<String>) {
+    p.picking.replace(None);
+    if let [path] = paths.as_slice() {
+        add_mount(
+            ed,
+            json!({
+                "id": uid("mount"), "kind": "mount",
+                "source": { "machineId": this_machine(), "paths": [path] }, "as": picked_name(&paths),
+            }),
+        );
+    } else {
+        ed.redraw();
+    }
 }
 
 /// Paths on this machine: wadd copies them now, and the wadspace takes the
@@ -801,19 +895,11 @@ fn copy_in(ed: &Rc<Editor>, p: &Rc<Projects>, paths: Vec<String>) {
         let Some(ed) = w.upgrade() else { return };
         match made {
             Ok(c) => {
-                let name = if paths.len() == 1 {
-                    paths[0].trim_end_matches('/').rsplit('/').next().unwrap_or("Files").to_string()
-                } else {
-                    "Files".into()
-                };
-                let machine = store()
-                    .read_now(|s| s.cloud.as_ref().and_then(|c| c.machine_id.clone()))
-                    .unwrap_or_else(|| "local".into());
                 add_mount(
                     &ed,
                     json!({
-                        "id": c.id, "kind": "copy", "source": { "machineId": machine, "paths": paths },
-                        "as": name, "files": c.files, "bytes": c.bytes,
+                        "id": c.id, "kind": "copy", "source": { "machineId": this_machine(), "paths": paths },
+                        "as": picked_name(&paths), "files": c.files, "bytes": c.bytes,
                     }),
                 );
             }
@@ -1524,5 +1610,23 @@ mod tests {
             "copied from the drive AB-12 at its first start"
         );
         assert_eq!(size_of(200), "1 KB");
+        let thesis = json!({ "kind": "mount", "source": { "machineId": "m1", "paths": ["/var/home/wad/Thesis"] } });
+        assert_eq!(project_text(&thesis), "mounted from /var/home/wad/Thesis · changes save to that machine");
+        assert_eq!(
+            (project_icon(&thesis), project_key(&thesis).as_str()),
+            ("folder-symlink", "mount:/var/home/wad/Thesis")
+        );
+    }
+
+    #[test]
+    fn the_picker_copies_any_files_but_mounts_one() {
+        assert_eq!(
+            (go_text(false, false, 0), go_text(false, true, 0)),
+            ("Copy this folder".into(), "Mount this folder".into())
+        );
+        assert_eq!((go_text(true, false, 3), go_ready(false, 3)), ("Copy 3 files".into(), true));
+        assert_eq!((go_text(true, true, 1), go_ready(true, 1)), ("Mount this file".into(), true));
+        assert_eq!((go_text(true, true, 2), go_ready(true, 2)), ("Mount one file at a time".into(), false));
+        assert_eq!(picked_name(&["/var/home/wad/Thesis/".into()]), "Thesis");
     }
 }
