@@ -26,6 +26,13 @@ RUN dnf -y install --setopt=install_weak_deps=False --setopt=tsflags=nodocs \
     && dnf clean all \
     && systemctl --global enable pipewire.socket pipewire-pulse.socket wireplumber.service
 
+# Bluetooth: BlueZ, which wadd drives over D-Bus (pairing through its own
+# agent, answered in the HUD). Headphones play through PipeWire like any
+# sound; a Bluetooth gamepad is handed to wadspaces like a USB one.
+RUN dnf -y install --setopt=install_weak_deps=False --setopt=tsflags=nodocs \
+      bluez \
+    && dnf clean all
+
 # WadBrowser's media: GStreamer's common codecs (WebKitGTK plays through it).
 RUN dnf -y install --setopt=install_weak_deps=False --setopt=tsflags=nodocs \
       gstreamer1-plugins-good gstreamer1-plugins-bad-free gstreamer1-plugin-libav \
@@ -78,12 +85,12 @@ RUN /usr/bin/client --version && \
     find /usr/lib/wadspaces/secrets -type d -exec chmod 700 {} + && \
     find /usr/lib/wadspaces/secrets -type f -exec chmod 600 {} + && \
     chmod 644 /usr/share/wadspaces/ssh/* && \
-    for b in dbus-run-session sway curl nmcli skopeo bootc wpctl foot; do \
+    for b in dbus-run-session sway curl nmcli skopeo bootc wpctl foot bluetoothctl; do \
       command -v "$b" > /dev/null || { echo "missing $b" >&2; exit 1; }; \
     done && \
     ls /usr/lib/firmware/mrvl/pcie8897_uapsta.bin* /usr/lib64/libgtk4-layer-shell.so.0 > /dev/null && \
     /usr/bin/wadd version && \
-    systemctl enable greetd.service podman.socket wadd.socket wadd.service \
+    systemctl enable greetd.service podman.socket wadd.socket wadd.service bluetooth.service \
       wadspaces-admin-password.service wadspaces-import.service && \
     systemctl mask bootc-fetch-apply-updates.timer bootc-fetch-apply-updates.service && \
     systemctl set-default graphical.target && \

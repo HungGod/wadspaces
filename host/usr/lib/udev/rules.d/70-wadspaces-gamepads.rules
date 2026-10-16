@@ -1,0 +1,4 @@
+# A gamepad's touchpad (a DualSense's, a DualShock 4's) isn't the machine's
+# pointer: sway leaves it alone, and wadd hands the pad to the wadspaces that
+# have it (the touchpad stays out of them too: games read it through hidraw).
+ACTION!="remove", SUBSYSTEM=="input", KERNEL=="event*", ENV{ID_INPUT_TOUCHPAD}=="1", ATTRS{name}=="*Wireless Controller Touchpad", ENV{LIBINPUT_IGNORE_DEVICE}="1"

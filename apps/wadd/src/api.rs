@@ -67,6 +67,8 @@ pub struct AppState {
     pub files: crate::files::Files,
     /// The devices plugged in, and the wadspaces they're handed to.
     pub devices: Arc<crate::devices::Devices>,
+    /// The machine's Bluetooth (BlueZ).
+    pub bluetooth: Arc<crate::bluetooth::Bluetooth>,
 }
 
 /// An ApiError as an HTTP response.
@@ -169,6 +171,11 @@ pub fn router(app: Arc<AppState>) -> Router {
         .route("/v1/devices/{key}", axum::routing::put(device_put).delete(device_forget))
         .route("/v1/devices/{key}/attach", post(device_attach))
         .route("/v1/devices/{key}/detach", post(device_detach))
+        .route("/v1/bluetooth", get(bluetooth))
+        .route("/v1/bluetooth/power", post(bluetooth_power))
+        .route("/v1/bluetooth/scan", post(bluetooth_scan))
+        .route("/v1/bluetooth/prompt", post(bluetooth_answer))
+        .route("/v1/bluetooth/{address}/{action}", post(bluetooth_device))
         .route("/v1/drives", get(drives))
         .route("/v1/browse", get(browse))
         .route("/v1/copies", post(copy_create))
@@ -593,6 +600,50 @@ async fn device_detach(
     Json(to): Json<wad_proto::v1::DeviceTo>,
 ) -> Result<Json<wad_proto::v1::Device>, Failure> {
     Ok(Json(app.devices.detach(&key, &to.wadspace)?))
+}
+
+async fn bluetooth(State(app): State<Arc<AppState>>) -> Json<wad_proto::v1::BluetoothStatus> {
+    Json(app.bluetooth.refresh().await)
+}
+
+async fn bluetooth_power(
+    State(app): State<Arc<AppState>>,
+    Json(s): Json<wad_proto::v1::Switch>,
+) -> Result<Json<wad_proto::v1::BluetoothStatus>, Failure> {
+    Ok(Json(app.bluetooth.power(s.on).await?))
+}
+
+/// Looks for devices to pair (for a minute), or stops.
+async fn bluetooth_scan(
+    State(app): State<Arc<AppState>>,
+    Json(s): Json<wad_proto::v1::Switch>,
+) -> Result<Json<wad_proto::v1::BluetoothStatus>, Failure> {
+    Ok(Json(app.bluetooth.scan(s.on).await?))
+}
+
+/// Answers what pairing asked.
+async fn bluetooth_answer(
+    State(app): State<Arc<AppState>>,
+    Json(a): Json<wad_proto::v1::BluetoothAnswer>,
+) -> Result<StatusCode, Failure> {
+    app.bluetooth.answer(a)?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+/// pair | connect (in the background: events say how it went), disconnect,
+/// forget.
+async fn bluetooth_device(
+    State(app): State<Arc<AppState>>,
+    Path((address, action)): Path<(String, String)>,
+) -> Result<StatusCode, Failure> {
+    match action.as_str() {
+        "pair" => app.bluetooth.pair(&address)?,
+        "connect" => app.bluetooth.connect(&address)?,
+        "disconnect" => drop(app.bluetooth.disconnect(&address).await?),
+        "forget" => drop(app.bluetooth.forget(&address).await?),
+        _ => return Err(Failure(ApiError::new(ErrorCode::NotFound, "no such endpoint"))),
+    }
+    Ok(StatusCode::ACCEPTED)
 }
 
 async fn signins(State(app): State<Arc<AppState>>) -> Json<Vec<SignIn>> {

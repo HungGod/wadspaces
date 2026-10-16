@@ -136,7 +136,10 @@ fn serve(user: bool, config: Option<PathBuf>, socket: Option<PathBuf>) -> ExitCo
         let mut server = Server::new(&cfg, profile, listen, logs, backend)?;
         let nm = wad_net::NetworkManager::system().await.inspect_err(|e| tracing::warn!("no NetworkManager: {e}")).ok();
         let power = wad_systemd::Power::system().await.inspect_err(|e| tracing::warn!("no logind: {e}")).ok();
-        server.set_machine(nm, power);
+        let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
+        let bt =
+            wad_bt::Bluez::system(tx).await.inspect_err(|e| tracing::warn!("no Bluetooth: {e}")).ok().map(|b| (b, rx));
+        server.set_machine(nm, power, bt);
         match &server.bound {
             Some(p) => tracing::info!("wadd {} listening on {}", env!("CARGO_PKG_VERSION"), p.display()),
             None => tracing::info!("wadd {} listening on the socket systemd passed", env!("CARGO_PKG_VERSION")),

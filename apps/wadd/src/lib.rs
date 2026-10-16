@@ -6,6 +6,7 @@
 pub mod access;
 pub mod api;
 pub mod backend;
+pub mod bluetooth;
 pub mod builds;
 pub mod cloud;
 pub mod copies;
@@ -348,6 +349,7 @@ impl Server {
             nix::unistd::Uid::effective().is_root(),
         );
         let state = Arc::new(AppState {
+            bluetooth: bluetooth::Bluetooth::new(None, None, bus.clone()),
             devices,
             registry_backend,
             meter: metrics::Meter::default(),
@@ -387,10 +389,17 @@ impl Server {
 
     /// The machine's network and power (NetworkManager and logind over the
     /// system bus); before serving.
-    pub fn set_machine(&mut self, nm: Option<wad_net::NetworkManager>, power: Option<wad_systemd::Power>) {
+    pub fn set_machine(
+        &mut self,
+        nm: Option<wad_net::NetworkManager>,
+        power: Option<wad_systemd::Power>,
+        bt: Option<(wad_bt::Bluez, tokio::sync::mpsc::UnboundedReceiver<wad_bt::AgentEvent>)>,
+    ) {
         let st = Arc::get_mut(&mut self.state).expect("set before serving");
         st.network = network::Network::new(nm, st.bus.clone());
         st.power = power;
+        let (bz, agent) = bt.map_or((None, None), |(b, a)| (Some(b), Some(a)));
+        st.bluetooth = bluetooth::Bluetooth::new(bz, agent, st.bus.clone());
     }
 
     /// The keyboard proxy, its actions handed to the view.
@@ -454,12 +463,15 @@ impl Server {
         let reconcile = registry.spawn_reconcile(self.reconcile_every);
         let netwatch = tokio::spawn(self.state.network.clone().run());
         let devwatch = tokio::spawn(self.state.devices.clone().run());
+        self.state.bluetooth.set_devices(&self.state.devices);
+        let btwatch = tokio::spawn(self.state.bluetooth.clone().run());
         let autostart = tokio::spawn(registry.clone().autostart(Duration::from_secs(300)));
         let app = api::router(self.state.clone()).into_make_service_with_connect_info::<Peer>();
         let res = axum::serve(self.listener, app).with_graceful_shutdown(shutdown).await;
         reconcile.abort();
         netwatch.abort();
         devwatch.abort();
+        btwatch.abort();
         autostart.abort();
         if let Some(r) = relay {
             r.abort();

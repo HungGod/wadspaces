@@ -105,6 +105,8 @@ pub enum Event {
     /// The devices changed: plugged in or out, handed to a wadspace or
     /// taken back, renamed (all of them, as GET /v1/devices has them).
     Devices(Vec<Device>),
+    /// Bluetooth changed: on or off, found, paired, connected, a prompt.
+    Bluetooth(BluetoothStatus),
 }
 
 impl Event {
@@ -127,6 +129,7 @@ impl Event {
             Event::Shortcut { .. } => "shortcut",
             Event::Storage { .. } => "storage",
             Event::Devices(_) => "devices",
+            Event::Bluetooth(_) => "bluetooth",
         }
     }
 }
@@ -369,6 +372,81 @@ pub struct Device {
     /// Never asked about yet: plugging it in asks where it goes.
     #[serde(default)]
     pub new: bool,
+}
+
+/// GET /v1/bluetooth: the machine's Bluetooth (BlueZ).
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BluetoothStatus {
+    /// There's an adapter.
+    pub available: bool,
+    pub powered: bool,
+    /// Looking for devices to pair.
+    pub discovering: bool,
+    /// Paired ones first, then what's in range.
+    #[serde(default)]
+    pub devices: Vec<BluetoothDevice>,
+    /// Pairing wants an answer (or something shown).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub prompt: Option<BluetoothPrompt>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BluetoothDevice {
+    /// AA:BB:CC:DD:EE:FF
+    pub address: String,
+    pub name: String,
+    /// What it is, from its class (headphones are Audio, a pad Gamepad).
+    pub kind: DeviceKind,
+    pub paired: bool,
+    pub connected: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rssi: Option<i16>,
+    /// Pairing or connecting now.
+    #[serde(default)]
+    pub busy: bool,
+}
+
+/// What pairing asks.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum BluetoothAsk {
+    /// Does the device show `code`? (yes/no)
+    Confirm,
+    /// Type `code` on the device, then Enter (nothing to answer).
+    Display,
+    /// The PIN the device wants (an old one: often 0000).
+    Pin,
+    /// Let it connect? (no code)
+    Authorize,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BluetoothPrompt {
+    pub id: u64,
+    pub address: String,
+    pub name: String,
+    pub ask: BluetoothAsk,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub code: Option<String>,
+}
+
+/// POST /v1/bluetooth/prompt: the answer to a prompt.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BluetoothAnswer {
+    pub id: u64,
+    pub accept: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pin: Option<String>,
+}
+
+/// POST /v1/bluetooth/power and /scan.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Switch {
+    pub on: bool,
 }
 
 /// POST /v1/devices/{key}/attach and /detach.

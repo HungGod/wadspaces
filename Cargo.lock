@@ -5598,6 +5598,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "wad-bt"
+version = "0.1.0"
+dependencies = [
+ "thiserror 2.0.21",
+ "tokio",
+ "tracing",
+ "wad-proto",
+ "zbus",
+]
+
+[[package]]
 name = "wad-clip"
 version = "0.1.0"
 dependencies = [
@@ -5871,6 +5882,7 @@ dependencies = [
  "tokio-stream",
  "tracing",
  "tracing-subscriber",
+ "wad-bt",
  "wad-config",
  "wad-core",
  "wad-firebase",

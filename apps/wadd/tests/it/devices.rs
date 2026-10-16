@@ -354,3 +354,46 @@ async fn without_root_nothing_is_handed_out() {
     assert!(err.message.contains("isn't running as root"), "{err:?}");
     assert!(e.devices.list()[0].present, "still listed");
 }
+
+#[tokio::test]
+async fn paired_bluetooth_devices_are_listed_and_a_pad_is_handed_out() {
+    use wad_proto::v1::{BluetoothDevice, DeviceBus};
+    let e = env(true).await;
+    e.run(&["a"]).await;
+    let bt = |address: &str, name: &str, kind, connected| BluetoothDevice {
+        address: address.into(),
+        name: name.into(),
+        kind,
+        paired: true,
+        connected,
+        rssi: None,
+        busy: false,
+    };
+    let buds = "bt:11:22:33:44:55:66";
+    e.devices.set_bluetooth(&[
+        bt("11:22:33:44:55:66", "Buds", DeviceKind::Audio, true),
+        bt("A0:AB:51:12:34:56", "DualSense", DeviceKind::Gamepad, false),
+        BluetoothDevice { paired: false, ..bt("77:77:77:77:77:77", "Nearby", DeviceKind::Other, false) },
+    ]);
+    let list = e.devices.list();
+    let keys: Vec<&str> = list.iter().map(|d| d.key.as_str()).collect();
+    assert_eq!(keys, [buds, "bt:A0:AB:51:12:34:56"], "paired only; present first");
+    let b = e.device(buds);
+    assert_eq!((b.bus, b.present, b.attachable), (DeviceBus::Bluetooth, true, false));
+    assert!(e.devices.attach(buds, "a").is_err(), "sound goes through the machine");
+    assert_eq!(e.devices.set(buds, Some(Some("My buds".into())), None).unwrap().name, "My buds");
+    // The pad: remembered while it's off, handed out once it connects (its HID nodes).
+    e.devices.attach("bt:A0:AB:51:12:34:56", "a").unwrap();
+    let hid = e.tree.roots.sys.join("devices/virtual/misc/uhid/0005:054C:0CE6.0007");
+    std::fs::create_dir_all(&hid).unwrap();
+    std::fs::write(
+        hid.join("uevent"),
+        "HID_ID=0005:0000054C:00000CE6\nHID_NAME=DualSense\nHID_UNIQ=a0:ab:51:12:34:56\n",
+    )
+    .unwrap();
+    std::os::unix::fs::symlink(&hid, e.tree.roots.sys.join("bus/hid/devices/0005:054C:0CE6.0007")).unwrap();
+    e.tree.node(&hid, "input/input30/event30", "input", "input/event30", (13, 94), &["ID_INPUT_JOYSTICK=1"]);
+    e.tick().await;
+    assert_eq!(e.hands.calls(), [format!("give {} /dev/input/event30", e.pid("a"))]);
+    assert!(e.device("bt:A0:AB:51:12:34:56").present);
+}

@@ -21,6 +21,7 @@ wad-sway = { path = "crates/wad-sway" }
 wad-input = { path = "crates/wad-input" }
 wad-git = { path = "crates/wad-git" }
 wad-net = { path = "crates/wad-net" }
+wad-bt = { path = "crates/wad-bt" }
 wad-icons = { path = "crates/wad-icons" }
 wad-notes = { path = "crates/wad-notes" }
 wad-wallpaper = { path = "crates/wad-wallpaper" }

@@ -1,0 +1,17 @@
+[package]
+name = "wad-bt"
+description = "Bluetooth for wadd through BlueZ over D-Bus: power, scan, pair (with an agent whose prompts wadd answers), connect, disconnect, forget"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+thiserror.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+wad-proto.workspace = true
+zbus.workspace = true
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }

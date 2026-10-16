@@ -17,7 +17,7 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
-use wad_proto::v1::{Device, DeviceBus, DeviceKind, Display, Event, Kind};
+use wad_proto::v1::{BluetoothDevice, Device, DeviceBus, DeviceKind, Display, Event, Kind};
 use wad_proto::{ApiError, ErrorCode};
 
 use super::attach::{Hands, NodeOp};
@@ -73,6 +73,8 @@ struct State {
     handed: BTreeMap<(String, String), Handed>,
     /// Gave an error handing it over: said once, not every tick.
     failed: BTreeSet<(String, String)>,
+    /// Paired Bluetooth devices (BlueZ's), connected or not.
+    bluetooth: Vec<BluetoothDevice>,
 }
 
 pub struct Devices {
@@ -218,27 +220,56 @@ impl Devices {
         self.bus.publish(Event::Devices(self.list()));
     }
 
-    /// Every device: plugged in now, or remembered from before.
+    /// The paired Bluetooth devices, from BlueZ (the Bluetooth service).
+    pub fn set_bluetooth(&self, devices: &[BluetoothDevice]) {
+        let paired: Vec<BluetoothDevice> = devices.iter().filter(|d| d.paired).cloned().collect();
+        let changed = {
+            let mut s = self.state.lock().unwrap();
+            let changed = s.bluetooth != paired;
+            s.bluetooth = paired;
+            changed
+        };
+        if changed {
+            self.publish();
+        }
+    }
+
+    /// Every device: plugged in (Bluetooth: paired) now, or remembered
+    /// from before.
     pub fn list(&self) -> Vec<Device> {
         let s = self.state.lock().unwrap();
-        let mut out: Vec<Device> = s
-            .known
+        let mut keys: BTreeSet<String> = s.known.keys().cloned().collect();
+        keys.extend(s.bluetooth.iter().map(|b| format!("bt:{}", b.address.to_uppercase())));
+        let mut out: Vec<Device> = keys
             .iter()
-            .filter_map(|(key, k)| {
+            .filter_map(|key| {
+                let none = Known::default();
+                let k = s.known.get(key).unwrap_or(&none);
                 let f = s.present.get(key);
-                let kind = f.map(|f| f.kind).or(k.kind)?;
-                let attachable = sysfs::attachable(kind);
-                let present = f.is_some();
+                let bt = key
+                    .strip_prefix("bt:")
+                    .and_then(|a| s.bluetooth.iter().find(|b| b.address.eq_ignore_ascii_case(a)));
+                let kind = f.map(|f| f.kind).or(k.kind).or(bt.map(|b| b.kind))?;
+                // A Bluetooth device is handed out only for nodes it has
+                // (a pad's); the rest work through the machine.
+                let attachable =
+                    sysfs::attachable(kind) && (f.is_some() || bt.is_none() || kind == DeviceKind::Gamepad);
+                let present = f.is_some() || bt.is_some_and(|b| b.connected);
+                let own = f.map(|f| f.name.clone()).or(bt.map(|b| b.name.clone())).unwrap_or(k.own_name.clone());
                 Some(Device {
                     key: key.clone(),
-                    name: k.name.clone().unwrap_or_else(|| f.map_or(k.own_name.clone(), |f| f.name.clone())),
-                    bus: f.map(|f| f.bus).or(k.bus).unwrap_or(DeviceBus::Usb),
+                    name: k.name.clone().unwrap_or(own),
+                    bus: f.map(|f| f.bus).or(k.bus).unwrap_or(if bt.is_some() {
+                        DeviceBus::Bluetooth
+                    } else {
+                        DeviceBus::Usb
+                    }),
                     kind,
                     attachable,
                     present,
                     attached: s.handed.keys().filter(|(_, d)| d == key).map(|(w, _)| w.clone()).collect(),
                     remembered: k.remembered.clone(),
-                    new: attachable && present && !k.asked,
+                    new: attachable && f.is_some() && !k.asked,
                 })
             })
             .collect();
@@ -265,6 +296,19 @@ impl Devices {
         }
         {
             let mut s = self.state.lock().unwrap();
+            // A paired Bluetooth device wadd hasn't seen plugged in yet.
+            if !s.known.contains_key(key)
+                && let Some(b) =
+                    key.strip_prefix("bt:").and_then(|a| s.bluetooth.iter().find(|b| b.address.eq_ignore_ascii_case(a)))
+            {
+                let k = Known {
+                    own_name: b.name.clone(),
+                    kind: Some(b.kind),
+                    bus: Some(DeviceBus::Bluetooth),
+                    ..Known::default()
+                };
+                s.known.insert(key.to_string(), k);
+            }
             let k = s.known.get_mut(key).ok_or_else(|| ApiError::new(ErrorCode::NotFound, "no such device"))?;
             f(k)?;
             k.asked = true;
@@ -283,8 +327,10 @@ impl Devices {
             return Err(bad("this machine can't hand devices to wadspaces (wadd isn't running as root)"));
         }
         let s = self.state.lock().unwrap();
-        let kind = s.present.get(key).map(|f| f.kind).or(s.known.get(key).and_then(|k| k.kind));
-        if kind.is_some_and(|k| !sysfs::attachable(k)) {
+        let bt = key.strip_prefix("bt:").and_then(|a| s.bluetooth.iter().find(|b| b.address.eq_ignore_ascii_case(a)));
+        let kind = s.present.get(key).map(|f| f.kind).or(s.known.get(key).and_then(|k| k.kind)).or(bt.map(|b| b.kind));
+        let bt_only = bt.is_some() && !s.present.contains_key(key) && kind != Some(DeviceKind::Gamepad);
+        if kind.is_some_and(|k| !sysfs::attachable(k)) || bt_only {
             return Err(bad("it works in every wadspace already, through the machine"));
         }
         Ok(())
