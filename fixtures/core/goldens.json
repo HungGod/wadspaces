@@ -6398,21 +6398,6 @@
   ],
   "out": [
    {
-    "name": "Internet",
-    "apps": [
-     {
-      "key": "app:wadbrowser",
-      "name": "WadBrowser",
-      "iconUrl": "/brand/wadbrowser-icon-dark.svg"
-     },
-     {
-      "key": "wadbrowser-focus",
-      "name": "WadBrowser Focus",
-      "iconUrl": "/brand/wadbrowser-icon-dark.svg"
-     }
-    ]
-   },
-   {
     "name": "Office",
     "apps": [
      {
@@ -6872,21 +6857,6 @@
    }
   ],
   "out": [
-   {
-    "name": "Internet",
-    "apps": [
-     {
-      "key": "app:wadbrowser",
-      "name": "WadBrowser",
-      "iconUrl": "/brand/wadbrowser-icon-dark.svg"
-     },
-     {
-      "key": "wadbrowser-focus",
-      "name": "WadBrowser Focus",
-      "iconUrl": "/brand/wadbrowser-icon-dark.svg"
-     }
-    ]
-   },
    {
     "name": "Office",
     "apps": [
@@ -7421,21 +7391,6 @@
    }
   ],
   "out": [
-   {
-    "name": "Internet",
-    "apps": [
-     {
-      "key": "app:wadbrowser",
-      "name": "WadBrowser",
-      "iconUrl": "/brand/wadbrowser-icon-dark.svg"
-     },
-     {
-      "key": "wadbrowser-focus",
-      "name": "WadBrowser Focus",
-      "iconUrl": "/brand/wadbrowser-icon-dark.svg"
-     }
-    ]
-   },
    {
     "name": "Office",
     "apps": [
@@ -8372,11 +8327,6 @@
       "key": "app:wadbrowser",
       "name": "WadBrowser",
       "iconUrl": "/brand/wadbrowser-icon-dark.svg"
-     },
-     {
-      "key": "wadbrowser-focus",
-      "name": "WadBrowser Focus",
-      "iconUrl": "/brand/wadbrowser-icon-dark.svg"
      }
     ]
    },
@@ -8812,7 +8762,7 @@
   "out": [
    {
     "id": "app:wadbrowser",
-    "label": "WadBrowser Focus",
+    "label": "WadBrowser",
     "iconUrl": "/brand/wadbrowser-icon-dark.svg"
    },
    {
@@ -8963,11 +8913,6 @@
       "key": "app:wadbrowser",
       "name": "WadBrowser",
       "iconUrl": "/brand/wadbrowser-icon-dark.svg"
-     },
-     {
-      "key": "wadbrowser-focus",
-      "name": "WadBrowser Focus",
-      "iconUrl": "/brand/wadbrowser-icon-dark.svg"
      }
     ]
    },
@@ -9052,7 +8997,7 @@
   "out": [
    {
     "key": "app:wadbrowser",
-    "name": "WadBrowser Focus",
+    "name": "WadBrowser",
     "iconUrl": "/brand/wadbrowser-icon-dark.svg"
    },
    {
@@ -9133,7 +9078,7 @@
     ]
    }
   ],
-  "out": "{\n  \"version\": 1,\n  \"icons\": [\n    {\n      \"app\": \"wadbrowser\",\n      \"desktop\": \"wadbrowser-focus.desktop\",\n      \"label\": \"WadBrowser Focus\"\n    },\n    {\n      \"app\": \"vscode\",\n      \"desktop\": \"wadspaces-vscode.desktop\",\n      \"label\": \"VS Code\",\n      \"autostart\": true\n    },\n    {\n      \"app\": \"webapp-github\",\n      \"desktop\": \"wadspaces-webapp-github.desktop\",\n      \"label\": \"GitHub\",\n      \"autostart\": true\n    },\n    {\n      \"app\": \"webapp-google-cloud\",\n      \"desktop\": \"wadspaces-webapp-google-cloud.desktop\",\n      \"label\": \"Google Cloud\"\n    },\n    {\n      \"app\": \"webapp-odd-x-\",\n      \"desktop\": \"wadspaces-webapp-odd-x-.desktop\",\n      \"label\": \"Odd \\\"$x\\\"\"\n    }\n  ]\n}\n"
+  "out": "{\n  \"version\": 1,\n  \"icons\": [\n    {\n      \"app\": \"wadbrowser\",\n      \"desktop\": \"wadbrowser.desktop\",\n      \"label\": \"WadBrowser\"\n    },\n    {\n      \"app\": \"vscode\",\n      \"desktop\": \"wadspaces-vscode.desktop\",\n      \"label\": \"VS Code\",\n      \"autostart\": true\n    },\n    {\n      \"app\": \"webapp-github\",\n      \"desktop\": \"wadspaces-webapp-github.desktop\",\n      \"label\": \"GitHub\",\n      \"autostart\": true\n    },\n    {\n      \"app\": \"webapp-google-cloud\",\n      \"desktop\": \"wadspaces-webapp-google-cloud.desktop\",\n      \"label\": \"Google Cloud\"\n    },\n    {\n      \"app\": \"webapp-odd-x-\",\n      \"desktop\": \"wadspaces-webapp-odd-x-.desktop\",\n      \"label\": \"Odd \\\"$x\\\"\"\n    }\n  ]\n}\n"
  },
  {
   "fn": "importable",
@@ -9625,11 +9570,6 @@
       "key": "app:wadbrowser",
       "name": "WadBrowser",
       "iconUrl": "/brand/wadbrowser-icon-dark.svg"
-     },
-     {
-      "key": "wadbrowser-focus",
-      "name": "WadBrowser Focus",
-      "iconUrl": "/brand/wadbrowser-icon-dark.svg"
      }
     ]
    },
@@ -10093,14 +10033,14 @@
     },
     {
      "path": "root/etc/wadspaces/layout.json",
-     "content": "{\n  \"version\": 1,\n  \"icons\": [\n    {\n      \"app\": \"wadbrowser\",\n      \"desktop\": \"wadbrowser-focus.desktop\",\n      \"label\": \"WadBrowser Focus\"\n    },\n    {\n      \"app\": \"vscode\",\n      \"desktop\": \"wadspaces-vscode.desktop\",\n      \"label\": \"VS Code\",\n      \"autostart\": true\n    },\n    {\n      \"app\": \"webapp-github\",\n      \"desktop\": \"wadspaces-webapp-github.desktop\",\n      \"label\": \"GitHub\",\n      \"autostart\": true\n    },\n    {\n      \"app\": \"webapp-google-cloud\",\n      \"desktop\": \"wadspaces-webapp-google-cloud.desktop\",\n      \"label\": \"Google Cloud\"\n    },\n    {\n      \"app\": \"webapp-odd-x-\",\n      \"desktop\": \"wadspaces-webapp-odd-x-.desktop\",\n      \"label\": \"Odd \\\"$x\\\"\"\n    }\n  ]\n}\n"
+     "content": "{\n  \"version\": 1,\n  \"icons\": [\n    {\n      \"app\": \"wadbrowser\",\n      \"desktop\": \"wadbrowser.desktop\",\n      \"label\": \"WadBrowser\"\n    },\n    {\n      \"app\": \"vscode\",\n      \"desktop\": \"wadspaces-vscode.desktop\",\n      \"label\": \"VS Code\",\n      \"autostart\": true\n    },\n    {\n      \"app\": \"webapp-github\",\n      \"desktop\": \"wadspaces-webapp-github.desktop\",\n      \"label\": \"GitHub\",\n      \"autostart\": true\n    },\n    {\n      \"app\": \"webapp-google-cloud\",\n      \"desktop\": \"wadspaces-webapp-google-cloud.desktop\",\n      \"label\": \"Google Cloud\"\n    },\n    {\n      \"app\": \"webapp-odd-x-\",\n      \"desktop\": \"wadspaces-webapp-odd-x-.desktop\",\n      \"label\": \"Odd \\\"$x\\\"\"\n    }\n  ]\n}\n"
     },
     {
      "path": "root/etc/wadspaces/wadbrowser.conf",
      "content": "# WadBrowser's settings for this workspace, from its WadSpaces Client design (a\n# user's own go in ~/.config/wadbrowser/wadbrowser.conf).\n#\n# What links open in: full (tabs and an address bar) or focus (no address bar).\ndefault = focus\n"
     }
    ],
-   "sha": "684efd8bbf697dfee7c1c3d852478e1db9a950d9379bc745d2394baa4d576bd2"
+   "sha": "2293a8c51bc04325130fffb24bc842aab07fc94a7ae394d755f9a9eadd69d0b9"
   }
  },
  {
@@ -10351,14 +10291,14 @@
     },
     {
      "path": "root/etc/wadspaces/layout.json",
-     "content": "{\n  \"version\": 1,\n  \"icons\": [\n    {\n      \"app\": \"wadbrowser\",\n      \"desktop\": \"wadbrowser-focus.desktop\",\n      \"label\": \"WadBrowser Focus\"\n    },\n    {\n      \"app\": \"vscode\",\n      \"desktop\": \"wadspaces-vscode.desktop\",\n      \"label\": \"VS Code\",\n      \"autostart\": true\n    },\n    {\n      \"app\": \"webapp-github\",\n      \"desktop\": \"wadspaces-webapp-github.desktop\",\n      \"label\": \"GitHub\",\n      \"autostart\": true\n    },\n    {\n      \"app\": \"webapp-google-cloud\",\n      \"desktop\": \"wadspaces-webapp-google-cloud.desktop\",\n      \"label\": \"Google Cloud\"\n    },\n    {\n      \"app\": \"webapp-odd-x-\",\n      \"desktop\": \"wadspaces-webapp-odd-x-.desktop\",\n      \"label\": \"Odd \\\"$x\\\"\"\n    }\n  ]\n}\n"
+     "content": "{\n  \"version\": 1,\n  \"icons\": [\n    {\n      \"app\": \"wadbrowser\",\n      \"desktop\": \"wadbrowser.desktop\",\n      \"label\": \"WadBrowser\"\n    },\n    {\n      \"app\": \"vscode\",\n      \"desktop\": \"wadspaces-vscode.desktop\",\n      \"label\": \"VS Code\",\n      \"autostart\": true\n    },\n    {\n      \"app\": \"webapp-github\",\n      \"desktop\": \"wadspaces-webapp-github.desktop\",\n      \"label\": \"GitHub\",\n      \"autostart\": true\n    },\n    {\n      \"app\": \"webapp-google-cloud\",\n      \"desktop\": \"wadspaces-webapp-google-cloud.desktop\",\n      \"label\": \"Google Cloud\"\n    },\n    {\n      \"app\": \"webapp-odd-x-\",\n      \"desktop\": \"wadspaces-webapp-odd-x-.desktop\",\n      \"label\": \"Odd \\\"$x\\\"\"\n    }\n  ]\n}\n"
     },
     {
      "path": "root/etc/wadspaces/wadbrowser.conf",
      "content": "# WadBrowser's settings for this workspace, from its WadSpaces Client design (a\n# user's own go in ~/.config/wadbrowser/wadbrowser.conf).\n#\n# What links open in: full (tabs and an address bar) or focus (no address bar).\ndefault = focus\n"
     }
    ],
-   "sha": "28ddbf8c81d1c1b636883387b8630d10902f6a06c8bf00ebd395a0b69764f7d5"
+   "sha": "728e3fb8fbab33621e1fcb5b47593b23ae6629dc4a437f671949d9dce74803ca"
   }
  },
  {
@@ -10573,21 +10513,6 @@
       "key": "app:steam",
       "name": "Steam",
       "iconUrl": "/apps/steam/icon.png"
-     }
-    ]
-   },
-   {
-    "name": "Internet",
-    "apps": [
-     {
-      "key": "app:wadbrowser",
-      "name": "WadBrowser",
-      "iconUrl": "/brand/wadbrowser-icon-dark.svg"
-     },
-     {
-      "key": "wadbrowser-focus",
-      "name": "WadBrowser Focus",
-      "iconUrl": "/brand/wadbrowser-icon-dark.svg"
      }
     ]
    },
@@ -11112,21 +11037,6 @@
       "key": "app:steam",
       "name": "Steam",
       "iconUrl": "/apps/steam/icon.png"
-     }
-    ]
-   },
-   {
-    "name": "Internet",
-    "apps": [
-     {
-      "key": "app:wadbrowser",
-      "name": "WadBrowser",
-      "iconUrl": "/brand/wadbrowser-icon-dark.svg"
-     },
-     {
-      "key": "wadbrowser-focus",
-      "name": "WadBrowser Focus",
-      "iconUrl": "/brand/wadbrowser-icon-dark.svg"
      }
     ]
    },
@@ -11723,21 +11633,6 @@
       "key": "app:steam",
       "name": "Steam",
       "iconUrl": "/apps/steam/icon.png"
-     }
-    ]
-   },
-   {
-    "name": "Internet",
-    "apps": [
-     {
-      "key": "app:wadbrowser",
-      "name": "WadBrowser",
-      "iconUrl": "/brand/wadbrowser-icon-dark.svg"
-     },
-     {
-      "key": "wadbrowser-focus",
-      "name": "WadBrowser Focus",
-      "iconUrl": "/brand/wadbrowser-icon-dark.svg"
      }
     ]
    },
@@ -12729,21 +12624,6 @@
     ]
    },
    {
-    "name": "Internet",
-    "apps": [
-     {
-      "key": "app:wadbrowser",
-      "name": "WadBrowser",
-      "iconUrl": "/brand/wadbrowser-icon-dark.svg"
-     },
-     {
-      "key": "wadbrowser-focus",
-      "name": "WadBrowser Focus",
-      "iconUrl": "/brand/wadbrowser-icon-dark.svg"
-     }
-    ]
-   },
-   {
     "name": "System",
     "apps": [
      {
@@ -13293,21 +13173,6 @@
       "key": "app:vscode",
       "name": "VS Code",
       "iconUrl": "/apps/vscode/icon.png"
-     }
-    ]
-   },
-   {
-    "name": "Internet",
-    "apps": [
-     {
-      "key": "app:wadbrowser",
-      "name": "WadBrowser",
-      "iconUrl": "/brand/wadbrowser-icon-dark.svg"
-     },
-     {
-      "key": "wadbrowser-focus",
-      "name": "WadBrowser Focus",
-      "iconUrl": "/brand/wadbrowser-icon-dark.svg"
      }
     ]
    },
@@ -13934,21 +13799,6 @@
       "key": "app:vscode",
       "name": "VS Code",
       "iconUrl": "/apps/vscode/icon.png"
-     }
-    ]
-   },
-   {
-    "name": "Internet",
-    "apps": [
-     {
-      "key": "app:wadbrowser",
-      "name": "WadBrowser",
-      "iconUrl": "/brand/wadbrowser-icon-dark.svg"
-     },
-     {
-      "key": "wadbrowser-focus",
-      "name": "WadBrowser Focus",
-      "iconUrl": "/brand/wadbrowser-icon-dark.svg"
      }
     ]
    },
@@ -14851,21 +14701,6 @@
   ],
   "out": [
    {
-    "name": "Internet",
-    "apps": [
-     {
-      "key": "app:wadbrowser",
-      "name": "WadBrowser",
-      "iconUrl": "/brand/wadbrowser-icon-dark.svg"
-     },
-     {
-      "key": "wadbrowser-focus",
-      "name": "WadBrowser Focus",
-      "iconUrl": "/brand/wadbrowser-icon-dark.svg"
-     }
-    ]
-   },
-   {
     "name": "System",
     "apps": [
      {
@@ -15274,21 +15109,6 @@
    }
   ],
   "out": [
-   {
-    "name": "Internet",
-    "apps": [
-     {
-      "key": "app:wadbrowser",
-      "name": "WadBrowser",
-      "iconUrl": "/brand/wadbrowser-icon-dark.svg"
-     },
-     {
-      "key": "wadbrowser-focus",
-      "name": "WadBrowser Focus",
-      "iconUrl": "/brand/wadbrowser-icon-dark.svg"
-     }
-    ]
-   },
    {
     "name": "System",
     "apps": [
@@ -15770,21 +15590,6 @@
    }
   ],
   "out": [
-   {
-    "name": "Internet",
-    "apps": [
-     {
-      "key": "app:wadbrowser",
-      "name": "WadBrowser",
-      "iconUrl": "/brand/wadbrowser-icon-dark.svg"
-     },
-     {
-      "key": "wadbrowser-focus",
-      "name": "WadBrowser Focus",
-      "iconUrl": "/brand/wadbrowser-icon-dark.svg"
-     }
-    ]
-   },
    {
     "name": "System",
     "apps": [
@@ -16606,21 +16411,6 @@
     ]
    },
    {
-    "name": "Internet",
-    "apps": [
-     {
-      "key": "app:wadbrowser",
-      "name": "WadBrowser",
-      "iconUrl": "/brand/wadbrowser-icon-dark.svg"
-     },
-     {
-      "key": "wadbrowser-focus",
-      "name": "WadBrowser Focus",
-      "iconUrl": "/brand/wadbrowser-icon-dark.svg"
-     }
-    ]
-   },
-   {
     "name": "System",
     "apps": [
      {
@@ -17069,21 +16859,6 @@
       "key": "app:krita",
       "name": "Krita",
       "iconUrl": "/apps/krita/icon.png"
-     }
-    ]
-   },
-   {
-    "name": "Internet",
-    "apps": [
-     {
-      "key": "app:wadbrowser",
-      "name": "WadBrowser",
-      "iconUrl": "/brand/wadbrowser-icon-dark.svg"
-     },
-     {
-      "key": "wadbrowser-focus",
-      "name": "WadBrowser Focus",
-      "iconUrl": "/brand/wadbrowser-icon-dark.svg"
      }
     ]
    },
@@ -17608,21 +17383,6 @@
       "key": "app:krita",
       "name": "Krita",
       "iconUrl": "/apps/krita/icon.png"
-     }
-    ]
-   },
-   {
-    "name": "Internet",
-    "apps": [
-     {
-      "key": "app:wadbrowser",
-      "name": "WadBrowser",
-      "iconUrl": "/brand/wadbrowser-icon-dark.svg"
-     },
-     {
-      "key": "wadbrowser-focus",
-      "name": "WadBrowser Focus",
-      "iconUrl": "/brand/wadbrowser-icon-dark.svg"
      }
     ]
    },

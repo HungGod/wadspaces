@@ -110,6 +110,18 @@ if [[ -s "${CONF}/vscode-extensions.list" ]]; then
     asabc /usr/local/bin/wadspaces-vscode-extensions --seed /config
 fi
 
+# ---------------------------------------------------------- WadBrowser
+# The base carries WadBrowser for every image (links open in it), but its
+# launcher is in the menus only when the wadspace has WadBrowser: its
+# template's layout.json then has WadBrowser's icon (an image with no
+# layout.json, made by hand, keeps it). One launcher, full or focus as
+# /etc/wadspaces/wadbrowser.conf says.
+if [[ ! -f "${CONF}/layout.json" ]] || grep -q '"app": *"wadbrowser"' "${CONF}/layout.json"; then
+    cp /usr/local/share/wadspaces/launchers/wadbrowser.desktop /usr/share/applications/wadbrowser.desktop
+else
+    rm -f /usr/share/applications/wadbrowser.desktop
+fi
+
 # ---------------------------------------------------------- desktop icons
 # selkies-desktop draws an icon for every .desktop file in $HOME/Desktop. The
 # entries are shipped in /usr/share/applications and copied here each boot.

@@ -408,12 +408,10 @@ pub fn opens_folders(template: &Value) -> bool {
     apps_of(template).iter().any(|a| a.opens_folders)
 }
 
-fn app_label(app: &App, setup: &Value) -> String {
-    if app.id == "wadbrowser" && s(setup, "browserMode") == "focus" {
-        "WadBrowser Focus".into()
-    } else {
-        app.name.clone()
-    }
+/// An app's name on the desktop. WadBrowser is one app whichever way it
+/// opens (focus is its Extensions' setting, not another app).
+fn app_label(app: &App, _setup: &Value) -> String {
+    app.name.clone()
 }
 
 /// What the image puts on the desktop, in selkies-desktop's order: the
@@ -453,12 +451,14 @@ pub fn start_menu_for(template: &Value, setup: &Value) -> Vec<Value> {
     const BROWSER: &str = "/brand/wadbrowser-icon-dark.svg";
     const FOOT: &str = "/catalog/terminal.png";
     let mut entries: Vec<(String, String, String, String)> = vec![
-        ("app:wadbrowser".into(), "WadBrowser".into(), BROWSER.into(), "Internet".into()),
-        ("wadbrowser-focus".into(), "WadBrowser Focus".into(), BROWSER.into(), "Internet".into()),
         ("foot".into(), "Foot".into(), FOOT.into(), "System".into()),
         ("footclient".into(), "Foot Client".into(), FOOT.into(), "System".into()),
         ("foot-server".into(), "Foot Server".into(), FOOT.into(), "System".into()),
     ];
+    // WadBrowser is in the base, but in the menu only when the template has it.
+    if has_app(template, "wadbrowser") {
+        entries.push(("app:wadbrowser".into(), "WadBrowser".into(), BROWSER.into(), "Internet".into()));
+    }
     for app in apps_of(template) {
         // The base's own (WadBrowser, the terminal) are listed already.
         if !matches!(app.recipe, Recipe::Builtin { .. }) {
@@ -507,9 +507,10 @@ pub fn bootables(template: &Value, setup: &Value) -> Vec<Value> {
 
 /// The launcher an app's desktop icon copies.
 fn launcher(app: &App, setup: &Value) -> Option<String> {
+    // One launcher, full or focus as the image's wadbrowser.conf says.
     if app.id == "wadbrowser" {
-        let focus = s(setup, "browserMode") == "focus";
-        return Some(if focus { "wadbrowser-focus.desktop" } else { "wadbrowser.desktop" }.into());
+        let _ = setup;
+        return Some("wadbrowser.desktop".into());
     }
     match &app.recipe {
         Recipe::Feature { desktop, .. } => desktop.first().map(|d| d.to_string()),
@@ -857,6 +858,10 @@ pub fn workspace_for(w: &Value, template: &Value, setup: &Value, opts: &Value) -
     env.insert("WALLPAPER".into(), format!("{WALLPAPER_DIR}/wallpaper.{}", wallpaper_ext(wp)).into());
     // Filling the screen, as the Builder's preview shows it (the base centres).
     env.insert("WALLPAPER_MODE".into(), "fill".into());
+    // Title bars on its windows (its Look's switch; the base has none).
+    if own.get("titleBars").and_then(Value::as_bool) == Some(true) {
+        env.insert("WADSPACES_TITLEBARS".into(), "1".into());
+    }
     let signins = if v3 { signins_v3(w, template, setup) } else { signins_v2(w, template, setup) };
     let mut out = Obj::new();
     out.insert("id".into(), id.into());
