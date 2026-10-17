@@ -114,7 +114,7 @@ fn the_images_workspaces_are_valid() {
     let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../host/usr/lib/wadspaces/workspaces.d");
     let v = read(&dir).unwrap();
     let ids: Vec<&str> = v.iter().map(|w| w.workspace.id.as_str()).collect();
-    assert_eq!(ids, ["browser-focus", "browser", "terminal"]);
+    assert_eq!(ids, ["browser", "terminal"]);
     for w in &v {
         let w = &w.workspace;
         assert_eq!(w.display, Display::Host, "{}", w.id);
