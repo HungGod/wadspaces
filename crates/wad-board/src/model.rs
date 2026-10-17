@@ -121,6 +121,10 @@ pub struct LookSub {
     pub description: String,
     /// `{type, value}`.
     pub wallpaper: Value,
+    /// Windows get title bars (minimize, maximize, close). Off: kept out of
+    /// the JSON, as designs from before it have it.
+    #[serde(default, rename = "titleBars", skip_serializing_if = "std::ops::Not::not")]
+    pub title_bars: bool,
 }
 
 /// Projects: cloned or copied in (never mounted), each at ~/Desktop/<as>.

@@ -123,6 +123,7 @@ fn customization_module(c: &Value, stack_id: &str) -> CustomizationModule {
                 name: name.into(),
                 description: s(c, "description").into(),
                 wallpaper: c.get("wallpaper").cloned().unwrap_or(Value::Null),
+                title_bars: c.get("titleBars").and_then(Value::as_bool).unwrap_or(false),
             }),
             CustomSub::Folders(FoldersSub {
                 id: format!("{id}:folders"),
@@ -216,13 +217,18 @@ pub fn customization_of(m: &CustomizationModule) -> Value {
     if let Some(g) = keys.and_then(|k| k.groups.as_ref()) {
         secrets["groups"] = serde_json::to_value(g).unwrap_or_default();
     }
-    json!({
+    let mut c = json!({
         "name": look.map(|l| l.name.as_str()).unwrap_or(""),
         "description": look.map(|l| l.description.as_str()).unwrap_or(""),
         "wallpaper": look.map(|l| l.wallpaper.clone()).unwrap_or_else(blank_wallpaper),
         "projects": folders_of(m).map(|f| f.mounts.clone()).unwrap_or_default(),
         "secrets": secrets,
-    })
+    });
+    // Only when on: a design from before it reads the same.
+    if look.is_some_and(|l| l.title_bars) {
+        c["titleBars"] = true.into();
+    }
+    c
 }
 
 fn same_set(a: &[String], b: &[String]) -> bool {
@@ -584,5 +590,14 @@ mod tests {
         assert_eq!(slug(&"a".repeat(50)).len(), 40);
         let taken = ["dev", "dev-2"];
         assert_eq!(free_id("Dev", taken.iter().copied()), "dev-3");
+    }
+
+    #[test]
+    fn title_bars_are_kept_only_when_on() {
+        let c = json!({ "name": "Writing", "wallpaper": { "type": "color", "value": "#000" }, "titleBars": true });
+        let m = customization_module(&c, "s1");
+        assert_eq!(customization_of(&m)["titleBars"], true);
+        let off = customization_module(&json!({ "name": "Writing" }), "s1");
+        assert!(customization_of(&off).get("titleBars").is_none(), "a design from before reads the same");
     }
 }

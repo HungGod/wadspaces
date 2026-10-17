@@ -44,6 +44,11 @@ mkdir -p /run/udev/data
 CONF="/config/.config/labwc"
 mkdir -p "${CONF}"
 cp /defaults/labwc-rc.xml "${CONF}/rc.xml"
+# Title bars on windows (minimize, maximize, close): the wadspace's Look says.
+if [[ "${WADSPACES_TITLEBARS:-}" == "1" ]]; then
+    sed -i '/serverDecoration="no"/d' "${CONF}/rc.xml"
+    log "windows have title bars"
+fi
 cp /defaults/labwc-autostart "${CONF}/autostart"
 [[ -f "${CONF}/menu.xml" ]] || cp /defaults/menu_wayland.xml "${CONF}/menu.xml"
 lsiown -R abc:abc /config/.config

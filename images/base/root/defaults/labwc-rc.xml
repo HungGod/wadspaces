@@ -1,9 +1,11 @@
 <labwc_config>
   <!--
     WadSpaces desktop. Written by init-desktop-config every start.
-    Like the streamed images with HARDEN_KEYBINDS + NO_DECOR: no Alt+F4,
-    Alt+Esc, Alt+Space or Super+E, and no title bars (every window is
-    maximized inside the one host window anyway).
+    Like the streamed images with HARDEN_KEYBINDS: no Alt+F4, Alt+Esc,
+    Alt+Space or Super+E. Windows open maximized, with no title bar unless
+    the wadspace's Look turns them on (WADSPACES_TITLEBARS=1: then
+    init-desktop-config drops the serverDecoration rule, and windows get a
+    title bar to minimize, restore or close them).
   -->
   <core>
     <decoration>server</decoration>
@@ -12,6 +14,9 @@
 
   <theme>
     <name>Clearlooks</name>
+    <titlebar>
+      <layout>icon:iconify,max,close</layout>
+    </titlebar>
     <cornerRadius>0</cornerRadius>
   </theme>
 

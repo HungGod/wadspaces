@@ -931,6 +931,7 @@ impl Board {
                             name: name.into(),
                             description: String::new(),
                             wallpaper: blank_wallpaper(),
+                            title_bars: false,
                         }));
                     }
                 }
@@ -1134,6 +1135,7 @@ mod tests {
                 name: name.into(),
                 description: String::new(),
                 wallpaper: blank_wallpaper(),
+                title_bars: false,
             })],
         }
     }

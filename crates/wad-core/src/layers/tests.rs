@@ -150,7 +150,8 @@ fn puts_apps_then_web_apps_then_project_folders_on_the_desktop() {
     assert_eq!(keys(&items, "label"), want);
     let mut focus = academy_dev();
     focus["browserMode"] = "focus".into();
-    assert_eq!(desktop_for(&dev(), &focus, &[])[0]["label"], "WadBrowser Focus");
+    // Focus is how WadBrowser opens (wadbrowser.conf), not another app.
+    assert_eq!(desktop_for(&dev(), &focus, &[])[0]["label"], "WadBrowser");
     // Nothing in Writing opens a folder in a window: its projects are mounted with no icon.
     let w = desktop_for(&writing(), &empty_setup("writing"), &[json!({ "id": "writing", "name": "Writing" })]);
     assert_eq!(keys(&w, "label"), ["Obsidian"]);
@@ -172,12 +173,17 @@ fn lists_every_launcher_in_the_start_menu_by_category() {
     let menu = start_menu_for(&dev(), &academy_dev());
     assert_eq!(keys(&menu, "name"), ["Development", "Internet", "System"]);
     let internet = keys(menu[1]["apps"].as_array().unwrap(), "name");
-    for n in ["WadBrowser", "WadBrowser Focus", "GitHub", "Gmail"] {
+    for n in ["WadBrowser", "GitHub", "Gmail"] {
         assert!(internet.contains(&n.to_string()), "{n}");
     }
     let mut sorted = internet.clone();
     sorted.sort_by_key(|n| n.to_lowercase());
     assert_eq!(internet, sorted);
+    assert!(!internet.contains(&"WadBrowser Focus".to_string()), "one WadBrowser");
+    // A template without WadBrowser has none in its menu.
+    let writing_menu = start_menu_for(&writing(), &empty_setup("writing"));
+    let all: Vec<String> = writing_menu.iter().flat_map(|c| keys(c["apps"].as_array().unwrap(), "name")).collect();
+    assert!(!all.iter().any(|n| n.starts_with("WadBrowser")), "{all:?}");
 }
 
 #[test]
@@ -501,6 +507,12 @@ fn a_stack_installs_with_its_keys_and_each_group_member_signing_in_with_its_grou
     assert_eq!(ws["image"], "localhost/wadspaces-custom-academy-dev:latest");
     assert_eq!(ws["name"], "Vanua Academy");
     assert_eq!(ws["env"]["WALLPAPER"], "/run/wadspaces-extra/wallpaper.png");
+    // Title bars: only when its Look turns them on.
+    assert!(ws["env"].get("WADSPACES_TITLEBARS").is_none());
+    let mut barred = w.clone();
+    barred["customization"]["titleBars"] = true.into();
+    let ws_b = workspace_for(&barred, &dev(), &setup_of(&academy_dev()), &json!({}));
+    assert_eq!(ws_b["env"]["WADSPACES_TITLEBARS"], "1");
     let signins: Vec<(String, String)> = ws["signins"]
         .as_array()
         .unwrap()

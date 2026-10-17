@@ -134,6 +134,33 @@ pub fn build(ed: &Rc<Editor>) -> gtk::Widget {
         }
     });
     fields.append(&field("Background", &wad_gtk::Width::new(&picker, 456)));
+    // Title bars on its windows: minimize, maximize and close (off: every
+    // window fills the wadspace with none). Set when it next starts.
+    let bars_row = gtk::Box::new(gtk::Orientation::Horizontal, 12);
+    bars_row.add_css_class("cz-switch");
+    let bars_text = gtk::Box::new(gtk::Orientation::Vertical, 2);
+    bars_text.set_hexpand(true);
+    let bars_title = gtk::Label::new(Some("Window title bars"));
+    bars_title.set_xalign(0.0);
+    let bars_hint = faint("Minimize, maximize and close on each window. Takes effect when the wadspace next starts.");
+    bars_text.append(&bars_title);
+    bars_text.append(&bars_hint);
+    let bars = gtk::Switch::new();
+    bars.set_valign(gtk::Align::Center);
+    bars.set_active(l.title_bars);
+    let w = Rc::downgrade(ed);
+    bars.connect_active_notify(move |s| {
+        if let Some(ed) = w.upgrade() {
+            let d = draft_of(&ed);
+            let mut l = look(&d);
+            l.title_bars = s.is_active();
+            put(&ed, CustomSub::Look(l));
+        }
+    });
+    bars_row.append(&bars_text);
+    bars_row.append(&bars);
+    bars_row.set_margin_top(12);
+    fields.append(&bars_row);
     look_panel.append(&fields);
     let mini = gtk::Box::new(gtk::Orientation::Vertical, 0);
     mini.set_valign(gtk::Align::Start);

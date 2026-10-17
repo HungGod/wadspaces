@@ -192,6 +192,7 @@ pub fn blank_look() -> LookSub {
         name: String::new(),
         description: String::new(),
         wallpaper: blank_wallpaper(),
+        title_bars: false,
     }
 }
 
