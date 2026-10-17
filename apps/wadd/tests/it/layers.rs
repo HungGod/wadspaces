@@ -513,7 +513,7 @@ async fn the_disk_report_counts_each_layers_own_share_and_each_home() {
 
     // Its desktop, kept for the switcher: the template's apps, then the web apps.
     let desktop: Vec<String> = e.reg.workspace("academy").unwrap().desktop.iter().map(|d| d.label.clone()).collect();
-    assert_eq!(desktop, ["WadBrowser Focus", "VS Code", "GitHub"]);
+    assert_eq!(desktop, ["WadBrowser", "VS Code", "GitHub"]);
 
     let backend: Arc<dyn wadd::backend::Backend> = Arc::new(e.fake.clone());
     let r = wadd::storage::Storage::new(&e.state, false, backend, e.reg.clone(), e.bus.clone()).report(true).await;

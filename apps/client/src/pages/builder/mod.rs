@@ -949,7 +949,7 @@ fn buckets(panel: &gtk::Box) -> gtk::Widget {
             let (picked, deleted, stacks) =
                 state::read(|s| (s.board.selected.clone(), s.board.deleted.len(), s.board.stacks.clone()));
             let (count, skipped, building) = store().read_now(|s| {
-                let building = stacks.iter().filter(|st| state::stack_building(st, s)).count();
+                let building = state::images_building(&stacks, s);
                 let waiting: Vec<&Stack> = stacks
                     .iter()
                     .filter(|st| {
@@ -986,8 +986,8 @@ fn buckets(panel: &gtk::Box) -> gtk::Widget {
             b_name.set_text(if sel { "Build selected" } else { "Build all" });
             b_count.set_text(&count.to_string());
             b_count.set_visible(count > 0);
-            b_small.set_text(&if building > 0 {
-                format!("Building {building}…")
+            b_small.set_text(&if !building.is_empty() {
+                format!("Building {}…", building.join(", "))
             } else if count > 0 {
                 if skipped > 0 && !sel {
                     format!("{skipped} more need{} fixing or a template", if skipped == 1 { "s" } else { "" })

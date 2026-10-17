@@ -411,11 +411,57 @@ pub fn counts(stack: &Stack, s: &AppState) -> (usize, usize) {
     )
 }
 
+/// An image in words: its module's name and what it is ("Dev (template)").
+fn image_label(m: &Module) -> String {
+    let kind = match m {
+        Module::Template(_) => "template",
+        Module::Extensions(_) => "Extensions",
+        Module::Customization(_) => "Customization",
+    };
+    format!("{} ({kind})", wad_board::module_name(m))
+}
+
+/// The images a stack's build makes or brings up to date, as (layer key,
+/// words), template first.
+pub fn images_to_build(stack: &Stack, s: &AppState) -> Vec<(String, String)> {
+    stack
+        .modules()
+        .iter()
+        .filter(|m| matches!(built(m, s), Standing::Unbuilt | Standing::Update))
+        .filter_map(|m| wad_board::board::image_of(m).map(|k| (k, image_label(m))))
+        .collect()
+}
+
+/// The images building now, in words (each once, though stacks share them).
+pub fn images_building(stacks: &[Stack], s: &AppState) -> Vec<String> {
+    let mut out: Vec<(String, String)> = vec![];
+    for st in stacks {
+        for m in &st.modules() {
+            if let Some(k) = wad_board::board::image_of(m)
+                && building(&k, s)
+                && !out.iter().any(|(x, _)| *x == k)
+            {
+                out.push((k, image_label(m)));
+            }
+        }
+    }
+    out.into_iter().map(|(_, l)| l).collect()
+}
+
+/// A list in words: "a, b and c".
+fn and_list(xs: &[String]) -> String {
+    match xs {
+        [] => String::new(),
+        [one] => one.clone(),
+        [rest @ .., last] => format!("{} and {last}", rest.join(", ")),
+    }
+}
+
 /// Builds the images a stack doesn't have yet (installing it first).
 pub fn build_stack(id: &str) {
     let (stack, why, counts) = store().read_now(|s| {
         let stack = read(|st| st.board.stack(id).cloned());
-        let Some(stack) = stack else { return (None, None, (0, 0)) };
+        let Some(stack) = stack else { return (None, None, vec![]) };
         let name = wad_board::stack_name(&stack);
         let why = if stack_building(&stack, s) {
             Some(String::new())
@@ -428,7 +474,7 @@ pub fn build_stack(id: &str) {
         } else {
             None
         };
-        let c = counts(&stack, s);
+        let c = images_to_build(&stack, s);
         (Some(stack), why, c)
     });
     let Some(stack) = stack else { return };
@@ -437,23 +483,16 @@ pub fn build_stack(id: &str) {
         Some(w) => crate::toast::show(&w, None, crate::toast::Tone::Info),
         None => {
             let name = wad_board::stack_name(&stack);
-            let (todo, updates) = counts;
-            let plural = |n: usize| format!("{n} image{}", if n == 1 { "" } else { "s" });
+            let images: Vec<String> = counts.into_iter().map(|(_, l)| l).collect();
             let id = id.to_string();
             crate::tour::signal(crate::tour::Event::BuildStarted);
             glib::spawn_future_local(async move {
                 match launch::build_here(id).await {
                     Ok(()) => crate::toast::show(
-                        &if todo > 0 {
-                            format!("Building {name}: {}", plural(todo))
-                        } else if updates > 0 {
-                            format!(
-                                "Updating {name}: {}, on what's under {} now",
-                                plural(updates),
-                                if updates == 1 { "it" } else { "them" }
-                            )
-                        } else {
+                        &if images.is_empty() {
                             format!("{name} is installed, its images built already")
+                        } else {
+                            format!("Building {} for {name}", and_list(&images))
                         },
                         None,
                         crate::toast::Tone::Info,
@@ -517,13 +556,24 @@ pub fn build_all(only: Option<Vec<String>>) {
             .into_iter()
             .flatten()
             .collect();
-    let updating = store().read_now(|s| ready.iter().filter(|st| counts(st, s).0 == 0).count());
+    // Exactly the images: each once, though stacks share them.
+    let images: Vec<String> = store().read_now(|s| {
+        let mut seen: Vec<(String, String)> = vec![];
+        for st in &ready {
+            for (k, l) in images_to_build(st, s) {
+                if !seen.iter().any(|(x, _)| *x == k) {
+                    seen.push((k, l));
+                }
+            }
+        }
+        seen.into_iter().map(|(_, l)| l).collect()
+    });
     crate::toast::show(
         &format!(
-            "Building {} wadspace{}{}{}",
-            ready.len(),
-            if ready.len() == 1 { "" } else { "s" },
-            if updating > 0 { format!(" ({updating} an update)") } else { String::new() },
+            "Building {} image{}: {}{}",
+            images.len(),
+            if images.len() == 1 { "" } else { "s" },
+            and_list(&images),
             if skipped.is_empty() { String::new() } else { format!("; skipped: {}", skipped.join("; ")) }
         ),
         None,
