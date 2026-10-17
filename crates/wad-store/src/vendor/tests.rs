@@ -162,3 +162,23 @@ fn the_machines_own_apps_come_back_when_lost_and_wadspaces_dont() {
     // And then it's there: nothing to do.
     assert!(apply(&mut list, &mut book, &v).changed.is_empty());
 }
+
+#[test]
+fn an_app_the_image_stops_shipping_goes_and_a_wadspace_stays() {
+    let d = tempfile::tempdir().unwrap();
+    write(d.path(), "terminal.toml", "name = \"WadTerminal\"\nkind = \"app\"\nexec = [\"/usr/bin/foot\"]\n");
+    write(d.path(), "browser-focus.toml", "name = \"Focus\"\nkind = \"app\"\nexec = [\"/usr/bin/wadbrowser\"]\n");
+    write(d.path(), "writing.toml", WRITING);
+    let (mut list, mut book) = (vec![], Book::default());
+    apply(&mut list, &mut book, &read(d.path()).unwrap());
+    assert_eq!(list.len(), 3);
+    // The next image has neither the Focus app nor the writing wadspace.
+    std::fs::remove_file(d.path().join("browser-focus.toml")).unwrap();
+    std::fs::remove_file(d.path().join("writing.toml")).unwrap();
+    let a = apply(&mut list, &mut book, &read(d.path()).unwrap());
+    assert_eq!(a.changed, ["browser-focus"]);
+    let ids: Vec<&str> = list.iter().map(|w| w.id.as_str()).collect();
+    assert_eq!(ids.len(), 2, "{ids:?}");
+    assert!(!ids.contains(&"browser-focus") && ids.contains(&"writing") && ids.contains(&"terminal"));
+    assert!(!book.contains_key("browser-focus"));
+}

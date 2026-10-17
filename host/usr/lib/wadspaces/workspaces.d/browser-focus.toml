@@ -1,8 +1,0 @@
-# WadBrowser Focus on the machine itself: tabs and no address bar, so pages
-# only arrive by links. A WadBrowser of its own (--instance focus), beside the
-# plain one (browser.toml) and any WadBrowser setup the launcher starts, so
-# each is its own process and wadd credits its windows to it.
-name = "WadBrowser Focus"
-kind = "app"
-exec = ["/usr/bin/wadbrowser", "--instance", "focus", "--no-urlbar"]
-icon = "/usr/share/wadspaces/icons/browser.png"

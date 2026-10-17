@@ -1,10 +1,11 @@
 //! The launcher (the web app's components/launcher/Launcher.tsx): the
 //! wadspaces, each its own desktop, and what runs on the machine beside
-//! them (WadBrowser, WadBrowser Focus, saved WadBrowser setups, the
-//! terminal). Pick any mix, then launch, or launch in focus mode for a set
-//! time. A wadspace or a WadBrowser can be customized first: only what a
-//! run changes (a wadspace's background and keys; WadBrowser's mode, web
-//! apps and their sign-ins), then saved, or run once and thrown away.
+//! them (WadBrowser, saved WadBrowser setups, the terminal). Pick any mix,
+//! then launch, or launch in focus mode for a set time. A wadspace or a
+//! WadBrowser can be customized first: only what a run changes (a
+//! wadspace's background and keys; WadBrowser's web apps and their
+//! sign-ins), then saved, or run once and thrown away. WadBrowser's also
+//! opens any wadspace's own web apps as that wadspace has them.
 
 use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
@@ -68,12 +69,10 @@ fn browser_detail(mode: &str, webapps: &[Value]) -> String {
     format!("{bar} · {}", if apps.is_empty() { "no web apps".to_string() } else { apps.join(", ") })
 }
 
-/// The two WadBrowsers every machine has.
-fn default_browsers() -> [Value; 2] {
-    [
-        json!({ "id": "wadbrowser", "name": "WadBrowser", "mode": "browser", "webapps": [], "secrets": {} }),
-        json!({ "id": "wadbrowser-focus", "name": "WadBrowser Focus", "mode": "focus", "webapps": [], "secrets": {} }),
-    ]
+/// The WadBrowser every machine has. (Focus is how a wadspace's Extensions
+/// set WadBrowser up, not another app.)
+fn default_browsers() -> [Value; 1] {
+    [json!({ "id": "wadbrowser", "name": "WadBrowser", "mode": "browser", "webapps": [], "secrets": {} })]
 }
 
 fn entries(st: &AppState, images: &HashMap<String, ImageRow>) -> (Vec<Entry>, Vec<Entry>) {
@@ -111,7 +110,7 @@ fn entries(st: &AppState, images: &HashMap<String, ImageRow>) -> (Vec<Entry>, Ve
         .into_iter()
         .map(|b| Entry {
             id: format!("b:{}", s(&b, "id")),
-            item: RunItem::App(if s(&b, "id") == "wadbrowser" { "browser" } else { "browser-focus" }.into()),
+            item: RunItem::App("browser".into()),
             label: s(&b, "name").into(),
             detail: browser_detail(s(&b, "mode"), &[]),
             wadspace: None,
@@ -938,9 +937,88 @@ impl Flow {
         }
     }
 
-    /// A WadBrowser run: with an address bar or Focus, web apps to open, and
-    /// their sign-ins (shared or their own). Saved to launch later, or run
-    /// once.
+    /// The wadspaces' own web apps, by wadspace: each opens in one click in
+    /// a WadBrowser of its own, signed in as in its wadspace (None: no
+    /// wadspace has any).
+    fn from_wadspaces(self: &Rc<Self>) -> Option<gtk::Widget> {
+        let groups: Vec<(String, String, Vec<Value>)> = store().read_now(|st| {
+            let lib = st.library.as_ref().map(|l| l.lib()).unwrap_or_default();
+            st.wadspaces()
+                .into_iter()
+                .filter(|w| w["customization"].is_object())
+                .map(|w| (s(w, "id").to_string(), st.wadspace_name(w), launch::wadspace_webapps(&lib, w)))
+                .filter(|(_, _, apps)| !apps.is_empty())
+                .collect()
+        });
+        if groups.is_empty() {
+            return None;
+        }
+        let sec = gtk::Box::new(gtk::Orientation::Vertical, 4);
+        sec.add_css_class("from-wadspaces");
+        sec.append(&heading(
+            "From your wadspaces",
+            Some("Their web apps, each signed in as it is in its wadspace. Opens right away."),
+        ));
+        for (id, name, apps) in groups {
+            let g = gtk::Label::new(Some(&name));
+            g.add_css_class("small-muted");
+            g.set_xalign(0.0);
+            g.set_margin_top(8);
+            sec.append(&g);
+            for wa in apps {
+                let row = gtk::Box::new(gtk::Orientation::Horizontal, 10);
+                row.add_css_class("webapp-row");
+                let i = gtk::Image::new();
+                i.set_pixel_size(16);
+                crate::images::desktop_icon(
+                    &layers::webapp_icon(s(&wa, "url")),
+                    crate::images::later(&i, |i, t| i.set_paintable(Some(&t))),
+                );
+                row.append(&i);
+                let texts = gtk::Box::new(gtk::Orientation::Vertical, 0);
+                texts.set_hexpand(true);
+                let n = gtk::Label::new(Some(s(&wa, "name")));
+                n.add_css_class("small-14");
+                n.set_xalign(0.0);
+                n.set_ellipsize(gtk::pango::EllipsizeMode::End);
+                texts.append(&n);
+                let u = gtk::Label::new(Some(s(&wa, "url")));
+                u.add_css_class("tiny-muted");
+                u.set_xalign(0.0);
+                u.set_ellipsize(gtk::pango::EllipsizeMode::End);
+                texts.append(&u);
+                row.append(&texts);
+                let open = ui::button("Open", Some("play"), Variant::Secondary, Size::Sm);
+                open.set_tooltip_text(Some(&format!("Open {} as {name} has it", s(&wa, "name"))));
+                let (me, from, webapp, label) =
+                    (self.clone(), id.clone(), s(&wa, "id").to_string(), format!("{name} · {}", s(&wa, "name")));
+                open.connect_clicked(move |b| {
+                    b.set_sensitive(false);
+                    let item = RunItem::WadspaceWebApp { from: from.clone(), webapp: webapp.clone() };
+                    let (me, b, label) = (me.clone(), b.clone(), label.clone());
+                    glib::spawn_future_local(async move {
+                        match launch::launch(vec![item], None).await {
+                            Ok(_) => {
+                                crate::toast::show(&format!("Opening {label}"), None, crate::toast::Tone::Success);
+                                me.modal.close();
+                            }
+                            Err(e) => {
+                                crate::toast::error("Couldn't open it", &e);
+                                b.set_sensitive(true);
+                            }
+                        }
+                    });
+                });
+                row.append(&open);
+                sec.append(&row);
+            }
+        }
+        Some(sec.upcast())
+    }
+
+    /// A WadBrowser run: web apps to open and their sign-ins (shared or their
+    /// own), saved to launch later or run once; and, first, the wadspaces'
+    /// own web apps, each opened as its wadspace has it in one click.
     fn browser_run(self: &Rc<Self>, base: Value, saved_id: Option<String>) {
         self.leave_pick();
         let body = self.modal.body();
@@ -974,10 +1052,9 @@ impl Flow {
         let (foot, problems) = self.run_foot(&[&run_b, &update_b, &save_b]);
         body.append(&foot);
 
-        let modes = gtk::Grid::new();
-        modes.set_column_homogeneous(true);
-        modes.set_column_spacing(8);
-        col.append(&modes);
+        if let Some(from) = self.from_wadspaces() {
+            col.append(&from);
+        }
         let apps_sec = gtk::Box::new(gtk::Orientation::Vertical, 4);
         col.append(&apps_sec);
         let keys_sec = gtk::Box::new(gtk::Orientation::Vertical, 0);
@@ -1054,7 +1131,6 @@ impl Flow {
             })
         };
         redraw.replace(Some(draw.clone()));
-        draw_modes(&modes, &mode);
         draw();
         let ch = check.clone();
         name.connect_changed(move |_| ch());
@@ -1075,19 +1151,13 @@ impl Flow {
             })
         };
         {
-            let (me, config, resolved, name, mode, check) =
-                (self.clone(), config.clone(), resolved.clone(), name.clone(), mode.clone(), check.clone());
+            let (me, config, resolved, name, check) =
+                (self.clone(), config.clone(), resolved.clone(), name.clone(), check.clone());
             run_b.connect_clicked(move |b| {
                 b.set_sensitive(false);
                 let res = resolved();
                 let typed = name.text().trim().to_string();
-                let n = if !typed.is_empty() {
-                    typed
-                } else if *mode.borrow() == "focus" {
-                    "WadBrowser Focus".to_string()
-                } else {
-                    "WadBrowser".to_string()
-                };
+                let n = if !typed.is_empty() { typed } else { "WadBrowser".to_string() };
                 let (me, config, check) = (me.clone(), config.clone(), check.clone());
                 glib::spawn_future_local(async move {
                     match slots::refs(&res).await {
@@ -1159,30 +1229,6 @@ impl Flow {
         let s2 = save.clone();
         update_b.connect_clicked(move |b| s2(b, saved_id.clone()));
         save_b.connect_clicked(move |b| save(b, None));
-    }
-}
-
-/// WadBrowser or WadBrowser Focus, as two cards.
-fn draw_modes(modes: &gtk::Grid, mode: &Rc<RefCell<String>>) {
-    while let Some(c) = modes.first_child() {
-        modes.remove(&c);
-    }
-    for (n, (m, title, text)) in [
-        ("browser", "WadBrowser", "Tabs and an address bar"),
-        ("focus", "WadBrowser Focus", "No address bar: pages only arrive by links"),
-    ]
-    .into_iter()
-    .enumerate()
-    {
-        let b = choice_card(*mode.borrow() == m, title, text);
-        let (mode, grid) = (mode.clone(), modes.downgrade());
-        b.connect_clicked(move |_| {
-            mode.replace(m.into());
-            if let Some(g) = grid.upgrade() {
-                draw_modes(&g, &mode);
-            }
-        });
-        modes.attach(&b, n as i32, 0, 1, 1);
     }
 }
 
@@ -1345,25 +1391,6 @@ fn add_webapp(list: &Rc<RefCell<Vec<Value>>>, name: &str, url: &str) {
         n += 1;
     }
     list.borrow_mut().push(json!({ "id": id, "name": name, "url": url }));
-}
-
-/// A choice as a card (the web app's launcher Choice).
-fn choice_card(on: bool, title: &str, body: &str) -> gtk::Button {
-    let b = gtk::Button::new();
-    b.add_css_class("choice");
-    if on {
-        b.add_css_class("on");
-    }
-    let col = gtk::Box::new(gtk::Orientation::Vertical, 2);
-    let t = gtk::Label::new(Some(title));
-    t.add_css_class("strong");
-    t.set_xalign(0.0);
-    col.append(&t);
-    let l = ui::wrapping(body);
-    l.add_css_class("small-muted");
-    col.append(&l);
-    b.set_child(Some(&col));
-    b
 }
 
 /// A copy of a stack with a customization of its own, at the board's end

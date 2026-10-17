@@ -26,12 +26,18 @@ pub enum RunItem {
         by_slot: Value,
     },
     Terminal,
-    /// One of the machine's own apps as it is (wadd's "browser", "browser-focus").
+    /// One of the machine's own apps as it is (wadd's "browser").
     App(String),
     /// A saved WadBrowser setup (its document).
     Browser(Value),
     /// A WadBrowser set up for one run (`{name, mode, webapps, secrets}`).
     BrowserRun(Value),
+    /// One of a wadspace's web apps, in a WadBrowser of its own on the
+    /// machine, as that wadspace has it: its sign-ins, its WadBrowser mode.
+    WadspaceWebApp {
+        from: String,
+        webapp: String,
+    },
 }
 
 impl RunItem {
@@ -213,9 +219,48 @@ fn launch_items(items: &[RunItem], lib: &Value, wadspaces: &[Value]) -> Result<V
                     "setup": { "name": c["name"], "mode": c["mode"], "webapps": c["webapps"], "signins": browser_signins(&c["secrets"]) },
                     "background": n > 0,
                 }),
+                RunItem::WadspaceWebApp { from, webapp } => {
+                    json!({ "kind": "browser", "setup": wadspace_webapp_setup(lib, wadspaces, from, webapp)?, "background": n > 0 })
+                }
             })
         })
         .collect()
+}
+
+/// A wadspace's web apps (its Extensions' WadBrowser ones), as it resolves.
+pub fn wadspace_webapps(lib: &Value, w: &Value) -> Vec<Value> {
+    let r = core::resolve_stack(lib, w);
+    if r.is_null() || !core::has_app(&r["template"], "wadbrowser") {
+        return vec![];
+    }
+    r["setup"]["webapps"].as_array().cloned().unwrap_or_default()
+}
+
+/// A WadBrowser setup for one of a wadspace's web apps: that app alone, its
+/// sign-ins as the wadspace has them, and the wadspace's WadBrowser mode.
+fn wadspace_webapp_setup(lib: &Value, wadspaces: &[Value], from: &str, webapp: &str) -> Result<Value, String> {
+    let w = wadspaces.iter().find(|x| s(x, "id") == from).ok_or("That wadspace is gone.")?;
+    let r = core::resolve_stack(lib, w);
+    if r.is_null() {
+        return Err("That wadspace's template is gone.".into());
+    }
+    let wa = r["setup"]["webapps"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .find(|x| s(x, "id") == webapp)
+        .cloned()
+        .ok_or("That web app isn't in the wadspace any more.")?;
+    let signins: Vec<Value> = core::workspace_for(w, &r["template"], &r["setup"], &json!({}))["signins"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter(|x| x["web"] == true && s(x, "app") == webapp)
+        .cloned()
+        .collect();
+    let mode = if s(&r["setup"], "browserMode") == "focus" { "focus" } else { "browser" };
+    let name = format!("{} · {}", s(&w["customization"], "name"), s(&wa, "name"));
+    Ok(json!({ "name": name, "mode": mode, "webapps": [wa], "signins": signins }))
 }
 
 /// A run's own background (drawn) and sign-ins: its keys by slot in place

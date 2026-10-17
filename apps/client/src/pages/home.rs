@@ -228,8 +228,8 @@ fn last_items(session: &Value, s: &AppState) -> (Vec<RunItem>, Vec<Value>, Vec<S
         } else if id == "terminal" {
             names.push("Terminal".into());
             items.push(RunItem::Terminal);
-        } else if id == "browser" || id == "browser-focus" {
-            names.push(if id == "browser" { "WadBrowser" } else { "WadBrowser Focus" }.into());
+        } else if id == "browser" {
+            names.push("WadBrowser".into());
             items.push(RunItem::App(id.into()));
         } else if let Some(b) = id.strip_prefix("browser-").and_then(|bid| {
             s.library

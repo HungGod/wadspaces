@@ -100,9 +100,21 @@ pub struct Applied {
 /// Applies the image's workspaces that are new or changed to `list`,
 /// recording them in `book`. The machine's own apps (WadBrowser, the
 /// terminal) are the system's: one missing from the list comes back, even
-/// unchanged.
+/// unchanged, and one the image doesn't ship any more goes.
 pub fn apply(list: &mut Vec<Workspace>, book: &mut Book, vendor: &[VendorWorkspace]) -> Applied {
     let mut out = Applied::default();
+    let shipped = |id: &str| vendor.iter().any(|v| v.workspace.id == id);
+    let dropped: Vec<String> = book
+        .keys()
+        .filter(|id| !shipped(id))
+        .filter(|id| list.iter().any(|w| &w.id == *id && w.kind == Kind::App))
+        .cloned()
+        .collect();
+    for id in dropped {
+        list.retain(|w| w.id != id);
+        book.remove(&id);
+        out.changed.push(id);
+    }
     for v in vendor {
         let id = &v.workspace.id;
         let lost_app = v.workspace.kind == Kind::App && !list.iter().any(|x| &x.id == id);

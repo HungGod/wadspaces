@@ -286,7 +286,7 @@ fn apps_of(template: &Value) -> Vec<App> {
     strs(template, "apps").into_iter().filter_map(catalog::app).collect()
 }
 
-fn has_app(template: &Value, id: &str) -> bool {
+pub fn has_app(template: &Value, id: &str) -> bool {
     strs(template, "apps").contains(&id)
 }
 
