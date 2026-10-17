@@ -574,13 +574,15 @@ impl Streams {
             for l in live.iter_mut() {
                 let st = self.registry.state(&l.entry.workspace);
                 let running = st.as_ref().is_some_and(|s| s.container == "running");
+                // Stopped by podman's word: "unknown" (it didn't answer) isn't.
+                let stopped = st.as_ref().is_some_and(|s| s.container != "running" && s.container != "unknown");
                 let busy = st.as_ref().is_some_and(|s| s.phase.busy());
                 let failed = st.as_ref().is_some_and(|s| s.phase == Phase::Error);
                 l.was_up |= running;
                 let (id, guid) = (l.entry.workspace.clone(), l.entry.guid.clone());
                 if failed {
                     ends.push((id, guid, "it didn't start".into()));
-                } else if !running && !busy && (l.was_up || t - l.entry.started > NEVER_UP) {
+                } else if stopped && !busy && (l.was_up || t - l.entry.started > NEVER_UP) {
                     ends.push((id, guid, "its wadspace stopped".into()));
                 } else if t - l.activity.last() > idle {
                     let mins = self.settings.idle_minutes;

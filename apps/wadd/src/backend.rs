@@ -280,6 +280,13 @@ pub struct Real {
 #[async_trait]
 impl Backend for Real {
     async fn available(&self) -> bool {
+        // Socket-activated podman stops its API service after a few idle
+        // seconds and starts it again on the next call; a call that lands
+        // just as it stops goes unanswered. Asked again before giving up.
+        if self.podman.ping().await {
+            return true;
+        }
+        tokio::time::sleep(Duration::from_millis(300)).await;
         self.podman.ping().await
     }
 

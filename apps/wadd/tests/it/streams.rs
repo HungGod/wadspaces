@@ -280,6 +280,14 @@ async fn streams_end_when_their_wadspace_stops_or_nobody_watches() {
     until("both up", || ["a", "b"].iter().all(|w| e.reg.state(w).is_some_and(|s| s.phase == Phase::Ready))).await;
     s.tick().await;
     assert_eq!(s.list().len(), 2);
+    // Podman not answering for a moment (its API service restarting) isn't
+    // a wadspace stopping: both streams stay, still ready.
+    e.fake.with(|m| m.podman_down = true);
+    e.reg.reconcile().await;
+    s.tick().await;
+    e.fake.with(|m| m.podman_down = false);
+    assert_eq!(s.list().len(), 2);
+    assert!(["a", "b"].iter().all(|w| e.reg.state(w).is_some_and(|s| s.phase == Phase::Ready)));
     // a's wadspace stopped by itself: its stream ends.
     e.fake.with(|m| {
         m.containers.remove("wad-a");

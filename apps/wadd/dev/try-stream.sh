@@ -143,7 +143,8 @@ echo "same link, same login: page $(status -u "$user:$pw" -H "Host: $host" $at/)
 api GET /v1/streams | field '[(s["workspace"], s["live"], s["link"] == "'"$link"'") for s in d]'
 
 echo "== ending it"
-api DELETE /v1/workspaces/$ws/stream && echo "ended"
+out=$(api DELETE /v1/workspaces/$ws/stream)
+if [ -z "$out" ]; then echo "ended"; else echo "  it had ended already: $out"; fi
 sleep 2
 echo "containers left: $(podman ps --format '{{.Names}}' | grep -c "^wad-$ws" || true)"
 echo "units now: $(ls "$XDG_RUNTIME_DIR"/containers/systemd/ | grep "^wad-$ws" | tr '\n' ' ')"

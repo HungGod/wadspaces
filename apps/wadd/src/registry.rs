@@ -972,7 +972,8 @@ impl Registry {
                 st.container = container.clone();
                 st.image_present = present;
                 // WAITING too: a native workspace whose window closed stops its own container.
-                if container != RUNNING && matches!(st.phase, Phase::Ready | Phase::Waiting) {
+                // "unknown" (podman didn't answer) isn't stopped.
+                if container != RUNNING && container != "unknown" && matches!(st.phase, Phase::Ready | Phase::Waiting) {
                     st.phase = Phase::Idle;
                 } else if ready {
                     st.phase = Phase::Ready;

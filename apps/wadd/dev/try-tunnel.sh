@@ -101,6 +101,7 @@ command -v qrencode >/dev/null && qrencode -t ANSIUTF8 "$link"
 echo "On the phone (Wi-Fi off): open the link. Cancel the login first (the prompt"
 echo "should stay, no desktop), then sign in with the user and password above."
 read -r -p "Enter ends the stream... " _
-api DELETE /v1/workspaces/$ws/stream && echo "ended"
+out=$(api DELETE /v1/workspaces/$ws/stream)
+if [ -z "$out" ]; then echo "ended"; else echo "  it had ended already: $out"; fi
 echo "the link now: $(curl -s -o /dev/null -m 10 -w '%{http_code}' "$link")"
 grep -iE 'warn|error' "$dir/wadd.log" | tail -5 || true

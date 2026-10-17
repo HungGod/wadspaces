@@ -57,6 +57,8 @@ pub struct Machine {
     /// Running containers' first processes (a new one each start).
     pub pids: HashMap<String, u32>,
     pub next_pid: u32,
+    /// Podman doesn't answer (its API service restarting, say).
+    pub podman_down: bool,
 }
 
 pub const TOKEN: &str = "ghp_TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT";
@@ -76,7 +78,7 @@ impl Fake {
 #[async_trait]
 impl Backend for Fake {
     async fn available(&self) -> bool {
-        true
+        !self.0.lock().unwrap().podman_down
     }
     async fn container(&self, name: &str) -> Result<String, String> {
         Ok(self.0.lock().unwrap().containers.get(name).cloned().unwrap_or_else(|| "missing".into()))
