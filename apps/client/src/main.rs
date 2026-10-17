@@ -28,6 +28,7 @@ mod shell;
 mod signins;
 mod slots;
 mod store;
+mod stream;
 mod thumb;
 mod toast;
 mod tour;

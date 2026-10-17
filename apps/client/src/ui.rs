@@ -389,6 +389,56 @@ pub fn menu(icon: &'static str, label: &str, items: Vec<MenuItem>) -> gtk::MenuB
     m
 }
 
+/// Runs `f` when `w` comes on screen, and every `secs` while it's there.
+pub fn every(w: &impl IsA<gtk::Widget>, secs: u32, f: impl Fn() + 'static) {
+    let f = std::rc::Rc::new(f);
+    let ff = f.clone();
+    w.connect_map(move |_| ff());
+    let weak = w.upcast_ref::<gtk::Widget>().downgrade();
+    gtk::glib::timeout_add_seconds_local(secs, move || {
+        let Some(w) = weak.upgrade() else { return gtk::glib::ControlFlow::Break };
+        if w.is_mapped() {
+            f();
+        }
+        gtk::glib::ControlFlow::Continue
+    });
+}
+
+/// Puts `text` on the clipboard.
+pub fn copy(w: &impl IsA<gtk::Widget>, text: &str) {
+    WidgetExt::display(w.upcast_ref::<gtk::Widget>()).clipboard().set_text(text);
+}
+
+/// A value to hand on: its name, the value (selectable, in mono), and a
+/// copy button that says it copied.
+pub fn copy_row(label: &str, value: &str) -> gtk::Box {
+    let row = gtk::Box::new(gtk::Orientation::Horizontal, 12);
+    row.add_css_class("copy-row");
+    let l = gtk::Label::new(Some(label));
+    l.add_css_class("copy-label");
+    l.set_xalign(0.0);
+    l.set_width_chars(9);
+    row.append(&l);
+    let v = gtk::Label::new(Some(value));
+    v.add_css_class("mono-14");
+    v.set_selectable(true);
+    v.set_hexpand(true);
+    v.set_xalign(0.0);
+    v.set_ellipsize(gtk::pango::EllipsizeMode::Middle);
+    v.set_tooltip_text(Some(value));
+    row.append(&v);
+    let b = icon_button("copy", &format!("Copy the {}", label.to_lowercase()), 16);
+    let text = value.to_string();
+    b.connect_clicked(move |b| {
+        copy(b, &text);
+        set_icon(b, "check");
+        let b = b.clone();
+        gtk::glib::timeout_add_seconds_local_once(2, move || set_icon(&b, "copy"));
+    });
+    row.append(&b);
+    row
+}
+
 /// A small round dot: "on" (the accent, glowing), "busy" (accent-2),
 /// "error" (danger), else faint.
 pub fn dot(state: &str) -> gtk::Box {

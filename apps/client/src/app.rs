@@ -28,6 +28,9 @@ pub fn run(args: Args) -> std::process::ExitCode {
             return;
         }
         follow_wadd();
+        // Whether the machine can stream (the Stream buttons go by it).
+        crate::stream::load_tunnel();
+        crate::stream::load_streams();
         crate::account::start();
         crate::account::follow_library();
     });
@@ -315,6 +318,25 @@ fn snapshot(w: &gtk::ApplicationWindow, dir: std::path::PathBuf) {
             wad_gtk::theme::set(&display, t);
             settle(900).await;
             shot(&w, &dir.join(format!("secrets-{}.png", t.name())));
+        }
+        // Cloud Tunnel: the tunnel, and what's streamed.
+        crate::pages::secrets::show_tab("tunnel");
+        for t in [wad_gtk::Theme::Dark, wad_gtk::Theme::Light] {
+            wad_gtk::theme::set(&display, t);
+            settle(900).await;
+            shot(&w, &dir.join(format!("secrets-tunnel-{}.png", t.name())));
+        }
+        // A stream's link and login, to hand on.
+        if let Some(share) = crate::fake::answer("/v1/streams/vanua-academy/share")
+            .and_then(|v| serde_json::from_value::<wad_proto::v1::StreamShare>(v).ok())
+        {
+            crate::stream::share_dialog(share, "Vanua Academy".into());
+            for t in [wad_gtk::Theme::Dark, wad_gtk::Theme::Light] {
+                wad_gtk::theme::set(&display, t);
+                settle(900).await;
+                shot(&w, &dir.join(format!("stream-share-{}.png", t.name())));
+            }
+            crate::modal::escape();
         }
         if let Some(app) = w.application() {
             app.quit();

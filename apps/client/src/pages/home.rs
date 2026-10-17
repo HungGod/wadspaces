@@ -1,6 +1,7 @@
 //! Home (the web app's pages/Home.tsx): a greeting and the numbers
 //! (wadspaces, running, machines online), Jump back in (the last launch
-//! again), what's running now (to show or stop), and your wadspaces.
+//! again), what's running now (to show or stop, or a stream's login to hand
+//! on), and your wadspaces (to launch, stream or edit).
 
 use gtk::{glib, prelude::*};
 use serde_json::Value;
@@ -37,6 +38,8 @@ struct Running {
     machine: String,
     here: bool,
     on_screen: bool,
+    /// Streamed to a browser (from this machine).
+    streaming: bool,
     since: f64,
 }
 
@@ -51,6 +54,7 @@ fn running(s: &AppState) -> Vec<Running> {
                 machine: "This machine".into(),
                 here: true,
                 on_screen: screen == Some(wad_proto::v1::View::Workspace(w.id.clone())),
+                streaming: crate::stream::of(s, &w.id).is_some(),
                 since: s.states[&w.id].since,
             });
         }
@@ -72,6 +76,7 @@ fn running(s: &AppState) -> Vec<Running> {
                 machine: label.clone(),
                 here: false,
                 on_screen: m["view"].as_str() == Some(&format!("workspace:{}", w["id"].as_str().unwrap_or_default())),
+                streaming: false,
                 since: seen,
             });
         }
@@ -199,7 +204,8 @@ pub fn page() -> gtk::Widget {
             | Topic::WORKSPACES
             | Topic::VIEW
             | Topic::WADD
-            | Topic::SESSION,
+            | Topic::SESSION
+            | Topic::STREAMS,
         move |s| {
             name.set_text(s.profile().map(|p| p.display_name.as_str()).unwrap_or("…"));
             let live = s.wadspaces();
@@ -404,12 +410,37 @@ fn running_now(slot: &gtk::Box, s: &AppState, list: &[Running]) {
         dot.add_css_class("live-dot");
         dot.set_valign(gtk::Align::Center);
         sub.append(&dot);
-        let where_ = if r.on_screen { "on screen" } else { "in the background" };
+        let where_ = if r.streaming {
+            "streaming"
+        } else if r.on_screen {
+            "on screen"
+        } else {
+            "in the background"
+        };
         let l = gtk::Label::new(Some(&format!("{} · {where_} · up {}", r.machine, uptime(now() - r.since))));
         l.add_css_class("small-muted");
         sub.append(&l);
         text.append(&sub);
         row.append(&text);
+        if r.streaming {
+            let name = name.text().to_string();
+            let share = ui::button("Share", Some("link-2"), Variant::Secondary, Size::Sm);
+            share.set_valign(gtk::Align::Center);
+            let (id, nm) = (r.wadspace.clone(), name.clone());
+            share.connect_clicked(move |_| crate::stream::share(id.clone(), nm.clone()));
+            row.append(&share);
+            let stop = ui::button("Stop stream", Some("square"), Variant::Ghost, Size::Sm);
+            stop.set_valign(gtk::Align::Center);
+            let id = r.wadspace.clone();
+            stop.connect_clicked(move |b| {
+                b.set_sensitive(false);
+                let b = b.clone();
+                crate::stream::stop(id.clone(), name.clone(), move || b.set_sensitive(true));
+            });
+            row.append(&stop);
+            slot.append(&row);
+            continue;
+        }
         if r.here && !r.on_screen {
             let show = ui::button("Show", None, Variant::Secondary, Size::Sm);
             show.set_valign(gtk::Align::Center);
@@ -597,10 +628,34 @@ fn wadspace_card(s: &AppState, w: &Value) -> gtk::Widget {
     actions.append(&left);
     let edit = half("pencil", "Edit", "card-edit");
     edit.set_tooltip_text(Some(&format!("Edit {name} in the Builder")));
-    let i = id;
+    let i = id.clone();
     edit.connect_clicked(move |_| crate::pages::builder::show_stack(&i, false));
     actions.append(&edit);
     pic.add_overlay(&actions);
+    // Stream it to a browser: a small pill in its corner, shown with the
+    // halves (on hover or a touch), once it can launch here.
+    if go == Go::Launch {
+        let streamed = crate::stream::of(s, &id).is_some();
+        let pill = gtk::Button::new();
+        pill.add_css_class("glass");
+        pill.add_css_class("card-stream");
+        let r = gtk::Box::new(gtk::Orientation::Horizontal, 6);
+        r.append(&Icon::new("radio", 14));
+        r.append(&gtk::Label::new(Some(if streamed { "Streaming" } else { "Stream" })));
+        pill.set_child(Some(&r));
+        pill.set_halign(gtk::Align::End);
+        pill.set_valign(gtk::Align::Start);
+        pill.set_margin_top(10);
+        pill.set_margin_end(10);
+        pill.set_tooltip_text(Some(&if streamed {
+            format!("{name} is streamed: its link and login")
+        } else {
+            format!("Stream {name} to a browser: a link and a login to hand on")
+        }));
+        let (i, n) = (id, name.clone());
+        pill.connect_clicked(move |_| crate::stream::begin(i.clone(), n.clone()));
+        pic.add_overlay(&pill);
+    }
     col.append(&pic);
     let l = gtk::Label::new(Some(&name));
     l.add_css_class("row-title");

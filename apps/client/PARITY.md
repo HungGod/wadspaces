@@ -22,7 +22,9 @@ back to the image before.
 | Focus | the banner and countdown; going back after a restart | focus.rs, chrome.rs |
 | Machines | the list; Wadspaces, History, Storage, Files and Diagnostics tabs; other machines through their relay | pages/machines/ |
 | A wadspace's details | WadspaceDrawer; the row menu's Details, Customize, Edit in Builder, New from it, Delete | details.rs |
-| Secrets | saved sign-ins (make, rename, sign out, delete), tokens, GitHub | pages/secrets.rs, signins.rs |
+| Secrets | saved sign-ins (make, rename, sign out, delete), tokens, GitHub | pages/secrets/mod.rs, signins.rs |
+| Secrets → Cloud Tunnel | cloudflared's state, the tunnel's id, self-test, replacing the token, what's streamed (share, stop) | pages/secrets/tunnel.rs, stream.rs |
+| Streams | Stream… in the launcher, Stream on Home's cards, streamed rows in Running now, the share dialog (QR, link, login) | stream.rs, launcher.rs, pages/home.rs |
 | Builder | the board, drags, the three editors, Preview, Fix, Recently deleted (and for good), Undo, Build all, unsaved work kept | pages/builder/ |
 | Tour, notices | Tour.tsx, ProfileNotices | tour.rs, notices.rs |
 | Machine chrome | wadd's notices, "Starting …", the focus prompt | store.rs, chrome.rs |

@@ -36,6 +36,7 @@ pub struct Tunnel {
     /// cloudflared's metrics server (host:port).
     metrics: String,
     webrtc: bool,
+    idle_minutes: u64,
     token_file: PathBuf,
     /// This run of wadd's proxy (the self-test tells it from another).
     instance: String,
@@ -55,6 +56,7 @@ impl Tunnel {
             domain: settings.domain.clone(),
             metrics: settings.metrics.clone(),
             webrtc: settings.webrtc,
+            idle_minutes: settings.idle_minutes,
             token_file: TOKEN_FILE.into(),
             instance,
             selftest: (format!("https://{SELFTEST_HOST}.{}/", settings.domain), None),
@@ -101,6 +103,7 @@ impl Tunnel {
             connections: connections.unwrap_or(0),
             domain: self.domain.clone(),
             webrtc: self.webrtc,
+            idle_minutes: self.idle_minutes,
         }
     }
 

@@ -35,6 +35,8 @@ impl Topic {
     pub const SIGNINS: Topic = Topic(1 << 12);
     /// The devices plugged in, and Bluetooth (GET /v1/devices, /v1/bluetooth).
     pub const DEVICES: Topic = Topic(1 << 13);
+    /// Wadspaces streamed to browsers, and the tunnel (GET /v1/streams, /v1/tunnel).
+    pub const STREAMS: Topic = Topic(1 << 14);
     pub const NONE: Topic = Topic(0);
 
     pub fn any(self, other: Topic) -> bool {
@@ -72,6 +74,10 @@ pub struct AppState {
     /// What's plugged in, and which wadspaces have it.
     pub devices: Vec<wad_proto::v1::Device>,
     pub bluetooth: Option<wad_proto::v1::BluetoothStatus>,
+    /// What's streamed from here (never the passwords).
+    pub streams: Vec<wad_proto::v1::StreamInfo>,
+    /// The Cloudflare tunnel streams go through (None until read).
+    pub tunnel: Option<wad_proto::v1::TunnelStatus>,
 }
 
 /// A job's log, with lines from `from` on (an event repeats or skips none).
@@ -296,6 +302,10 @@ impl Store {
                         let changed = s.bluetooth.as_ref() != Some(&b);
                         s.bluetooth = Some(b);
                         if changed { Topic::DEVICES } else { Topic::NONE }
+                    }
+                    Event::Streams(list) => {
+                        s.streams = list;
+                        Topic::STREAMS
                     }
                     // Something wadd tells whoever's watching: a toast.
                     Event::Notice { text } => {

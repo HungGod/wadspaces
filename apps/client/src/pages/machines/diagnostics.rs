@@ -65,7 +65,7 @@ pub fn view(id: String) -> gtk::Widget {
             }
         };
         draw();
-        every(&root, 4, move || {
+        ui::every(&root, 4, move || {
             let (metrics, draw) = (metrics.clone(), draw.clone());
             glib::spawn_future_local(async move {
                 if let Ok(m) = get::<Metrics>("/v1/metrics".into()).await {
@@ -84,21 +84,6 @@ pub fn view(id: String) -> gtk::Widget {
         });
     }
     root.upcast()
-}
-
-/// Runs `f` when `w` comes on screen, and every `secs` while it's there.
-fn every(w: &impl IsA<gtk::Widget>, secs: u32, f: impl Fn() + 'static) {
-    let f = Rc::new(f);
-    let ff = f.clone();
-    w.connect_map(move |_| ff());
-    let weak = w.upcast_ref::<gtk::Widget>().downgrade();
-    glib::timeout_add_seconds_local(secs, move || {
-        let Some(w) = weak.upgrade() else { return glib::ControlFlow::Break };
-        if w.is_mapped() {
-            f();
-        }
-        glib::ControlFlow::Continue
-    });
 }
 
 /// CPU, memory and GPU, each on its card.
@@ -262,9 +247,9 @@ fn this_machine() -> gtk::Widget {
     store().watch(&root, Topic::STATES | Topic::WORKSPACES, move |_| dd.render());
 
     let dd = d.clone();
-    every(&root, 5, move || dd.clone().load());
+    ui::every(&root, 5, move || dd.clone().load());
     let dd = d.clone();
-    every(&root, 3, move || {
+    ui::every(&root, 3, move || {
         if dd.follow.get() {
             dd.clone().load_log();
         }

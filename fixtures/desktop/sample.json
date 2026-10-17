@@ -50,7 +50,8 @@
     { "id": "vanua-academy", "name": "Vanua Academy", "image": "localhost/wadspaces-template-dev:latest", "display": "host", "port": null, "hotkey": 2, "icon": null, "enabled": true, "autostart": false, "containerName": "wad-vanua-academy", "containerPort": 3000, "env": [], "secrets": [], "volumes": [], "devices": [], "shmSize": "1g", "projects": [] }
   ],
   "states": [
-    { "id": "cosmic-bodybuilding", "container": "running", "phase": "ready", "message": null, "error": null, "imagePresent": true, "since": 1792020000 }
+    { "id": "cosmic-bodybuilding", "container": "running", "phase": "ready", "message": null, "error": null, "imagePresent": true, "since": 1792020000 },
+    { "id": "vanua-academy", "container": "running", "phase": "ready", "message": null, "error": null, "imagePresent": true, "since": 1792021800, "streaming": true }
   ],
   "wadd": {
     "/v1/devices": [
@@ -148,6 +149,11 @@
       { "id": "old-steam", "name": "Steam", "app": "steam", "paths": [".steam/", ".local/share/Steam/config/", ".local/share/Steam/userdata/"], "createdAt": 1790000000000, "size": 0, "changedAt": null, "usedBy": [], "inUse": [] }
     ],
     "/v1/secrets": [{ "name": "github_token", "origin": "local" }],
+    "/v1/tunnel": { "cloudflaredInstalled": true, "tokenPresent": true, "tunnelId": "8f0e5a2c-1b3d-4e6f-9a7b-0c1d2e3f4a5b", "service": "active", "connected": true, "connections": 4, "domain": "wadspaces.com", "webrtc": false, "idleMinutes": 30, "ready": true },
+    "/v1/streams": [
+      { "workspace": "vanua-academy", "host": "ws-3f9c2a7be81d4c06a5f1e2d3c4b5a697.wadspaces.com", "link": "https://ws-3f9c2a7be81d4c06a5f1e2d3c4b5a697.wadspaces.com/", "user": "wad-kqmtrz", "started": 1792021800, "lastActive": 1792022400, "viewers": 1, "live": true }
+    ],
+    "/v1/streams/vanua-academy/share": { "workspace": "vanua-academy", "link": "https://ws-3f9c2a7be81d4c06a5f1e2d3c4b5a697.wadspaces.com/", "user": "wad-kqmtrz", "password": "Hq7mZp3kRt9wXc2vNb6Y" },
     "/v1/logs": [
       { "time": 1792020000000, "level": "info", "target": "wadd::view", "message": "showing cosmic-bodybuilding" },
       { "time": 1792020005000, "level": "info", "target": "wadd::storage", "message": "measured in 1.8 s" }

@@ -808,6 +808,9 @@ pub struct TunnelStatus {
     pub domain: String,
     /// WebRTC beside WebSockets (wadd.toml's [streaming] webrtc).
     pub webrtc: bool,
+    /// A stream nobody watches ends after this long.
+    #[serde(default)]
+    pub idle_minutes: u64,
     /// Streaming can start: a token, cloudflared running and connected.
     pub ready: bool,
 }

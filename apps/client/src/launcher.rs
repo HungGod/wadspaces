@@ -153,6 +153,8 @@ struct Flow {
     count: gtk::Label,
     launch: gtk::Button,
     focus: gtk::Button,
+    /// Stream… (one wadspace, to a browser: stream.rs).
+    stream: gtk::Button,
     minutes: Cell<u32>,
 }
 
@@ -178,6 +180,7 @@ fn flow() -> Rc<Flow> {
     let count = gtk::Label::new(Some("Pick one or more"));
     let launch_b = ui::button("Launch", Some("play"), Variant::Primary, Size::Md);
     let focus_b = ui::button("Focus mode…", Some("lock"), Variant::Secondary, Size::Md);
+    let stream_b = ui::button("Stream…", Some("radio"), Variant::Secondary, Size::Md);
     let f = Rc::new(Flow {
         modal,
         picked: RefCell::default(),
@@ -188,12 +191,20 @@ fn flow() -> Rc<Flow> {
         count,
         launch: launch_b,
         focus: focus_b,
+        stream: stream_b,
         minutes: Cell::new(50),
     });
     let me = f.clone();
     f.launch.connect_clicked(move |_| me.go(None));
     let me = f.clone();
     f.focus.connect_clicked(move |_| me.focus_view());
+    let me = f.clone();
+    f.stream.connect_clicked(move |_| {
+        if let Ok((id, name)) = me.streamable() {
+            me.modal.close();
+            crate::stream::begin(id, name);
+        }
+    });
     f.pick_view();
     // The images here say which spaces build first.
     let ff = f.clone();
@@ -306,12 +317,18 @@ impl Flow {
         self.count.set_hexpand(true);
         self.count.set_xalign(0.0);
         // Kept across views: out of the last footer first.
-        for w in [self.count.upcast_ref::<gtk::Widget>(), self.focus.upcast_ref(), self.launch.upcast_ref()] {
+        for w in [
+            self.count.upcast_ref::<gtk::Widget>(),
+            self.stream.upcast_ref(),
+            self.focus.upcast_ref(),
+            self.launch.upcast_ref(),
+        ] {
             if let Some(b) = w.parent().and_then(|p| p.downcast::<gtk::Box>().ok()) {
                 b.remove(w);
             }
         }
         foot.append(&self.count);
+        foot.append(&self.stream);
         foot.append(&self.focus);
         foot.append(&self.launch);
         body.append(&foot);
@@ -320,7 +337,12 @@ impl Flow {
 
     /// Leaves the picking view: its footer's kept widgets come out of it.
     fn leave_pick(&self) {
-        for w in [self.count.upcast_ref::<gtk::Widget>(), self.focus.upcast_ref(), self.launch.upcast_ref()] {
+        for w in [
+            self.count.upcast_ref::<gtk::Widget>(),
+            self.stream.upcast_ref(),
+            self.focus.upcast_ref(),
+            self.launch.upcast_ref(),
+        ] {
             if let Some(b) = w.parent().and_then(|p| p.downcast::<gtk::Box>().ok()) {
                 b.remove(w);
             }
@@ -537,6 +559,34 @@ impl Flow {
         });
         self.launch.set_sensitive(!picked.is_empty());
         self.focus.set_sensitive(!picked.is_empty());
+        drop(picked);
+        let streamable = self.streamable();
+        self.stream.set_sensitive(streamable.is_ok());
+        self.stream.set_tooltip_text(Some(match &streamable {
+            Ok(_) => "Stream it to a browser: a link and a login to hand on",
+            Err(why) => why,
+        }));
+    }
+
+    /// The one wadspace picked, if it can be streamed now: (id, name).
+    fn streamable(&self) -> Result<(String, String), &'static str> {
+        let picked = self.picked.borrow();
+        let [one] = picked.as_slice() else { return Err("Pick one wadspace to stream it") };
+        let all = self.all.borrow();
+        let Some(e) = all.iter().find(|e| e.id == *one) else { return Err("Pick one wadspace to stream it") };
+        let (Some(w), RunItem::Wadspace(id)) = (&e.wadspace, &e.item) else {
+            return Err("Only a wadspace can be streamed");
+        };
+        let images = self.images.borrow();
+        // Not read yet: as it most likely is.
+        if !images.is_empty() {
+            let lib = store().read_now(|s| s.library.as_ref().map(|l| l.lib()).unwrap_or_default());
+            let key = layers::stack_image_key(w);
+            if !matches!(launch::image_state(&key, &lib, &images), ImageState::Built | ImageState::Update) {
+                return Err("Launch it once first: its image builds then");
+            }
+        }
+        Ok((id.clone(), e.label.clone()))
     }
 
     /// What's picked, spaces first, then what runs beside them.

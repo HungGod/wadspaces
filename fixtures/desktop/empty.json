@@ -59,6 +59,8 @@
     "/v1/images": [],
     "/v1/signins": [],
     "/v1/secrets": [],
+    "/v1/tunnel": { "cloudflaredInstalled": true, "tokenPresent": false, "tunnelId": null, "service": "inactive", "connected": false, "connections": 0, "domain": "wadspaces.com", "webrtc": false, "idleMinutes": 30, "ready": false },
+    "/v1/streams": [],
     "/v1/logs": [],
     "/v1/storage": {
       "disk": {

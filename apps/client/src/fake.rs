@@ -64,6 +64,9 @@ pub fn load(path: &std::path::Path) {
         s.builds = take::<Vec<B>>(&v, "builds").unwrap_or_default().into_iter().map(|b| (b.build, b.lines)).collect();
         s.launches =
             take::<Vec<L>>(&v, "launches").unwrap_or_default().into_iter().map(|l| (l.launch, l.lines)).collect();
+        let wadd = &v["wadd"];
+        s.streams = take(wadd, "/v1/streams").unwrap_or_default();
+        s.tunnel = take(wadd, "/v1/tunnel").ok();
         s.account.checked = true;
         s.account.user = take(&v, "user").ok();
         s.account.github = Some(true);
@@ -86,5 +89,6 @@ pub fn load(path: &std::path::Path) {
             | Topic::SESSION
             | Topic::ACTIVITY
             | Topic::CLOUD
+            | Topic::STREAMS
     });
 }

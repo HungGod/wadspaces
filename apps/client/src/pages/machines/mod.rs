@@ -117,7 +117,7 @@ fn this_machine(s: &AppState) -> Machine {
                 id: w.id.clone(),
                 name: w.name.clone(),
                 running: st.is_some_and(|st| st.container == "running"),
-                stream: w.display != wad_proto::v1::Display::Host,
+                stream: w.display != wad_proto::v1::Display::Host || st.is_some_and(|st| st.streaming),
                 since: st.map(|st| st.since).unwrap_or(0.0),
                 phase: st.map(|st| phase_name(st.phase)).unwrap_or_else(|| "idle".into()),
                 error: st.and_then(|st| st.error.clone()),

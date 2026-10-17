@@ -297,6 +297,19 @@ async fn install(w: &Wadd, ws: &Value, lib: &Value, tz: &str) -> Result<(), Stri
     w.act(Method::PUT, &format!("/v1/workspaces/{id}/wallpaper"), Some(&wall)).await.map_err(|e| e.to_string())
 }
 
+/// A wadspace installed here as it is now, without starting it (a stream
+/// starts it on its sidecar).
+pub async fn install_here(id: String) -> Result<(), String> {
+    let (lib, ws) = store().read_now(|st| {
+        let ws = st.library.as_ref().and_then(|l| l.wadspaces.iter().find(|x| s(x, "id") == id).cloned());
+        (st.library.as_ref().map(|l| l.lib()), ws)
+    });
+    let lib = lib.ok_or("Your library isn't here yet.")?;
+    let ws = ws.ok_or("That wadspace is gone.")?;
+    let tz = time_zone();
+    rt::run(async move { install(&Wadd::here(), &ws, &lib, &tz).await }).await
+}
+
 /// Builds a wadspace here without starting it (the web app's buildStack):
 /// installed as it is now, its layer built unless that's up to date or
 /// already building.

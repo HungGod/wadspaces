@@ -2323,3 +2323,44 @@ window.theme-light .wb .stack.first-ws { background: rgb(10 6 20 / 0.03); }
   font-size: 14px;
 }
 window.hud-room .starting-pill { margin-bottom: 76px; }
+
+/* ------------------------------------------------------------- streams */
+/* Home: Stream, a pill in a wadspace card's corner, shown with its halves. */
+button.card-stream {
+  all: unset;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgb(10 6 20 / 0.6);
+  color: #f5f2fa;
+  font-size: 13px;
+  font-weight: 600;
+  opacity: 0;
+  transition: opacity 150ms, background-color 120ms, color 120ms;
+}
+.card-pic:hover button.card-stream, button.card-stream:focus { opacity: 1; }
+button.card-stream:hover { background: rgb(10 6 20 / 0.8); color: #c6ff1f; }
+/* The share dialog: a QR code on white (phones read it in either theme),
+   the link and its login to copy. */
+image.qr {
+  padding: 10px;
+  border-radius: 16px;
+  background: #ffffff;
+}
+.copy-rows {
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--surface) 70%, transparent);
+  padding: 4px 4px 4px 14px;
+}
+.copy-row { min-height: 40px; }
+.copy-label { font-size: 13px; color: var(--muted); }
+.share-state { font-size: 14px; color: var(--muted); }
+/* Secrets → Cloud Tunnel: the tunnel's facts, and what's streamed. */
+.tunnel-rows, .stream-list { padding: 4px 20px 12px; }
+.tunnel-result { padding: 0 20px 16px; }
+.tunnel-result > .notice, .tunnel-result > .notice-error { margin-top: 0; }
+.tunnel-row { padding: 10px 0; border-bottom: 1px solid var(--line); }
+.tunnel-row:last-child { border-bottom: none; }
+.tunnel-key { font-size: 13px; color: var(--muted); }
+.stream-row { padding: 10px 0; border-bottom: 1px solid var(--line); }
+.stream-row:last-child { border-bottom: none; }

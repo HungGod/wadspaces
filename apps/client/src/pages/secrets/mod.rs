@@ -2,7 +2,13 @@
 //! its wadspaces to sign in with. Saved sign-ins (each mounted into the
 //! wadspaces and WadBrowser setups whose slots pick it), what each signs in
 //! to where, renaming, signing out everywhere and deleting; and the
-//! machine's tokens.
+//! machine's tokens. Beside them, the Cloud Tunnel tab (tunnel.rs): what
+//! streams go through.
+
+mod tunnel;
+
+use std::cell::RefCell;
+use std::rc::Rc;
 
 use gtk::{glib, prelude::*};
 use serde_json::Value;
@@ -17,23 +23,92 @@ use crate::store::{AppState, Topic, store};
 use crate::thumb::thumb;
 use crate::ui::{self, Size, Variant};
 
+/// The tabs: (value, icon, label).
+const TABS: [(&str, Option<&str>, &str); 2] =
+    [("signins", Some("key-round"), "Sign-ins"), ("tunnel", Some("cloud"), "Cloud Tunnel")];
+
+struct Page {
+    tab: RefCell<&'static str>,
+    bar: gtk::Box,
+    stack: gtk::Stack,
+}
+
+thread_local! {
+    static PAGE: RefCell<std::rc::Weak<Page>> = const { RefCell::new(std::rc::Weak::new()) };
+}
+
+/// Opens Secrets on one of its tabs ("signins", "tunnel").
+pub fn show_tab(tab: &'static str) {
+    if let Some(p) = PAGE.with(|p| p.borrow().upgrade()) {
+        p.tab.replace(tab);
+        p.make_tabs();
+    }
+    crate::shell::go(crate::shell::Page::Secrets);
+}
+
+impl Page {
+    fn make_tabs(self: &Rc<Self>) {
+        ui::clear(&self.bar);
+        let p = self.clone();
+        let bar = ui::segmented(&TABS, &self.tab.borrow(), move |v| {
+            p.tab.replace(TABS.iter().find(|t| t.0 == v).map(|t| t.0).unwrap_or("signins"));
+            p.show();
+        });
+        self.bar.append(&bar);
+        self.show();
+    }
+
+    fn show(&self) {
+        let tab = *self.tab.borrow();
+        if self.stack.child_by_name(tab).is_none() {
+            let w = if tab == "tunnel" { tunnel::view() } else { sign_ins() };
+            self.stack.add_named(&w, Some(tab));
+        }
+        self.stack.set_visible_child_name(tab);
+    }
+}
+
 pub fn page() -> gtk::Widget {
     let body = gtk::Box::new(gtk::Orientation::Vertical, 0);
-    // The subtitle's long: the button goes under it (the web app's header wraps so).
-    let head = gtk::Box::new(gtk::Orientation::Vertical, 16);
-    head.set_margin_bottom(32);
-    let texts = gtk::Box::new(gtk::Orientation::Vertical, 0);
+    let head = gtk::Box::new(gtk::Orientation::Vertical, 0);
+    head.set_margin_bottom(24);
     let title = gtk::Label::new(Some("Secrets"));
     title.add_css_class("page-title");
     title.set_xalign(0.0);
-    texts.append(&title);
+    head.append(&title);
     let sub = ui::wrapping(
-        "What your wadspaces sign in with. A saved sign-in is mounted into every wadspace whose apps use it: sign in \
-         once, in any of them, and the rest are signed in too.",
+        "What your wadspaces sign in with, and the tunnel this machine streams them through. Their values never \
+         reach this page.",
     );
     sub.add_css_class("page-subtitle");
-    texts.append(&sub);
-    head.append(&texts);
+    head.append(&sub);
+    body.append(&head);
+    let bar = gtk::Box::new(gtk::Orientation::Horizontal, 0);
+    bar.set_margin_bottom(28);
+    body.append(&bar);
+    let stack = gtk::Stack::new();
+    stack.set_vhomogeneous(false);
+    stack.set_hhomogeneous(false);
+    body.append(&stack);
+    let p = Rc::new(Page { tab: RefCell::new("signins"), bar, stack });
+    PAGE.with(|x| x.replace(Rc::downgrade(&p)));
+    // The tab bar's buttons hold it from here on.
+    p.make_tabs();
+    super::page(&body)
+}
+
+/// The Sign-ins tab: saved sign-ins, then the machine's tokens.
+fn sign_ins() -> gtk::Widget {
+    let body = gtk::Box::new(gtk::Orientation::Vertical, 0);
+    // The subtitle's long: the button goes under it (the web app's header wraps so).
+    let head = gtk::Box::new(gtk::Orientation::Vertical, 16);
+    head.set_margin_bottom(24);
+    let sub = ui::wrapping(
+        "A saved sign-in is mounted into every wadspace whose apps use it: sign in once, in any of them, and the rest \
+         are signed in too.",
+    );
+    sub.add_css_class("small-muted-14");
+    head.append(&sub);
     let new = ui::button("New sign-in", Some("plus"), Variant::Primary, Size::Md);
     new.set_halign(gtk::Align::Start);
     new.connect_clicked(|_| new_sign_in());
@@ -50,7 +125,7 @@ pub fn page() -> gtk::Widget {
     });
     // Read again each time it's shown (sizes change as people sign in).
     body.connect_map(|_| signins::load());
-    super::page(&body)
+    body.upcast()
 }
 
 fn heading(text: &str) -> gtk::Label {
@@ -389,7 +464,7 @@ fn used_in(s: &AppState, users: &[KeyUser], running: &[String]) -> gtk::Widget {
                 b.add_css_class("mini-browser");
                 b.set_size_request(48, 27);
                 let svg = wad_gtk::Svg::new(
-                    include_bytes!("../../../../assets/public/brand/wadbrowser-icon-dark.svg"),
+                    include_bytes!("../../../../../assets/public/brand/wadbrowser-icon-dark.svg"),
                     16,
                     16,
                 );
