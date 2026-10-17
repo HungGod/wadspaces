@@ -1,10 +1,11 @@
 // Opens a stream the way a viewer does (headless Chromium, the stream's
 // login) and screenshots it once the desktop is drawn. Used by try-stream.sh.
 //
-//   node apps/wadd/dev/stream-probe.mjs URL USER PASSWORD OUT.png [HOST]
+//   node apps/wadd/dev/stream-probe.mjs URL USER PASSWORD OUT.png
 //
-// HOST, when given, is sent as the Host header (the proxy routes on it), so
-// a local URL can stand in for https://ws-<guid>.wadspaces.com.
+// The stream's page needs a secure context (its video decoder): https, or
+// a *.localhost name, which browsers treat as secure and look up on this
+// machine themselves (try-stream.sh streams at ws-<guid>.stream.localhost).
 // playwright-core comes from .build/uitools (npm i playwright-core there);
 // the browser is $CHROMIUM, else the newest Chromium in Playwright's cache.
 import { existsSync, readdirSync } from "node:fs";
@@ -17,9 +18,9 @@ const root = join(dirname(fileURLToPath(import.meta.url)), "../../..");
 const require = createRequire(join(root, ".build/uitools/package.json"));
 const { chromium } = require("playwright-core");
 
-const [url, user, password, out, host] = process.argv.slice(2);
+const [url, user, password, out] = process.argv.slice(2);
 if (!out) {
-  console.error("usage: stream-probe.mjs URL USER PASSWORD OUT.png [HOST]");
+  console.error("usage: stream-probe.mjs URL USER PASSWORD OUT.png");
   process.exit(2);
 }
 const cache = join(homedir(), ".cache/ms-playwright");
@@ -35,13 +36,12 @@ try {
   const context = await browser.newContext({
     viewport: { width: 1280, height: 800 },
     httpCredentials: { username: user, password },
-    ...(host ? { extraHTTPHeaders: { Host: host } } : {}),
   });
   const page = await context.newPage();
   const sockets = [];
   page.on("websocket", (ws) => sockets.push(ws.url()));
   const res = await page.goto(url, { waitUntil: "load", timeout: 30000 });
-  console.log(`page ${res.status()}`);
+  console.log(`page ${res.status()}, secure ${await page.evaluate(() => window.isSecureContext)}`);
   // The stream draws on a canvas once frames arrive; give it time to.
   await page.waitForSelector("canvas", { timeout: 30000 });
   await page.waitForTimeout(8000);
