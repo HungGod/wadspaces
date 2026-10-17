@@ -153,7 +153,7 @@
     "/v1/streams": [
       { "workspace": "vanua-academy", "host": "ws-3f9c2a7be81d4c06a5f1e2d3c4b5a697.wadspaces.com", "link": "https://ws-3f9c2a7be81d4c06a5f1e2d3c4b5a697.wadspaces.com/", "user": "wad-kqmtrz", "started": 1792021800, "lastActive": 1792022400, "viewers": 1, "live": true }
     ],
-    "/v1/streams/vanua-academy/share": { "workspace": "vanua-academy", "link": "https://ws-3f9c2a7be81d4c06a5f1e2d3c4b5a697.wadspaces.com/", "user": "wad-kqmtrz", "password": "Hq7mZp3kRt9wXc2vNb6Y" },
+    "/v1/streams/vanua-academy/share": { "workspace": "vanua-academy", "link": "https://ws-3f9c2a7be81d4c06a5f1e2d3c4b5a697.wadspaces.com/", "openLink": "https://ws-3f9c2a7be81d4c06a5f1e2d3c4b5a697.wadspaces.com/open#8b1d4e7f02c39a65d0e8f1b2a4c7e936", "user": "wad-kqmtrz", "password": "Hq7mZp3kRt9wXc2vNb6Y" },
     "/v1/logs": [
       { "time": 1792020000000, "level": "info", "target": "wadd::view", "message": "showing cosmic-bodybuilding" },
       { "time": 1792020005000, "level": "info", "target": "wadd::storage", "message": "measured in 1.8 s" }

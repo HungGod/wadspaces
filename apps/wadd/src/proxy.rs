@@ -5,12 +5,17 @@
 //! - `ws-<guid>.<domain>`, a stream here: passed to its sidecar's web port
 //!   as it came, the login included (the sidecar's nginx asks for it), and
 //!   websockets passed through both ways;
+//! - `ws-<guid>.<domain>/open`: the stream's sign-in link. Its page reads
+//!   the key from after the `#` (never sent to any server: a messaging
+//!   app's preview gets nothing to sign in with), and posts it back here;
+//!   the right key gets a cookie, and with that cookie the proxy logs in
+//!   for the viewer (the stream's own login, added on the way);
 //! - `ws-selftest.<domain>`: answered here, so the self-test (tunnel.rs)
 //!   can tell the whole way works and that it reached this wadd;
 //! - anything else: 404.
 //!
-//! It never logs anyone in itself, and listens on loopback only: the
-//! tunnel is the way in from outside.
+//! Without the sign-in link's cookie it logs no one in, and it listens on
+//! loopback only: the tunnel is the way in from outside.
 
 use std::convert::Infallible;
 use std::net::SocketAddr;
@@ -28,12 +33,19 @@ use hyper_util::rt::{TokioIo, TokioTimer};
 use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
 use tokio::net::{TcpListener, TcpStream};
 
-use crate::streams::{Activity, Streams};
+use crate::streams::{Access, Activity, Route, Streams};
 use crate::tunnel::{SELFTEST_HEADER, SELFTEST_HOST};
 
 type Body = BoxBody<Bytes, hyper::Error>;
 
 const CONNECT: Duration = Duration::from_secs(5);
+/// The sign-in link's page, and the cookie it leaves.
+const OPEN_PATH: &str = "/open";
+const COOKIE: &str = "wadspaces_stream";
+/// The page at /open: it takes the key from after the `#` (and off the
+/// address bar), hands it to the proxy once it's on screen, and goes on to
+/// the stream. Nothing secret is in it.
+const OPEN_PAGE: &str = include_str!("proxy-open.html");
 
 /// Binds each address (a loopback one only); one that can't be bound is
 /// logged and skipped.
@@ -111,8 +123,15 @@ impl Proxy {
             return Ok(self.selftest(&req));
         }
         let Some(guid) = name.strip_prefix("ws-").filter(|g| is_guid(g)) else { return Ok(not_found()) };
-        let Some((port, activity)) = self.streams.route(guid) else { return Ok(not_found()) };
-        match self.forward(req, port, activity).await {
+        let Some(route) = self.streams.route(guid) else { return Ok(not_found()) };
+        if req.uri().path() == OPEN_PATH {
+            match *req.method() {
+                hyper::Method::GET | hyper::Method::HEAD => return Ok(open_page()),
+                hyper::Method::POST => return Ok(open(req, &route).await),
+                _ => {}
+            }
+        }
+        match self.forward(req, route).await {
             Ok(r) => Ok(r),
             Err(e) => {
                 tracing::debug!("stream {guid}: {e}");
@@ -136,18 +155,16 @@ impl Proxy {
         r
     }
 
-    /// Passes a request to the sidecar on `port` unchanged (but for the
-    /// hop-by-hop headers), and a websocket through both ways.
-    async fn forward(
-        &self,
-        mut req: Request<Incoming>,
-        port: u16,
-        activity: Arc<Activity>,
-    ) -> Result<Response<Body>, String> {
+    /// Passes a request to the sidecar unchanged (but for the hop-by-hop
+    /// headers, and the sign-in link's cookie, swapped for the stream's
+    /// login), and a websocket through both ways.
+    async fn forward(&self, mut req: Request<Incoming>, route: Route) -> Result<Response<Body>, String> {
+        let Route { port, activity, access } = route;
         activity.touch();
         let upgrade = wants_upgrade(req.headers()).then(|| hyper::upgrade::on(&mut req));
         let (mut parts, body) = req.into_parts();
         strip_hop_by_hop(&mut parts.headers, upgrade.is_some());
+        sign_in(&mut parts.headers, access.as_deref());
         let pq = parts.uri.path_and_query().map(|p| p.as_str()).unwrap_or("/").to_string();
         parts.uri = pq.parse().map_err(|e: hyper::http::uri::InvalidUri| e.to_string())?;
         let tcp = tokio::time::timeout(CONNECT, TcpStream::connect(("127.0.0.1", port)))
@@ -180,6 +197,72 @@ impl Proxy {
         }
         strip_hop_by_hop(resp.headers_mut(), false);
         Ok(resp.map(|b| b.boxed()))
+    }
+}
+
+/// The sign-in link's page.
+fn open_page() -> Response<Body> {
+    let mut r = Response::new(Full::new(Bytes::from_static(OPEN_PAGE.as_bytes())).map_err(|e| match e {}).boxed());
+    let h = r.headers_mut();
+    h.insert(header::CONTENT_TYPE, HeaderValue::from_static("text/html; charset=utf-8"));
+    h.insert(header::CACHE_CONTROL, HeaderValue::from_static("no-store"));
+    h.insert(HeaderName::from_static("referrer-policy"), HeaderValue::from_static("no-referrer"));
+    r
+}
+
+/// The sign-in link's key, posted by its page: the right one gets the
+/// cookie that signs in (this stream's site only; gone with the stream).
+async fn open(req: Request<Incoming>, route: &Route) -> Response<Body> {
+    route.activity.touch();
+    let body = http_body_util::Limited::new(req.into_body(), 256).collect().await;
+    let key = body.ok().map(|b| String::from_utf8_lossy(&b.to_bytes()).trim().to_string()).unwrap_or_default();
+    if !route.access.as_deref().is_some_and(|a| a.key_is(&key)) {
+        return text(StatusCode::FORBIDDEN, "This sign-in link doesn't open this stream (it may have ended).\n");
+    }
+    let mut r = text(StatusCode::NO_CONTENT, "");
+    // The key itself: checked on every request, and dead with the stream.
+    let cookie = format!("{COOKIE}={key}; Path=/; Max-Age=43200; HttpOnly; Secure; SameSite=Lax");
+    if let Ok(v) = HeaderValue::from_str(&cookie) {
+        r.headers_mut().insert(header::SET_COOKIE, v);
+    }
+    r
+}
+
+/// The sign-in link's cookie never reaches the sidecar; with the right one
+/// (and no login of its own), the request gets the stream's login.
+fn sign_in(h: &mut HeaderMap, access: Option<&Access>) {
+    let mut ours = None;
+    let rest: Vec<String> = h
+        .get_all(header::COOKIE)
+        .iter()
+        .filter_map(|v| v.to_str().ok())
+        .flat_map(|v| v.split(';'))
+        .map(str::trim)
+        .filter(|c| !c.is_empty())
+        .filter(|c| match c.split_once('=') {
+            Some((name, value)) if name.trim() == COOKIE => {
+                ours = Some(value.trim().to_string());
+                false
+            }
+            _ => true,
+        })
+        .map(String::from)
+        .collect();
+    if ours.is_none() {
+        return;
+    }
+    h.remove(header::COOKIE);
+    if !rest.is_empty()
+        && let Ok(v) = HeaderValue::from_str(&rest.join("; "))
+    {
+        h.insert(header::COOKIE, v);
+    }
+    if let (Some(a), Some(key)) = (access, ours)
+        && a.key_is(&key)
+        && !h.contains_key(header::AUTHORIZATION)
+        && let Ok(v) = HeaderValue::from_str(a.basic())
+    {
+        h.insert(header::AUTHORIZATION, v);
     }
 }
 

@@ -12,6 +12,13 @@
 //!   back for the person at the machine to hand on with the link.
 //! - **a link per stream**: 128 random bits, new each time; the proxy knows
 //!   only the streams here, and anything else gets 404.
+//! - **or a sign-in link**, for one tap: https://ws-<guid>.<domain>/open#<key>,
+//!   the key another 128 random bits (podman secret `wad_streamkey_<id>`).
+//!   After the `#`, so it never leaves the browser (a messaging app's
+//!   preview gets nothing to sign in with); the page there hands it to the
+//!   proxy, which swaps it for a cookie and logs in on the viewer's behalf
+//!   (proxy.rs). Whoever has that link gets in, like a document shared with
+//!   anyone who has its link; it dies with the stream.
 //! - **it ends**: when it's stopped, when its wadspace stops or is opened at
 //!   the machine (the person at the machine wins), or when nobody has
 //!   watched it for `idle_minutes`. Its link answers 404 from then on.
@@ -47,6 +54,46 @@ const NEVER_UP: f64 = 600.0;
 /// A stream's password: its podman secret.
 pub fn secret_name(id: &str) -> String {
     format!("wad_stream_{id}")
+}
+
+/// A stream's sign-in link's key: its podman secret.
+pub fn key_secret_name(id: &str) -> String {
+    format!("wad_streamkey_{id}")
+}
+
+/// What the proxy lets a viewer in with, for one stream: its sign-in key,
+/// and the login it stands for (the sidecar's Basic auth).
+pub struct Access {
+    key: String,
+    basic: String,
+}
+
+impl Access {
+    fn new(user: &str, password: &str, key: String) -> Self {
+        use base64::Engine;
+        let basic = format!("Basic {}", base64::engine::general_purpose::STANDARD.encode(format!("{user}:{password}")));
+        Self { key, basic }
+    }
+
+    /// `key` is this stream's (compared in constant time).
+    pub fn key_is(&self, key: &str) -> bool {
+        let (a, b) = (self.key.as_bytes(), key.as_bytes());
+        a.len() == b.len() && a.iter().zip(b).fold(0u8, |d, (x, y)| d | (x ^ y)) == 0
+    }
+
+    /// The Authorization header the sidecar takes.
+    pub fn basic(&self) -> &str {
+        &self.basic
+    }
+}
+
+/// Where the proxy sends ws-<guid>.
+pub struct Route {
+    /// The sidecar's web port (127.0.0.1).
+    pub port: u16,
+    pub activity: Arc<Activity>,
+    /// None: no sign-in link (its secrets weren't readable).
+    pub access: Option<Arc<Access>>,
 }
 
 /// `n` random bytes as lowercase hex.
@@ -142,6 +189,8 @@ struct Live {
     routed: bool,
     /// Its wadspace has been seen running since the stream began.
     was_up: bool,
+    /// Its sign-in key and login, for the proxy (read from podman).
+    access: Option<Arc<Access>>,
 }
 
 pub struct Streams {
@@ -191,7 +240,13 @@ impl Streams {
             live: Mutex::new(
                 entries
                     .into_iter()
-                    .map(|e| Live { activity: Activity::new(now()), entry: e, routed: false, was_up: false })
+                    .map(|e| Live {
+                        activity: Activity::new(now()),
+                        entry: e,
+                        routed: false,
+                        was_up: false,
+                        access: None,
+                    })
                     .collect(),
             ),
             one: tokio::sync::Mutex::new(()),
@@ -272,10 +327,33 @@ impl Streams {
         self.live.lock().unwrap().iter().map(|l| self.info(l)).collect()
     }
 
-    /// Where the proxy sends ws-<guid>: the sidecar's port, and its activity.
-    pub fn route(&self, guid: &str) -> Option<(u16, Arc<Activity>)> {
+    /// Where the proxy sends ws-<guid>.
+    pub fn route(&self, guid: &str) -> Option<Route> {
         let live = self.live.lock().unwrap();
-        live.iter().find(|l| l.routed && l.entry.guid == guid).map(|l| (l.entry.web_port, l.activity.clone()))
+        live.iter().find(|l| l.routed && l.entry.guid == guid).map(|l| Route {
+            port: l.entry.web_port,
+            activity: l.activity.clone(),
+            access: l.access.clone(),
+        })
+    }
+
+    /// A stream's sign-in link (its key after the `#`).
+    fn open_link(&self, guid: &str, key: &str) -> String {
+        format!("https://ws-{guid}.{}/open#{key}", self.settings.domain)
+    }
+
+    /// A stream from before wadd started: its key and login, from podman.
+    async fn load_access(&self, id: &str) {
+        let (Ok(Some(password)), Ok(Some(key))) =
+            (self.backend.secret_value(&secret_name(id)).await, self.backend.secret_value(&key_secret_name(id)).await)
+        else {
+            tracing::info!("{id}: its stream has no sign-in link (its secrets aren't readable)");
+            return;
+        };
+        let mut live = self.live.lock().unwrap();
+        if let Some(l) = live.iter_mut().find(|l| l.entry.workspace == id) {
+            l.access = Some(Arc::new(Access::new(&l.entry.user, &password, key)));
+        }
     }
 
     /// Tests only: as if nobody had watched `id`'s stream for `secs`.
@@ -304,7 +382,12 @@ impl Streams {
             .await
             .map_err(|e| ApiError::new(ErrorCode::Offline, e))?
             .ok_or_else(|| ApiError::new(ErrorCode::NotFound, format!("{id}'s stream has no password")))?;
-        Ok(StreamShare { workspace: id.into(), link: info.link, user: info.user, password })
+        let guid = info.host.strip_prefix("ws-").and_then(|h| h.split('.').next()).unwrap_or_default().to_string();
+        let open_link = match self.backend.secret_value(&key_secret_name(id)).await {
+            Ok(Some(key)) => self.open_link(&guid, &key),
+            _ => String::new(),
+        };
+        Ok(StreamShare { workspace: id.into(), link: info.link, open_link, user: info.user, password })
     }
 
     /// Two free ports from the ranges: the sidecar's web port (127.0.0.1)
@@ -378,8 +461,10 @@ impl Streams {
         let entry =
             Entry { workspace: id.into(), guid: random_hex(16), web_port, mux_port, user: new_user(), started: now() };
         let password = new_password();
+        let key = random_hex(16);
         let upstream = |e: String| ApiError::new(ErrorCode::Upstream, e);
         self.backend.create_secret(&secret_name(id), password.as_bytes()).await.map_err(upstream)?;
+        self.backend.create_secret(&key_secret_name(id), key.as_bytes()).await.map_err(upstream)?;
         if self.settings.webrtc {
             let (_, key) =
                 self.turn().map_err(|e| ApiError::new(ErrorCode::Conflict, format!("WebRTC is on, but {e}")))?;
@@ -393,14 +478,17 @@ impl Streams {
         let share = StreamShare {
             workspace: id.into(),
             link: format!("https://ws-{}.{}/", entry.guid, self.settings.domain),
+            open_link: self.open_link(&entry.guid, &key),
             user: entry.user.clone(),
-            password,
+            password: password.clone(),
         };
+        let access = Some(Arc::new(Access::new(&entry.user, &password, key)));
         self.live.lock().unwrap().push(Live {
             activity: Activity::new(entry.started),
             entry,
             routed: true,
             was_up: false,
+            access,
         });
         self.save();
         if let Err(e) = self.registry.set_stream(id, Some(spec)).await {
@@ -452,10 +540,12 @@ impl Streams {
         self.save();
         self.publish();
         let backend = self.backend.clone();
-        let name = secret_name(id);
+        let names = [secret_name(id), key_secret_name(id)];
         tokio::spawn(async move {
-            if let Err(e) = backend.delete_secret(&name).await {
-                tracing::warn!("removing {name}: {e}");
+            for name in names {
+                if let Err(e) = backend.delete_secret(&name).await {
+                    tracing::warn!("removing {name}: {e}");
+                }
             }
         });
     }
@@ -507,6 +597,11 @@ impl Streams {
             }
         }
         self.stop_orphans(&sidecars).await;
+        let routed: Vec<String> =
+            self.live.lock().unwrap().iter().filter(|l| l.routed).map(|l| l.entry.workspace.clone()).collect();
+        for id in routed {
+            self.load_access(&id).await;
+        }
         // Their sidecars are gone: those streams are over (drawn on the
         // screen from the first load).
         for id in dead {
@@ -558,15 +653,27 @@ impl Streams {
         let mut ends: Vec<(String, String, String)> = vec![];
         if let Ok(sidecars) = self.backend.containers_labelled(ROLE_LABEL).await {
             self.stop_orphans(&sidecars).await;
-            let mut live = self.live.lock().unwrap();
-            for l in live.iter_mut().filter(|l| !l.routed) {
-                l.routed = sidecars.iter().any(|c| {
-                    c.labels.get("wadspaces.id").and_then(Value::as_str) == Some(l.entry.workspace.as_str())
-                        && c.labels.get(STREAM_LABEL).and_then(Value::as_str) == Some(l.entry.guid.as_str())
-                });
-                if !l.routed && t - l.entry.started > NEVER_UP {
-                    ends.push((l.entry.workspace.clone(), l.entry.guid.clone(), "its sidecar isn't running".into()));
+            let mut found = vec![];
+            {
+                let mut live = self.live.lock().unwrap();
+                for l in live.iter_mut().filter(|l| !l.routed) {
+                    l.routed = sidecars.iter().any(|c| {
+                        c.labels.get("wadspaces.id").and_then(Value::as_str) == Some(l.entry.workspace.as_str())
+                            && c.labels.get(STREAM_LABEL).and_then(Value::as_str) == Some(l.entry.guid.as_str())
+                    });
+                    if l.routed {
+                        found.push(l.entry.workspace.clone());
+                    } else if t - l.entry.started > NEVER_UP {
+                        ends.push((
+                            l.entry.workspace.clone(),
+                            l.entry.guid.clone(),
+                            "its sidecar isn't running".into(),
+                        ));
+                    }
                 }
+            }
+            for id in found {
+                self.load_access(&id).await;
             }
         }
         {

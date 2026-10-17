@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>A WadSpaces stream</title>
+<meta property="og:title" content="A WadSpaces stream">
+<meta property="og:description" content="A wadspace, streamed to your browser. Open the link to sign in.">
+<meta name="theme-color" content="#0a0614">
+<style>
+  :root { color-scheme: dark; }
+  body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #0a0614; color: #f5f2fa;
+         font: 16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 360px; padding: 24px; text-align: center; }
+  h1 { font-size: 20px; margin: 0 0 8px; }
+  p { color: rgb(245 242 250 / 0.62); margin: 0; }
+  .spin { width: 28px; height: 28px; margin: 0 auto 18px; border-radius: 50%;
+          border: 3px solid rgb(198 255 31 / 0.25); border-top-color: #c6ff1f; animation: s 0.9s linear infinite; }
+  @keyframes s { to { transform: rotate(360deg); } }
+  a { color: #c6ff1f; }
+  [hidden] { display: none; }
+</style>
+</head>
+<body>
+<main>
+  <div class="spin" id="spin"></div>
+  <h1 id="title">Opening the stream…</h1>
+  <p id="detail">One moment.</p>
+</main>
+<script>
+// The key is after the `#`: browsers never send that part to a server, so
+// it reached only this page. It comes off the address bar (and history)
+// straight away, goes to the stream's proxy once this page is on screen
+// (a link preview made in the background doesn't sign in), and the stream
+// opens with the cookie the proxy hands back.
+(function () {
+  var key = decodeURIComponent(location.hash.slice(1));
+  history.replaceState(null, "", location.pathname);
+  function say(title, detail) {
+    document.getElementById("spin").hidden = true;
+    document.getElementById("title").textContent = title;
+    document.getElementById("detail").innerHTML = detail;
+  }
+  if (!key) {
+    say("No sign-in key here", 'Open the link you were sent as it is, or <a href="/">sign in with the username and password</a>.');
+    return;
+  }
+  var started = false;
+  function go() {
+    if (started || document.visibilityState !== "visible") return;
+    started = true;
+    fetch("/open", { method: "POST", body: key, credentials: "same-origin", cache: "no-store" })
+      .then(function (r) {
+        if (r.ok) location.replace("/");
+        else say("This link has ended", "The stream it opened is over. Ask for a new link.");
+      })
+      .catch(function () {
+        started = false;
+        say("Couldn't reach the stream", 'Check your connection, then <a href="#" id="again">try again</a>.');
+        document.getElementById("again").onclick = function (e) {
+          e.preventDefault();
+          document.getElementById("spin").hidden = false;
+          go();
+        };
+      });
+  }
+  document.addEventListener("visibilitychange", go);
+  go();
+})();
+</script>
+</body>
+</html>

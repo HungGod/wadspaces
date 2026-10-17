@@ -1,7 +1,7 @@
 //! Streaming a wadspace to a browser (wadd's streams, host/STREAMS.md): the
-//! one way the launcher and Home start a stream, the share dialog (the link
-//! and its login, a QR code for a phone), stopping one, and the tunnel's
-//! state the Stream buttons go by.
+//! one way the launcher and Home start a stream, the share dialog (its
+//! sign-in link, a QR code of it for a phone, and the link and its login
+//! apart), stopping one, and the tunnel's state the Stream buttons go by.
 
 use gtk::{glib, prelude::*};
 use serde_json::json;
@@ -148,12 +148,18 @@ pub fn stop(id: String, name: String, done: impl FnOnce() + 'static) {
     });
 }
 
-/// The link and its login, to hand on: a QR code for a phone, each to copy,
-/// and how the stream's doing.
+/// The stream to hand on: its sign-in link (one tap: a QR code of it for a
+/// phone), or the link and its login apart; each to copy, and how the
+/// stream's doing.
 pub fn share_dialog(share: StreamShare, name: String) {
+    let one_tap = !share.open_link.is_empty();
     let m = Modal::open(
         &format!("Streaming {name}"),
-        Some("Hand these on: the link opens it in any browser, which asks for the username and password."),
+        Some(if one_tap {
+            "Hand on the sign-in link: it opens the stream in any browser, signed in. Or send the link and its login apart."
+        } else {
+            "Hand these on: the link opens it in any browser, which asks for the username and password."
+        }),
         480,
     );
     let col = gtk::Box::new(gtk::Orientation::Vertical, 14);
@@ -162,10 +168,21 @@ pub fn share_dialog(share: StreamShare, name: String) {
     qr.add_css_class("qr");
     qr.set_pixel_size(176);
     qr.set_halign(gtk::Align::Center);
-    if let Some(t) = wad_gtk::icon::svg_texture(qr_svg(&share.link).as_bytes(), 352) {
+    let scanned = if one_tap { &share.open_link } else { &share.link };
+    if let Some(t) = wad_gtk::icon::svg_texture(qr_svg(scanned).as_bytes(), 352) {
         qr.set_paintable(Some(&t));
     }
     col.append(&qr);
+    if one_tap {
+        let rows = gtk::Box::new(gtk::Orientation::Vertical, 6);
+        rows.add_css_class("copy-rows");
+        rows.append(&ui::copy_row("Sign-in link", &share.open_link));
+        col.append(&rows);
+        let or = gtk::Label::new(Some("Or the link and its login, apart"));
+        or.add_css_class("small-muted");
+        or.set_xalign(0.0);
+        col.append(&or);
+    }
     let rows = gtk::Box::new(gtk::Orientation::Vertical, 6);
     rows.add_css_class("copy-rows");
     rows.append(&ui::copy_row("Link", &share.link));
@@ -200,14 +217,19 @@ pub fn share_dialog(share: StreamShare, name: String) {
     });
     let idle = store().read_now(|s| s.tunnel.as_ref().map(|t| t.idle_minutes).filter(|m| *m > 0).unwrap_or(30));
     let note = ui::wrapping(&format!(
-        "Anyone with the link and password can use this wadspace. It stops after {idle} minutes with nobody watching."
+        "Anyone with the sign-in link, or the link and password, can use this wadspace. It stops after {idle} minutes \
+         with nobody watching, and the links stop working."
     ));
     note.add_css_class("small-muted");
     col.append(&note);
     let row = gtk::Box::new(gtk::Orientation::Horizontal, 8);
     row.set_margin_top(4);
     let copy_all = ui::button("Copy all", Some("clipboard-copy"), Variant::Secondary, Size::Md);
-    let all = format!("{}\nUsername: {}\nPassword: {}", share.link, share.user, share.password);
+    let all = if one_tap {
+        format!("{}\n\nOr: {}\nUsername: {}\nPassword: {}", share.open_link, share.link, share.user, share.password)
+    } else {
+        format!("{}\nUsername: {}\nPassword: {}", share.link, share.user, share.password)
+    };
     copy_all.connect_clicked(move |b| {
         ui::copy(b, &all);
         ui::set_text(b, "Copied");

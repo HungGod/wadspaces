@@ -15,8 +15,11 @@
 # login is asked for (401 + Basic) on the page and the websocket, the right
 # one gets the page (200) and a websocket (101), a browser sees the desktop
 # (a screenshot); unknown hosts get 404 and ws-selftest is answered; wadd
-# restarting keeps the stream (same link, same login); ending it takes the
-# containers, the units and the password with it, and the link 404s.
+# restarting keeps the stream (same link, same login); the sign-in link
+# signs in with no login (the right key gets the cookie, the cookie gets
+# the page and the websocket; a browser with no login sees the desktop);
+# ending it takes the containers, the units and the password with it, and
+# the link 404s.
 #
 # Needs podman.socket, the images (images/build.sh, and a Writing template:
 # localhost/wadspaces-template-writing:latest) and, for the screenshot,
@@ -101,6 +104,8 @@ share=$(api POST /v1/workspaces/$ws/stream '{}')
 link=$(echo "$share" | field 'd["link"]')
 user=$(echo "$share" | field 'd["user"]')
 pw=$(echo "$share" | field 'd["password"]')
+open=$(echo "$share" | field 'd["openLink"]')
+key=${open#*#}
 host=${link#https://}; host=${host%/}
 echo "link $link, user $user, a password of ${#pw} characters"
 for _ in $(seq 300); do
@@ -135,11 +140,22 @@ if [ -d "$root/.build/uitools/node_modules/playwright-core" ]; then
   echo "screenshot: $shot"
 fi
 
+echo "== the sign-in link (the key after the #: $([[ $open == "https://$host/open#"* ]] && echo yes || echo NO))"
+echo "its page:    $(status -H "Host: $host" $at/open), key in it: $(curl -s -H "Host: $host" $at/open | grep -c "$key")"
+echo "wrong key:   $(status -X POST --data-binary nope -H "Host: $host" $at/open)"
+set_cookie=$(curl -s -o /dev/null -D - -X POST --data-binary "$key" -H "Host: $host" $at/open | grep -i '^set-cookie' | tr -d '\r')
+echo "right key:   $set_cookie"
+echo "with it:     page $(status -b "wadspaces_stream=$key" -H "Host: $host" $at/), websocket '$(ws_status -b "wadspaces_stream=$key" -H "Host: $host" $at/api/websockets)'"
+if [ -d "$root/.build/uitools/node_modules/playwright-core" ]; then
+  node "$root/apps/wadd/dev/stream-probe.mjs" "http://$host:$proxy/open#$key" "" "" "$dir/signed-in.png" 2>&1 | tail -12 || true
+  echo "screenshot: $dir/signed-in.png"
+fi
+
 echo "== wadd restarts: the stream stays"
 stop_wadd
 start_wadd
 for _ in $(seq 30); do [ "$(status -u "$user:$pw" -H "Host: $host" $at/)" = 200 ] && break; sleep 1; done
-echo "same link, same login: page $(status -u "$user:$pw" -H "Host: $host" $at/)"
+echo "same link, same login: page $(status -u "$user:$pw" -H "Host: $host" $at/), sign-in link $(status -X POST --data-binary "$key" -H "Host: $host" $at/open)"
 api GET /v1/streams | field '[(s["workspace"], s["live"], s["link"] == "'"$link"'") for s in d]'
 
 echo "== ending it"

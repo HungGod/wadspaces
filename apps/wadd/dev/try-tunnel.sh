@@ -8,10 +8,11 @@
 #   sudo systemctl stop cloudflared      # after: never beside the Surface's
 #
 # It shows the tunnel's state and runs the self-test (through Cloudflare and
-# back), then the link and its login (a QR code too, with qrencode), and
-# waits while you open it on the phone: no login first (the login prompt),
-# then the login (the desktop). Enter ends the stream; everything it made
-# is removed. Needs podman.socket and the images (see try-stream.sh).
+# back), then the sign-in link (a QR code of it too, with qrencode) and
+# the link with its login, and waits while you open them on the phone: the
+# link with no login first (the login prompt), then the sign-in link (the
+# desktop, no login asked). Enter ends the stream; everything it made is
+# removed. Needs podman.socket and the images (see try-stream.sh).
 set -euo pipefail
 ulimit -c 0
 root=$(cd "$(dirname "$0")/../../.." && pwd)
@@ -86,6 +87,7 @@ echo "$share" | grep -q '"link"' || { echo "  refused: $share"; exit 1; }
 link=$(echo "$share" | field 'd["link"]')
 user=$(echo "$share" | field 'd["user"]')
 pw=$(echo "$share" | field 'd["password"]')
+open=$(echo "$share" | field 'd["openLink"]')
 for _ in $(seq 300); do
   phase=$(api GET /v1/workspaces/$ws/state | field 'd["phase"]')
   [ "$phase" = ready ] || [ "$phase" = error ] && break
@@ -93,13 +95,16 @@ for _ in $(seq 300); do
 done
 echo "  $phase"
 echo
+echo "  sign-in link: $open"
+echo
 echo "  link:     $link"
 echo "  user:     $user"
 echo "  password: $pw"
 echo
-command -v qrencode >/dev/null && qrencode -t ANSIUTF8 "$link"
-echo "On the phone (Wi-Fi off): open the link. Cancel the login first (the prompt"
-echo "should stay, no desktop), then sign in with the user and password above."
+command -v qrencode >/dev/null && qrencode -t ANSIUTF8 "$open"
+echo "On the phone (Wi-Fi off): open the plain link and cancel the login (the"
+echo "prompt should stay, no desktop). Then open the sign-in link (or scan the"
+echo "code): the desktop, with no login asked."
 read -r -p "Enter ends the stream... " _
 out=$(api DELETE /v1/workspaces/$ws/stream)
 if [ -z "$out" ]; then echo "ended"; else echo "  it had ended already: $out"; fi

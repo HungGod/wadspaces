@@ -765,11 +765,15 @@ pub struct StreamInfo {
 pub struct StreamShare {
     pub workspace: String,
     pub link: String,
+    /// The link that signs in by itself (https://ws-<guid>.<domain>/open#<key>):
+    /// whoever has it gets in. Empty: none.
+    #[serde(default)]
+    pub open_link: String,
     pub user: String,
     pub password: String,
 }
 
-// Never the password in a log line.
+// Never the password, nor the sign-in link's key, in a log line.
 impl std::fmt::Debug for StreamShare {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("StreamShare")

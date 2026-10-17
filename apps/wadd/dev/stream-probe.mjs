@@ -3,6 +3,9 @@
 //
 //   node apps/wadd/dev/stream-probe.mjs URL USER PASSWORD OUT.png
 //
+// With USER and PASSWORD empty, it has no login: for a stream's sign-in
+// link (https://ws-<guid>.<domain>/open#<key>), which signs in by itself.
+//
 // The stream's page needs a secure context (its video decoder): https, or
 // a *.localhost name, which browsers treat as secure and look up on this
 // machine themselves (try-stream.sh streams at ws-<guid>.stream.localhost).
@@ -35,12 +38,18 @@ const browser = await chromium.launch(executablePath ? { executablePath } : {});
 try {
   const context = await browser.newContext({
     viewport: { width: 1280, height: 800 },
-    httpCredentials: { username: user, password },
+    ...(user || password ? { httpCredentials: { username: user, password } } : {}),
   });
   const page = await context.newPage();
   const sockets = [];
   page.on("websocket", (ws) => sockets.push(ws.url()));
   const res = await page.goto(url, { waitUntil: "load", timeout: 30000 });
+  // A sign-in link's page goes on to the stream by itself (maybe already).
+  if (new URL(url).pathname === "/open") {
+    await page.waitForURL((u) => u.pathname === "/", { timeout: 15000 });
+    await page.waitForLoadState("load");
+    console.log(`signed in by the link, now at ${page.url()}`);
+  }
   console.log(`page ${res.status()}, secure ${await page.evaluate(() => window.isSecureContext)}`);
   // The stream draws on a canvas once frames arrive; give it time to.
   await page.waitForSelector("canvas", { timeout: 30000 });

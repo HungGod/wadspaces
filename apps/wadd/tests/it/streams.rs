@@ -187,7 +187,16 @@ async fn a_stream_draws_on_its_sidecar_and_ends() {
     let at = |c: &str| calls.iter().position(|x| x == c).unwrap_or_else(|| panic!("{c}: {calls:?}"));
     assert!(at("start wad-a-display.service") < at("start wad-a.service"));
     assert!(e.reg.state("a").unwrap().streaming);
-    assert_eq!(s.route(&guid).map(|r| u64::from(r.0)), Some(port));
+    assert_eq!(s.route(&guid).map(|r| u64::from(r.port)), Some(port));
+    // The sign-in link: its key after the `#`, kept in podman like the
+    // password and nowhere in wadd's files.
+    let key = share.open_link.strip_prefix(&format!("https://ws-{guid}.wadspaces.com/open#")).unwrap().to_string();
+    assert!(key.len() == 32 && key.bytes().all(|b| b.is_ascii_hexdigit()), "{}", share.open_link);
+    assert_eq!(e.fake.0.lock().unwrap().secrets.get("wad_streamkey_a").unwrap(), key.as_bytes());
+    assert!(!std::fs::read_to_string(e.state.join("streams.json")).unwrap().contains(&key));
+    let access = s.route(&guid).unwrap().access.unwrap();
+    assert!(access.key_is(&key) && !access.key_is("0".repeat(32).as_str()));
+    assert!(!format!("{share:?}").contains(&key) && !format!("{share:?}").contains(&share.password));
     assert!(s.list()[0].live && s.list()[0].link == share.link);
     // It's off Super+Tab.
     assert!(!e.view.running_items().iter().any(|w| w.id == "a"));
@@ -199,7 +208,11 @@ async fn a_stream_draws_on_its_sidecar_and_ends() {
     assert!(e.fake.calls().contains(&"stop wad-a-display.service".to_string()));
     assert_eq!(unit_names(&e), ["wad-a.container", "wad-b.container"]);
     assert!(!e.fake.0.lock().unwrap().containers.contains_key("wad-a"));
-    until("password gone", || !e.fake.0.lock().unwrap().secrets.contains_key("wad_stream_a")).await;
+    until("password and key gone", || {
+        let m = e.fake.0.lock().unwrap();
+        !m.secrets.contains_key("wad_stream_a") && !m.secrets.contains_key("wad_streamkey_a")
+    })
+    .await;
     assert!(s.route(&guid).is_none() && s.list().is_empty());
     assert!(!e.reg.state("a").unwrap().streaming);
     assert_eq!(s.stop("a").await.unwrap_err().code, ErrorCode::NotFound);
@@ -241,6 +254,7 @@ async fn wadd_restarting_keeps_running_streams_and_stops_the_rest() {
     std::fs::write(e.state.join("streams.json"), book.to_string()).unwrap();
     e.fake.with(|m| {
         m.secrets.insert("wad_stream_a".into(), b"pa".to_vec());
+        m.secrets.insert("wad_streamkey_a".into(), b"ka".to_vec());
         m.secrets.insert("wad_stream_b".into(), b"pb".to_vec());
         for (name, id, guid) in [("wad-a-display", "a", "a".repeat(32)), ("wad-c-display", "c", "c".repeat(32))] {
             m.containers.insert(name.into(), "running".into());
@@ -258,7 +272,9 @@ async fn wadd_restarting_keeps_running_streams_and_stops_the_rest() {
     s.adopt().await;
     load(&e).await;
     // a: routed again, drawn on its sidecar from the first load.
-    assert_eq!(s.route(&"a".repeat(32)).map(|r| r.0), Some(58300));
+    assert_eq!(s.route(&"a".repeat(32)).map(|r| r.port), Some(58300));
+    // Its sign-in link still works: its key and login read back from podman.
+    assert!(s.route(&"a".repeat(32)).unwrap().access.is_some_and(|a| a.key_is("ka")));
     assert!(unit_names(&e).contains(&"wad-a-display.container".to_string()));
     // b: over, its password gone; c's sidecar: stopped.
     assert!(s.route(&"b".repeat(32)).is_none() && !e.reg.is_streamed("b"));

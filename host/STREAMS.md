@@ -1,8 +1,9 @@
 # Streams
 
-A wadspace can be streamed to any browser: a link like
-`https://ws-<guid>.wadspaces.com` and a username and password to hand on with
-it. The WadSpaces Client makes one (Launch → Stream…, or Stream on a Home
+A wadspace can be streamed to any browser: a sign-in link like
+`https://ws-<guid>.wadspaces.com/open#<key>` that opens it signed in, or the
+plain link `https://ws-<guid>.wadspaces.com` and a username and password to
+hand on with it. The WadSpaces Client makes one (Launch → Stream…, or Stream on a Home
 card); Secrets → Cloud Tunnel shows whether the machine can.
 
 ```
@@ -18,7 +19,8 @@ browser ──https──▶ Cloudflare ──tunnel──▶ cloudflared ──
 - **wadd's proxy** (`apps/wadd/src/proxy.rs`) listens on loopback only
   (127.0.0.1 and ::1, port 8085). It looks at the Host: a stream here is
   passed to its sidecar as it came, websockets included; `ws-selftest.*` is
-  answered by the proxy itself; anything else is 404. It logs no one in.
+  answered by the proxy itself; anything else is 404. It logs a viewer in
+  only for the sign-in link (below).
 - **The tunnel**: `cloudflared.service`, from Cloudflare's RPM, with the
   token in `/etc/cloudflared/token`. The tunnel routes `*.wadspaces.com` to
   `http://127.0.0.1:8085`; the DNS has a `*.wadspaces.com` CNAME to it.
@@ -31,6 +33,15 @@ browser ──https──▶ Cloudflare ──tunnel──▶ cloudflared ──
 - Each stream gets a new link (128 random bits) and its own login (a user and
   a 20-character password), asked for by the sidecar's nginx on every path,
   the page and the websocket. The sidecar refuses to start without one.
+- **The sign-in link** carries a second 128-bit key after the `#`. That part
+  of a link never leaves the browser, so a messaging app's preview fetcher
+  gets only `/open`'s page, with nothing to sign in with. The page (wiping
+  the key off the address bar) posts the key to the proxy once it's on
+  screen; the right key gets a cookie for that stream's site only
+  (`HttpOnly`, `Secure`), and with it the proxy adds the stream's login on
+  every request, the websocket included. Whoever has that link gets in, as
+  with a document shared with anyone who has its link; it stops working
+  when the stream ends. The key is podman secret `wad_streamkey_<id>`.
 - The password is podman secret `wad_stream_<id>` only: not in units,
   `streams.json`, events, logs, the heartbeat or the account. Only the
   machine's own socket hands it out (GET /v1/streams/{id}/share). `wad_`
@@ -65,9 +76,11 @@ browser ──https──▶ Cloudflare ──tunnel──▶ cloudflared ──
 ## Trying it
 
 - `apps/wadd/dev/try-stream.sh`: a real stream on a laptop, rootless,
-  without the tunnel (logins, websockets, a screenshot, a restart, the end).
+  without the tunnel (logins, the sign-in link, websockets, screenshots, a
+  restart, the end).
 - `apps/wadd/dev/try-tunnel.sh`: through the real tunnel from the laptop,
   for a phone on cellular (start the laptop's cloudflared first, and stop it
   after).
-- On the machine: Stream a wadspace, open the link on a phone on cellular,
-  log in: the desktop. The link without the login: the login prompt.
+- On the machine: Stream a wadspace, scan the share dialog's code on a phone
+  on cellular: the desktop, signed in. The plain link without the login: the
+  login prompt.

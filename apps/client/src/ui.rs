@@ -425,6 +425,8 @@ pub fn copy_row(label: &str, value: &str) -> gtk::Box {
     v.set_hexpand(true);
     v.set_xalign(0.0);
     v.set_ellipsize(gtk::pango::EllipsizeMode::Middle);
+    // A long link mustn't widen whatever holds it: its middle goes.
+    v.set_max_width_chars(34);
     v.set_tooltip_text(Some(value));
     row.append(&v);
     let b = icon_button("copy", &format!("Copy the {}", label.to_lowercase()), 16);

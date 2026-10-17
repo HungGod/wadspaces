@@ -15,6 +15,8 @@ use wadd::streams::Streams;
 
 const GUID: &str = "0123456789abcdef0123456789abcdef";
 const LOGIN: &str = "Basic d2FkLXVzZXI6cGFzc3dvcmQ="; // wad-user:password
+/// The stream's sign-in link's key.
+const KEY: &str = "fedcba9876543210fedcba9876543210";
 
 /// The made-up sidecar: one request per connection.
 async fn sidecar() -> u16 {
@@ -79,6 +81,8 @@ async fn proxy() -> (tempfile::TempDir, u16, Arc<Streams>) {
     )
     .unwrap();
     fake.with(|m| {
+        m.secrets.insert("wad_stream_a".into(), b"password".to_vec());
+        m.secrets.insert("wad_streamkey_a".into(), KEY.as_bytes().to_vec());
         m.containers.insert("wad-a-display".into(), "running".into());
         m.container_labels.insert(
             "wad-a-display".into(),
@@ -192,6 +196,47 @@ async fn a_stream_is_passed_through_as_it_came() {
     assert!(!lower.contains("keep-alive: timeout"), "{r}");
     // Someone touched it.
     assert!(streams.list()[0].last_active > 1.0);
+}
+
+#[tokio::test]
+async fn the_sign_in_link_signs_in() {
+    let (_d, port, _streams) = proxy().await;
+    let host = format!("ws-{GUID}.wadspaces.com");
+    // Its page: nothing secret in it (the key is after the `#`, never sent).
+    let r = ask(port, &get(&host, "/open", "")).await;
+    assert!(r.starts_with("HTTP/1.1 200") && r.contains("Opening the stream") && !r.contains(KEY), "{r}");
+    let post = |key: &str| {
+        format!(
+            "POST /open HTTP/1.1\r\nHost: {host}\r\nConnection: close\r\nContent-Length: {}\r\n\r\n{key}",
+            key.len()
+        )
+    };
+    // The wrong key: refused, no cookie.
+    let r = ask(port, &post("0123456789abcdef0123456789abcdee")).await;
+    assert!(r.starts_with("HTTP/1.1 403") && !r.to_ascii_lowercase().contains("set-cookie"), "{r}");
+    // The right one: the cookie, for this stream's site only.
+    let r = ask(port, &post(KEY)).await;
+    assert!(r.starts_with("HTTP/1.1 204"), "{r}");
+    let cookie = r.lines().find(|l| l.to_ascii_lowercase().starts_with("set-cookie:")).unwrap().to_string();
+    for part in [&format!("wadspaces_stream={KEY}"), "HttpOnly", "Secure", "SameSite=Lax", "Path=/"] {
+        assert!(cookie.contains(part), "{cookie}");
+    }
+    assert!(!cookie.to_ascii_lowercase().contains("domain="), "{cookie}");
+    // With it, the proxy logs in for the viewer; the cookie stays here.
+    let r = ask(port, &get(&host, "/", &format!("Cookie: theme=dark; wadspaces_stream={KEY}\r\n"))).await;
+    assert!(r.starts_with("HTTP/1.1 200") && r.contains(LOGIN), "{r}");
+    assert!(r.to_ascii_lowercase().contains("cookie: theme=dark") && !r.contains("wadspaces_stream"), "{r}");
+    // A wrong cookie gets the login prompt, and isn't passed on either.
+    let r = ask(port, &get(&host, "/", "Cookie: wadspaces_stream=nope\r\n")).await;
+    assert!(r.starts_with("HTTP/1.1 401"), "{r}");
+    // The websocket too.
+    let mut s = TcpStream::connect(("127.0.0.1", port)).await.unwrap();
+    let req = format!(
+        "GET /api/websockets HTTP/1.1\r\nHost: {host}\r\nCookie: wadspaces_stream={KEY}\r\nConnection: Upgrade\r\n\
+         Upgrade: websocket\r\nSec-WebSocket-Version: 13\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\n\r\n"
+    );
+    s.write_all(req.as_bytes()).await.unwrap();
+    assert!(read_head(&mut s).await.starts_with("HTTP/1.1 101"));
 }
 
 #[tokio::test]
