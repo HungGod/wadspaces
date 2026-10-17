@@ -23,6 +23,7 @@ struct Latest {
     workspaces: Option<Event>,
     devices: Option<Event>,
     bluetooth: Option<Event>,
+    streams: Option<Event>,
     states: Vec<WorkspaceState>,
 }
 
@@ -38,6 +39,7 @@ impl Bus {
             workspaces: None,
             devices: None,
             bluetooth: None,
+            streams: None,
             states: vec![],
         };
         Self { tx: broadcast::channel(256).0, latest: Arc::new(Mutex::new(latest)) }
@@ -60,6 +62,7 @@ impl Bus {
                 Event::Workspaces(_) => l.workspaces = Some(e.clone()),
                 Event::Devices(_) => l.devices = Some(e.clone()),
                 Event::Bluetooth(_) => l.bluetooth = Some(e.clone()),
+                Event::Streams(_) => l.streams = Some(e.clone()),
                 Event::Notice { .. }
                 | Event::Shortcut { .. }
                 | Event::Projects { .. }
@@ -89,10 +92,20 @@ impl Bus {
         let l = self.latest.lock().unwrap();
         let mut now = vec![Event::Machine(l.machine.clone())];
         now.extend(
-            [&l.workspaces, &l.view, &l.session, &l.carousel, &l.cloud, &l.network, &l.devices, &l.bluetooth]
-                .into_iter()
-                .flatten()
-                .cloned(),
+            [
+                &l.workspaces,
+                &l.view,
+                &l.session,
+                &l.carousel,
+                &l.cloud,
+                &l.network,
+                &l.devices,
+                &l.bluetooth,
+                &l.streams,
+            ]
+            .into_iter()
+            .flatten()
+            .cloned(),
         );
         now.extend(l.states.iter().cloned().map(Event::WorkspaceState));
         (now, rx)

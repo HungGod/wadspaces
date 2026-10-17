@@ -243,6 +243,7 @@ impl Registry {
                     // An app has no image.
                     image_present: (w.kind == Kind::App).then_some(true),
                     since: wall(),
+                    streaming: false,
                 });
             }
         }

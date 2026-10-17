@@ -16,3 +16,10 @@ block = ["alt+f4", "ctrl+shift+q", "ctrl+alt+backspace"]
 # The account this machine links to (WadSpaces links it at first sign-in).
 project_id = "wad-spaces"
 functions_region = "australia-southeast2"
+
+[streaming]
+# Streams reach browsers at https://ws-<guid>.wadspaces.com through the
+# Cloudflare tunnel (cloudflared.service) and wadd's proxy on :8085.
+# WebSockets only; `webrtc = true` adds WebRTC (STUN and Cloudflare's TURN).
+domain = "wadspaces.com"
+webrtc = false

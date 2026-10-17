@@ -35,6 +35,7 @@ pub struct Config {
     pub keys: Keys,
     pub display: Display,
     pub cloud: Cloud,
+    pub streaming: Streaming,
 }
 
 /// The account link (the cloud relay). An empty project_id: no account to
@@ -67,6 +68,60 @@ impl Default for Cloud {
             heartbeat_s: 30,
             poll_s: 3,
             emulator: None,
+        }
+    }
+}
+
+/// Streaming wadspaces to a browser: each streamed wadspace draws on its
+/// Selkies sidecar, wadd's proxy maps https://ws-<guid>.<domain> to that
+/// sidecar, and the Cloudflare tunnel (cloudflared, its token at
+/// /etc/cloudflared/token) carries it from the internet to the proxy.
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+#[serde(default)]
+pub struct Streaming {
+    pub enabled: bool,
+    /// A stream is https://ws-<guid>.<domain>/ (the tunnel's wildcard).
+    pub domain: String,
+    /// Where the proxy listens: the tunnel's origin, on loopback only (both
+    /// families: `localhost` may resolve to ::1 first). One that can't be
+    /// bound is skipped.
+    pub listen: Vec<String>,
+    /// The sidecar (images/stream).
+    pub image: String,
+    /// Each stream's sidecar web port (on 127.0.0.1) and WebRTC mux port
+    /// come from these ranges: `ports` ports from each first one.
+    pub first_web_port: u16,
+    pub first_mux_port: u16,
+    pub ports: u16,
+    /// A stream nobody has watched or touched for this long is stopped.
+    pub idle_minutes: u64,
+    /// WebRTC beside WebSockets (STUN and Cloudflare's TURN): off, so a
+    /// stream is WebSockets end to end.
+    pub webrtc: bool,
+    /// The TURN key ([cloudflare.turn] token_id, api_token), read only when
+    /// `webrtc` is on.
+    pub turn: PathBuf,
+    /// cloudflared's metrics server (its /ready says whether it's connected).
+    pub metrics: String,
+    /// Stream only when the tunnel is up (the trials turn this off).
+    pub require_tunnel: bool,
+}
+
+impl Default for Streaming {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            domain: "wadspaces.com".into(),
+            listen: vec!["127.0.0.1:8085".into(), "[::1]:8085".into()],
+            image: "localhost/wadspaces-stream:trixie".into(),
+            first_web_port: 48100,
+            first_mux_port: 48200,
+            ports: 100,
+            idle_minutes: 30,
+            webrtc: false,
+            turn: "/usr/lib/wadspaces/secrets/cloudflare.toml".into(),
+            metrics: "127.0.0.1:20241".into(),
+            require_tunnel: true,
         }
     }
 }
@@ -270,6 +325,7 @@ impl Config {
             keys: Keys::for_profile(profile),
             display: Display::for_profile(profile),
             cloud: Cloud::default(),
+            streaming: Streaming::default(),
         }
     }
 
@@ -332,6 +388,7 @@ struct Raw {
     keys: Keys,
     display: Display,
     cloud: Cloud,
+    streaming: Streaming,
 }
 #[derive(serde::Serialize)]
 struct RawMachine {
@@ -382,6 +439,7 @@ impl From<&Config> for Raw {
             keys: c.keys.clone(),
             display: c.display.clone(),
             cloud: c.cloud.clone(),
+            streaming: c.streaming.clone(),
         }
     }
 }
@@ -438,6 +496,10 @@ mod tests {
             ("wad-spaces", "australia-southeast2")
         );
         assert!(c.keys.enabled && c.keys.home == ["KEY_0", "KEY_SPACE"]);
+        // Streams are WebSockets only until WebRTC is turned on here.
+        assert!(c.streaming.enabled && !c.streaming.webrtc && c.streaming.require_tunnel);
+        assert_eq!(c.streaming.domain, "wadspaces.com");
+        assert_eq!(c.streaming.listen, ["127.0.0.1:8085", "[::1]:8085"]);
     }
 
     fn write(dir: &Path, name: &str, text: &str) -> PathBuf {
@@ -477,6 +539,10 @@ mod tests {
         let c = Config::load(Profile::System, &[old]).unwrap();
         assert_eq!((c.keys.home, c.keys.grab), (vec!["KEY_HOME".to_string()], true));
         assert_eq!(c.display.socket, Some(PathBuf::from("/tmp/s")));
+        let s = write(d.path(), "streams.toml", "[streaming]\nwebrtc = true\nidle_minutes = 5\n");
+        let c = Config::load(Profile::System, &[s]).unwrap();
+        assert!(c.streaming.webrtc && c.streaming.enabled);
+        assert_eq!((c.streaming.idle_minutes, c.streaming.first_web_port), (5, 48100));
         let bad = write(d.path(), "soon.toml", "[daemon]\nready_timeout_s = \"soon\"\n");
         assert!(Config::load(Profile::System, &[bad]).is_err());
     }

@@ -107,6 +107,9 @@ pub enum Event {
     Devices(Vec<Device>),
     /// Bluetooth changed: on or off, found, paired, connected, a prompt.
     Bluetooth(BluetoothStatus),
+    /// Streams began, ended or were watched (all of them, as GET /v1/streams
+    /// has them: never their passwords).
+    Streams(Vec<StreamInfo>),
 }
 
 impl Event {
@@ -130,6 +133,7 @@ impl Event {
             Event::Storage { .. } => "storage",
             Event::Devices(_) => "devices",
             Event::Bluetooth(_) => "bluetooth",
+            Event::Streams(_) => "streams",
         }
     }
 }
@@ -729,6 +733,111 @@ pub struct WorkspaceState {
     pub image_present: Option<bool>,
     /// When the phase last changed (Unix seconds).
     pub since: f64,
+    /// It's streamed: drawn on its stream sidecar, not on the screen.
+    #[serde(default)]
+    pub streaming: bool,
+}
+
+/// GET /v1/streams (and `streams` events): a wadspace streamed to browsers,
+/// at https://ws-<guid>.<domain>/ behind its login. Never the password.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StreamInfo {
+    pub workspace: String,
+    /// The hostname (ws-<guid>.<domain>).
+    pub host: String,
+    pub link: String,
+    pub user: String,
+    /// When it began, and when someone last watched or touched it (Unix
+    /// seconds).
+    pub started: f64,
+    pub last_active: f64,
+    /// Browsers watching now (open websockets).
+    pub viewers: u32,
+    /// The proxy routes to it (its sidecar was found running).
+    pub live: bool,
+}
+
+/// What to hand on with a stream: the link and its login. Only from POST
+/// /v1/workspaces/{id}/stream and GET /v1/streams/{id}/share.
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StreamShare {
+    pub workspace: String,
+    pub link: String,
+    pub user: String,
+    pub password: String,
+}
+
+// Never the password in a log line.
+impl std::fmt::Debug for StreamShare {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("StreamShare")
+            .field("workspace", &self.workspace)
+            .field("link", &self.link)
+            .field("user", &self.user)
+            .finish_non_exhaustive()
+    }
+}
+
+/// POST /v1/workspaces/{id}/stream.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StreamRequest {
+    /// It's open on the screen: take it off (else that's refused).
+    #[serde(default)]
+    pub takeover: bool,
+}
+
+/// GET /v1/tunnel: the Cloudflare tunnel streams reach browsers through.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TunnelStatus {
+    pub cloudflared_installed: bool,
+    /// /etc/cloudflared/token is there (its contents never leave wadd).
+    pub token_present: bool,
+    /// The tunnel's id, from the token (None: no token, or wadd can't read it).
+    pub tunnel_id: Option<String>,
+    /// cloudflared.service: active, inactive, failed, ... ("unknown": systemd
+    /// didn't say).
+    pub service: String,
+    /// Connected to Cloudflare, and over how many links.
+    pub connected: bool,
+    pub connections: u32,
+    /// Streams are https://ws-<guid>.<domain>/.
+    pub domain: String,
+    /// WebRTC beside WebSockets (wadd.toml's [streaming] webrtc).
+    pub webrtc: bool,
+    /// Streaming can start: a token, cloudflared running and connected.
+    pub ready: bool,
+}
+
+/// POST /v1/tunnel/selftest: https://ws-selftest.<domain>/ fetched from
+/// here, through Cloudflare and the tunnel back to this proxy.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SelfTest {
+    pub ok: bool,
+    /// The last HTTP status (None: no answer).
+    pub status: Option<u16>,
+    /// The slowest of the tries, in milliseconds.
+    pub ms: u64,
+    /// What happened, for people.
+    pub detail: String,
+}
+
+/// PUT /v1/tunnel/token: a new tunnel token (or the `cloudflared service
+/// install <token>` line Cloudflare shows).
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TunnelToken {
+    pub token: String,
+}
+
+// Never the token in a log line.
+impl std::fmt::Debug for TunnelToken {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("TunnelToken").finish_non_exhaustive()
+    }
 }
 
 /// GET /v1/browse: the folders in a folder (folder projects' picker).
