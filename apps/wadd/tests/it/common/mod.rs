@@ -27,6 +27,8 @@ pub struct Machine {
     pub free_gb: f64,
     /// Container id -> its wadspaces.id label.
     pub labels: HashMap<String, String>,
+    /// Container -> all its labels (containers_labelled sees these).
+    pub container_labels: HashMap<String, serde_json::Map<String, serde_json::Value>>,
     /// Image -> its labels (an image that's here and not listed has none).
     pub image_labels: HashMap<String, serde_json::Map<String, serde_json::Value>>,
     /// Volume -> where its files are.
@@ -168,6 +170,26 @@ impl Backend for Fake {
         let mut n: Vec<String> = self.0.lock().unwrap().secrets.keys().cloned().collect();
         n.sort();
         Ok(n)
+    }
+    async fn secret_value(&self, name: &str) -> Result<Option<String>, String> {
+        Ok(self.0.lock().unwrap().secrets.get(name).map(|v| String::from_utf8_lossy(v).into_owned()))
+    }
+    async fn containers_labelled(&self, label: &str) -> Result<Vec<wadd::backend::ContainerInfo>, String> {
+        let (key, value) = label.split_once('=').unwrap_or((label, ""));
+        let m = self.0.lock().unwrap();
+        let mut out: Vec<wadd::backend::ContainerInfo> = m
+            .container_labels
+            .iter()
+            .filter(|(name, _)| m.containers.get(*name).is_some_and(|s| s == "running"))
+            .filter(|(_, l)| l.get(key).and_then(|v| v.as_str()).is_some_and(|v| value.is_empty() || v == value))
+            .map(|(name, labels)| wadd::backend::ContainerInfo { name: name.clone(), labels: labels.clone() })
+            .collect();
+        out.sort_by(|a, b| a.name.cmp(&b.name));
+        Ok(out)
+    }
+    async fn stop_container(&self, name: &str) -> Result<bool, String> {
+        self.with(|m| m.calls.push(format!("stop container {name}")));
+        Ok(self.0.lock().unwrap().containers.remove(name).is_some())
     }
     async fn create_secret(&self, name: &str, value: &[u8]) -> Result<(), String> {
         if value.is_empty() {

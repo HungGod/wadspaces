@@ -10,6 +10,9 @@
 //!   - local: set on this machine (the app's GitHub sign-in).
 //!
 //! Linking to another owner forgets everything that came from the last one.
+//!
+//! Names starting `wad_` are wadd's own (a stream's password, the TURN key):
+//! never listed, set, synced or deleted here, nor mounted by a design.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::PathBuf;
@@ -25,6 +28,11 @@ use crate::backend::Backend;
 /// What a placeholder holds (podman won't keep an empty secret): a line that
 /// reads as nothing once trimmed.
 pub const PLACEHOLDER: &[u8] = b"\n";
+
+/// wadd's own secret (streams.rs): out of everyone else's reach.
+pub fn reserved(name: &str) -> bool {
+    name.starts_with("wad_")
+}
 
 pub fn valid_name(name: &str) -> bool {
     (1..=64).contains(&name.len())
@@ -84,6 +92,7 @@ impl Secrets {
         let book = self.book();
         Ok(names
             .into_iter()
+            .filter(|name| !reserved(name))
             .map(|name| {
                 let origin = if book.placeholders.contains(&name) {
                     SecretOrigin::Placeholder
@@ -99,7 +108,7 @@ impl Secrets {
 
     /// Sets a secret here (it's this machine's own from now on).
     pub async fn set(&self, name: &str, value: &[u8]) -> Result<(), ApiError> {
-        if !valid_name(name) {
+        if !valid_name(name) || reserved(name) {
             return Err(ApiError::new(ErrorCode::BadRequest, format!("bad secret name {name:?}")));
         }
         if value.is_empty() {
@@ -114,6 +123,9 @@ impl Secrets {
     }
 
     pub async fn delete(&self, name: &str) -> Result<bool, ApiError> {
+        if reserved(name) {
+            return Err(ApiError::new(ErrorCode::BadRequest, format!("bad secret name {name:?}")));
+        }
         let _one = self.lock.lock().await;
         let gone = self.backend.delete_secret(name).await.map_err(|e| ApiError::new(ErrorCode::Upstream, e))?;
         let mut book = self.book();
@@ -132,7 +144,7 @@ impl Secrets {
         let here: BTreeSet<String> = self.backend.secret_names().await?.into_iter().collect();
         let mut out = SecretsSynced::default();
         for (name, value) in account {
-            if !valid_name(name) || value.is_empty() {
+            if !valid_name(name) || reserved(name) || value.is_empty() {
                 continue;
             }
             let d = digest(value.as_bytes());
@@ -165,7 +177,7 @@ impl Secrets {
         let here: BTreeSet<String> = self.backend.secret_names().await?.into_iter().collect();
         let mut book = self.book();
         let mut made = vec![];
-        for name in needed.iter().filter(|n| valid_name(n) && !here.contains(*n)) {
+        for name in needed.iter().filter(|n| valid_name(n) && !reserved(n) && !here.contains(*n)) {
             self.backend.create_secret(name, PLACEHOLDER).await?;
             book.placeholders.insert(name.clone());
             made.push(name.clone());

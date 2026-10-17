@@ -348,6 +348,9 @@ impl Devices {
         if w.kind != Kind::Container || w.display != Display::Host {
             return Err(bad(format!("{} can't have devices", w.name)));
         }
+        if self.registry.is_streamed(ws) {
+            return Err(bad(format!("{} is streamed: devices stay on this machine", w.name)));
+        }
         Ok(())
     }
 
@@ -476,7 +479,10 @@ impl Devices {
         // The running native wadspaces, by their container's first process.
         let list = self.registry.workspaces();
         let mut pids: BTreeMap<String, u32> = BTreeMap::new();
-        for w in list.iter().filter(|w| w.kind == Kind::Container && w.display == Display::Host) {
+        for w in list
+            .iter()
+            .filter(|w| w.kind == Kind::Container && w.display == Display::Host && !self.registry.is_streamed(&w.id))
+        {
             if self.registry.state(&w.id).is_some_and(|s| s.container == "running")
                 && let Ok(Some(pid)) = self.backend.container_pid(&w.container_name).await
             {
@@ -608,8 +614,10 @@ impl Devices {
     async fn reconcile_drives(&self, list: &[wad_proto::v1::Workspace]) -> bool {
         let (wanted, have) = {
             let s = self.state.lock().unwrap();
-            let native =
-                |ws: &str| list.iter().any(|w| w.id == ws && w.kind == Kind::Container && w.display == Display::Host);
+            let native = |ws: &str| {
+                list.iter().any(|w| w.id == ws && w.kind == Kind::Container && w.display == Display::Host)
+                    && !self.registry.is_streamed(ws)
+            };
             let mut wanted: BTreeSet<(String, String)> = BTreeSet::new();
             for (key, k) in &s.known {
                 if s.ejected.contains(key) || s.present.get(key).is_none_or(|f| f.kind != DeviceKind::Storage) {

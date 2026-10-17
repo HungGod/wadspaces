@@ -18,6 +18,7 @@ async fn start(allow_self: bool) -> (tempfile::TempDir, std::path::PathBuf, toki
     cfg.machine.name = "test-machine".into();
     cfg.daemon.state_dir = dir.path().join("state");
     cfg.display.enabled = false; // never a real sway
+    cfg.streaming.listen = vec!["127.0.0.1:0".into()]; // never the real proxy's port
     cfg.daemon.projects_dir = dir.path().join("projects");
     std::fs::create_dir_all(dir.path().join("home/wad/Notes")).unwrap();
     cfg.daemon.folder_roots = vec![wad_store::folders::realpath(&dir.path().join("home"))];

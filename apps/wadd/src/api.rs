@@ -69,6 +69,8 @@ pub struct AppState {
     pub devices: Arc<crate::devices::Devices>,
     /// The machine's Bluetooth (BlueZ).
     pub bluetooth: Arc<crate::bluetooth::Bluetooth>,
+    /// Wadspaces streamed to browsers, and the tunnel they go through.
+    pub streams: Arc<crate::streams::Streams>,
 }
 
 /// An ApiError as an HTTP response.
@@ -156,6 +158,12 @@ pub fn router(app: Arc<AppState>) -> Router {
         .route("/v1/workspaces/{id}/stop", post(stop))
         .route("/v1/workspaces/{id}/restart", post(restart))
         .route("/v1/workspaces/{id}/switch", post(switch))
+        .route("/v1/workspaces/{id}/stream", post(stream_start).delete(stream_stop))
+        .route("/v1/streams", get(streams))
+        .route("/v1/streams/{id}/share", get(stream_share))
+        .route("/v1/tunnel", get(tunnel))
+        .route("/v1/tunnel/selftest", post(tunnel_selftest))
+        .route("/v1/tunnel/token", axum::routing::put(tunnel_token))
         .route("/v1/states", get(states))
         .route("/v1/view", get(view))
         .route("/v1/view/home", post(home))
@@ -1169,6 +1177,47 @@ async fn brightness_put(
 }
 
 /// The secrets' names and where they came from; never their values.
+/// Streams a wadspace: its link and login, to hand on.
+async fn stream_start(
+    State(app): State<Arc<AppState>>,
+    Path(id): Path<String>,
+    body: Option<Json<wad_proto::v1::StreamRequest>>,
+) -> Result<Json<wad_proto::v1::StreamShare>, Failure> {
+    let takeover = body.is_some_and(|Json(b)| b.takeover);
+    Ok(Json(app.streams.start(&id, takeover).await?))
+}
+
+async fn stream_stop(State(app): State<Arc<AppState>>, Path(id): Path<String>) -> Result<StatusCode, Failure> {
+    app.streams.stop(&id).await?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+async fn streams(State(app): State<Arc<AppState>>) -> Json<Vec<wad_proto::v1::StreamInfo>> {
+    Json(app.streams.list())
+}
+
+async fn stream_share(
+    State(app): State<Arc<AppState>>,
+    Path(id): Path<String>,
+) -> Result<Json<wad_proto::v1::StreamShare>, Failure> {
+    Ok(Json(app.streams.share(&id).await?))
+}
+
+async fn tunnel(State(app): State<Arc<AppState>>) -> Json<wad_proto::v1::TunnelStatus> {
+    Json(app.streams.tunnel.status().await)
+}
+
+async fn tunnel_selftest(State(app): State<Arc<AppState>>) -> Json<wad_proto::v1::SelfTest> {
+    Json(app.streams.tunnel.selftest().await)
+}
+
+async fn tunnel_token(
+    State(app): State<Arc<AppState>>,
+    Json(b): Json<wad_proto::v1::TunnelToken>,
+) -> Result<Json<wad_proto::v1::TunnelStatus>, Failure> {
+    Ok(Json(app.streams.tunnel.replace_token(&b.token).await?))
+}
+
 async fn secrets(State(app): State<Arc<AppState>>) -> Result<Json<Vec<wad_proto::v1::SecretInfo>>, Failure> {
     Ok(Json(app.secrets.list().await?))
 }

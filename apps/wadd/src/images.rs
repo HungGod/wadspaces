@@ -334,22 +334,28 @@ pub async fn prune(backend: &dyn Backend) -> Result<Freed, ApiError> {
     Ok(freed)
 }
 
+/// The stream sidecar's image (images/stream; wad-config's default).
+const STREAM_IMAGE: &str = "localhost/wadspaces-stream:trixie";
+
 /// Bases that aren't the base any more (localhost/wadspaces-base:trixie
-/// names a newer one) and that no image here is built on. A layer's image
-/// is never one: it inherits its base's build_version label, but it has its
-/// own layer label (counting it made the tidy-up after a build delete the
-/// very images it built, those no other image is built on).
+/// names a newer one) and that no image here is built on, and stream
+/// sidecars a newer one replaced. A layer's image is never one: it inherits
+/// its base's build_version label, but it has its own layer label (counting
+/// it made the tidy-up after a build delete the very images it built, those
+/// no other image is built on).
 async fn old_bases(backend: &dyn Backend) -> Vec<ImageInfo> {
     let base = wad_core::spec::DEFAULT_BASE_IMAGE;
     let Ok(all) = backend.images_all().await else { return vec![] };
     let short = |id: &str| id.trim_start_matches("sha256:").to_string();
     let under: std::collections::HashSet<String> = all.iter().map(|i| short(from_of(i))).collect();
+    let version = |i: &ImageInfo| i.labels.get("build_version").and_then(Value::as_str).unwrap_or_default().to_string();
     all.into_iter()
         .filter(|i| {
-            let is_base =
-                i.labels.get("build_version").and_then(Value::as_str).is_some_and(|v| v.contains("WadSpaces base"));
+            let is_base = version(i).contains("WadSpaces base");
+            // An older stream sidecar (a newer one took its name).
+            let old_stream = version(i).contains("WadSpaces stream") && !i.tags.iter().any(|t| t == STREAM_IMAGE);
             let layer = i.labels.contains_key(LAYER_LABEL) || i.labels.contains_key(SHA_LABEL);
-            is_base && !layer && !i.tags.iter().any(|t| t == base) && !under.contains(&short(&i.id))
+            ((is_base && !i.tags.iter().any(|t| t == base)) || old_stream) && !layer && !under.contains(&short(&i.id))
         })
         .collect()
 }

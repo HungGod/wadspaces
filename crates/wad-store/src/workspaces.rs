@@ -168,6 +168,10 @@ pub fn check_workspaces(list: Vec<Value>) -> Result<Vec<Workspace>, Error> {
         if names.contains(&container_name) {
             return Err(err(format!("{where_}: duplicate container_name")));
         }
+        // wadd's own secrets (a stream's password) aren't for a design to mount.
+        if let Some(s) = strings(raw.get("secrets")).iter().find(|s| s.starts_with("wad_")) {
+            return Err(err(format!("{where_}: secret {s:?}: names starting wad_ are wadd's own")));
+        }
         let projects = check_projects(raw.get("projects"), &where_)?;
         let signins = check_signins(raw.get("signins"), &where_)?;
         let enabled = raw.get("enabled").and_then(Value::as_bool).unwrap_or(true);

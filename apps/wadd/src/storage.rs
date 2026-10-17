@@ -327,11 +327,19 @@ impl Storage {
                 .filter(|v| !homes.contains(v.name.as_str()))
                 .map(|v| {
                     let of = v.name.strip_prefix("wad-").and_then(|n| n.strip_suffix("-config"));
+                    let display = v.name.strip_prefix("wad-").and_then(|n| n.strip_suffix("-display"));
                     OtherItem {
                         id: v.name.clone(),
-                        label: of.map(|id| format!("{id}'s home")).unwrap_or_else(|| v.name.clone()),
+                        label: match (of, display) {
+                            (Some(id), _) => format!("{id}'s home"),
+                            (_, Some(id)) => format!("{id}'s stream display"),
+                            _ => v.name.clone(),
+                        },
                         detail: if of.is_some() {
                             "A home whose wadspace isn't on this machine any more.".into()
+                        } else if display.is_some() {
+                            "Where a streamed wadspace and its sidecar meet (made again when it's next streamed)."
+                                .into()
                         } else {
                             "A volume no wadspace here has.".into()
                         },
@@ -405,6 +413,14 @@ fn classify(
             )
         } else {
             ("An older base".into(), "Nothing stands on it any more.".into(), true)
+        };
+    }
+    // The stream sidecar (images/stream) comes on the drive with the base.
+    if label("build_version").contains("WadSpaces stream") || i.name.starts_with("localhost/wadspaces-stream") {
+        return if i.name.is_empty() {
+            ("An older stream sidecar".into(), "Replaced by a newer one: nothing streams on it.".into(), true)
+        } else {
+            ("The stream sidecar".into(), "Streamed wadspaces draw on it (it comes with the base).".into(), false)
         };
     }
     if let Some(name) = i.name.strip_prefix("localhost/wadspaces-") {

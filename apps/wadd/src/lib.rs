@@ -25,12 +25,15 @@ pub mod logbuf;
 pub mod metrics;
 pub mod network;
 pub mod projects;
+pub mod proxy;
 pub mod registry;
 pub mod screen;
 pub mod secrets;
 pub mod signins;
 pub mod storage;
+pub mod streams;
 pub mod systemd;
+pub mod tunnel;
 pub mod view;
 
 use std::os::unix::fs::PermissionsExt;
@@ -69,6 +72,8 @@ pub struct Server {
     reconcile_every: Duration,
     sway: Option<Arc<SwayDisplay>>,
     keys: wad_config::Keys,
+    /// Where the streaming proxy listens (the tunnel's origin).
+    proxy_listen: Vec<String>,
 }
 
 /// Placeholders for the secrets the workspaces name that aren't here, so
@@ -284,6 +289,24 @@ impl Server {
             &d.state_dir,
         );
         let builds = builds::Builds::new(backend.clone(), bus.clone(), &d.state_dir, d.build_min_free_gb);
+        // Streams: each run of wadd is told apart by the self-test.
+        let instance = streams::random_hex(8);
+        let tunnel = Arc::new(tunnel::Tunnel::new(
+            &config.streaming,
+            instance.clone(),
+            profile == Profile::System && nix::unistd::Uid::effective().is_root(),
+        ));
+        let streams = streams::Streams::new(
+            config.streaming.clone(),
+            &d.state_dir,
+            registry.clone(),
+            view.clone(),
+            backend.clone(),
+            bus.clone(),
+            tunnel,
+            launches.clone(),
+            instance,
+        );
         let secrets = Arc::new(secrets::Secrets::new(backend.clone(), &d.state_dir));
         let signins =
             signins::SignIns::new(&d.state_dir, d.signins_dir.clone(), d.projects_uid, registry.clone(), bus.clone());
@@ -301,6 +324,7 @@ impl Server {
             let devs = devices_cell.clone();
             registry.on_prepare(move |ws| {
                 if ws.display == wad_proto::v1::Display::Host
+                    && !reg.upgrade().is_some_and(|r| r.is_streamed(&ws.id))
                     && let Some(d) = devs.get().and_then(std::sync::Weak::upgrade)
                 {
                     d.prepare(&ws.id).map_err(|e| format!("its ~/Drives: {e}"))?;
@@ -388,6 +412,7 @@ impl Server {
             storage,
             graph_root: Default::default(),
             files: files::Files::new(&config.daemon.state_dir, &config.daemon.signins_dir, profile == Profile::System),
+            streams,
         });
         Ok(Self {
             listener,
@@ -397,6 +422,7 @@ impl Server {
             reconcile_every: Duration::from_secs(d.reconcile_s.max(1)),
             sway,
             keys: config.keys.clone(),
+            proxy_listen: if config.streaming.enabled { config.streaming.listen.clone() } else { vec![] },
         })
     }
 
@@ -442,6 +468,10 @@ impl Server {
     /// Serves until `shutdown` resolves.
     pub async fn run(mut self, shutdown: impl Future<Output = ()> + Send + 'static) -> std::io::Result<()> {
         let registry = self.state.registry.clone();
+        // Streams from before first: their sidecars' units must survive the
+        // first load, and sidecars with no stream are stopped while their
+        // units are still there.
+        self.state.streams.adopt().await;
         if let Err(e) = registry.load(std::mem::take(&mut self.workspaces)).await {
             tracing::warn!("workspace units: {e}");
         }
@@ -479,8 +509,18 @@ impl Server {
         self.state.bluetooth.set_devices(&self.state.devices);
         let btwatch = tokio::spawn(self.state.bluetooth.clone().run());
         let autostart = tokio::spawn(registry.clone().autostart(Duration::from_secs(300)));
+        let streamwatch = tokio::spawn(self.state.streams.clone().run(Duration::from_secs(10)));
+        let (stop_proxy, proxy_stop) = tokio::sync::watch::channel(false);
+        let listeners = proxy::bind(&self.proxy_listen).await;
+        let proxy = (!listeners.is_empty())
+            .then(|| tokio::spawn(proxy::Proxy::new(self.state.streams.clone()).serve(listeners, proxy_stop)));
         let app = api::router(self.state.clone()).into_make_service_with_connect_info::<Peer>();
         let res = axum::serve(self.listener, app).with_graceful_shutdown(shutdown).await;
+        let _ = stop_proxy.send(true);
+        if let Some(p) = proxy {
+            p.abort();
+        }
+        streamwatch.abort();
         reconcile.abort();
         netwatch.abort();
         devwatch.abort();

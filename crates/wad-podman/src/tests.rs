@@ -37,6 +37,24 @@ async fn fake() -> (tempfile::TempDir, Podman) {
             }),
         )
         .route(
+            "/v5.0.0/libpod/containers/json",
+            get(|Query(q): Query<std::collections::HashMap<String, String>>| async move {
+                let f: serde_json::Value = serde_json::from_str(q.get("filters").map(String::as_str).unwrap_or("{}")).unwrap();
+                assert_eq!(f, json!({"label": ["wadspaces.role=display"]}));
+                axum::Json(json!([{"Names": ["wad-a-display"], "Labels": {"wadspaces.id": "a", "wadspaces.stream": "g1"}}]))
+            }),
+        )
+        .route(
+            "/v5.0.0/libpod/containers/{name}/stop",
+            post(|Path(name): Path<String>| async move {
+                match name.as_str() {
+                    "wad-up" => StatusCode::NO_CONTENT,
+                    "wad-stopped" => StatusCode::NOT_MODIFIED,
+                    _ => StatusCode::NOT_FOUND,
+                }
+            }),
+        )
+        .route(
             "/v5.0.0/libpod/volumes/{name}/json",
             get(|Path(name): Path<String>| async move {
                 if name == "wad-a-config" { axum::Json(json!({"Mountpoint": "/vol/_data"})).into_response() } else { StatusCode::NOT_FOUND.into_response() }
@@ -83,6 +101,12 @@ async fn images_containers_and_builds() {
     assert!(p.image_labels("nope").await.unwrap().is_none());
     assert_eq!(p.container_status("wad-up").await.unwrap(), "running");
     assert_eq!(p.container_status("wad-gone").await.unwrap(), "missing");
+    let sidecars = p.containers_labelled("wadspaces.role=display").await.unwrap();
+    assert_eq!(sidecars.len(), 1);
+    assert_eq!((sidecars[0].name.as_str(), &sidecars[0].labels["wadspaces.stream"]), ("wad-a-display", &json!("g1")));
+    assert!(p.stop_container("wad-up", 10).await.unwrap());
+    assert!(p.stop_container("wad-stopped", 10).await.unwrap());
+    assert!(!p.stop_container("wad-gone", 10).await.unwrap());
     assert_eq!(p.volume_mountpoint("wad-a-config").await.unwrap().as_deref(), Some("/vol/_data"));
     assert_eq!(p.volume_mountpoint("nope").await.unwrap(), None);
     assert_eq!(p.secret_value("github_token").await.unwrap().as_deref(), Some("ghp_x"));

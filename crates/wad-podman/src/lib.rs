@@ -99,6 +99,13 @@ pub struct ImageInfo {
     pub tags: Vec<String>,
 }
 
+/// A running container as `containers_labelled` sees it.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ContainerInfo {
+    pub name: String,
+    pub labels: serde_json::Map<String, Value>,
+}
+
 /// "2026-10-11T19:05:00.123456789Z" (or with an offset) → Unix seconds.
 fn rfc3339_secs(s: &str) -> Option<f64> {
     let (date, rest) = s.split_once('T')?;
@@ -331,6 +338,42 @@ impl Podman {
 
     pub async fn inspect_container(&self, name: &str) -> Result<Option<Value>, Error> {
         self.get_json(&format!("inspect {name}"), &format!("/containers/{}/json", segment(name))).await
+    }
+
+    /// The running containers that carry a label (`podman ps --filter label=`).
+    pub async fn containers_labelled(&self, label: &str) -> Result<Vec<ContainerInfo>, Error> {
+        let filters = serde_json::json!({ "label": [label] }).to_string();
+        let path = format!("/containers/json?filters={}", segment(&filters));
+        let list = self.get_json("list containers", &path).await?.unwrap_or(Value::Null);
+        Ok(list
+            .as_array()
+            .into_iter()
+            .flatten()
+            .map(|c| ContainerInfo {
+                name: c
+                    .get("Names")
+                    .and_then(Value::as_array)
+                    .and_then(|n| n.first())
+                    .and_then(Value::as_str)
+                    .unwrap_or_default()
+                    .trim_start_matches('/')
+                    .to_string(),
+                labels: c.get("Labels").and_then(Value::as_object).cloned().unwrap_or_default(),
+            })
+            .collect())
+    }
+
+    /// Stops a container (`timeout` seconds before it's killed). False if
+    /// there was none.
+    pub async fn stop_container(&self, name: &str, timeout: u32) -> Result<bool, Error> {
+        let path = format!("/containers/{}/stop?timeout={timeout}", segment(name));
+        let res = self.send(Method::POST, &path, None).await?;
+        match res.status() {
+            StatusCode::NOT_FOUND => Ok(false),
+            // 304: it had stopped already.
+            s if s.is_success() || s == StatusCode::NOT_MODIFIED => Ok(true),
+            _ => Err(Self::status_error(&format!("stop {name}"), res).await),
+        }
     }
 
     /// running | exited | created | paused | ... ; "missing" when there's no such

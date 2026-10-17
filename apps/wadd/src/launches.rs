@@ -720,6 +720,11 @@ impl Launches {
             self.line(id, &format!("starting {} in the background", ws.name));
             self.registry.start(&ws.id).map_err(|e| e.message)?;
         } else {
+            // Streamed to a browser: launched here, it comes back to the screen.
+            if self.registry.is_streamed(&ws.id) {
+                self.line(id, &format!("ending {}'s stream", ws.name));
+                self.registry.unstream(&ws.id).await.map_err(|e| e.message)?;
+            }
             self.line(id, &format!("starting {}", ws.name));
             self.view.switch(&ws.id).map_err(|e| e.message)?;
         }

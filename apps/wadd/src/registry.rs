@@ -1,7 +1,9 @@
 //! The workspaces on this machine and their lives: bringing one up (its
 //! image, its unit, until its desktop answers), stopping and restarting it,
 //! and checking every few seconds that what wadd thinks matches what podman
-//! says (reconcile).
+//! says (reconcile). A streamed one draws on its stream sidecar instead of
+//! the screen (streams.rs decides which; their units are written here, so
+//! every rewrite keeps them).
 //!
 //! One thing at a time per workspace (its lock); images are never
 //! downloaded (a workspace's image is a layer built here); run history is
@@ -69,11 +71,20 @@ pub struct Registry {
     ran: Mutex<std::collections::HashSet<String>>,
     /// What runs, in the order it started (Super+N and the switcher follow it).
     up_order: Mutex<Vec<String>>,
+    /// Workspaces drawn on their stream sidecar instead of the screen, by
+    /// id: wad_core's stream_quadlets `stream`.
+    streamed: Mutex<HashMap<String, Value>>,
+    /// Told when a workspace stops being streamed (streams.rs forgets it).
+    on_unstream: Mutex<Option<IdHook>>,
+    /// One unit rewrite at a time: two at once could each remove the
+    /// other's files.
+    installing: tokio::sync::Mutex<()>,
     /// Itself, for the tasks it starts.
     me: std::sync::Weak<Registry>,
 }
 
 type ReadyHook = Box<dyn Fn(&str) + Send + Sync>;
+type IdHook = Box<dyn Fn(&str) + Send + Sync>;
 type PrepareHook = Box<dyn Fn(&Workspace) -> Result<(), String> + Send + Sync>;
 /// A mount project's id → where it is on this machine.
 pub type Mounts = std::collections::BTreeMap<String, String>;
@@ -159,6 +170,11 @@ pub fn unit_name(ws: &Workspace) -> String {
     format!("wad-{}.service", ws.id)
 }
 
+/// A streamed workspace's sidecar's unit.
+pub fn display_unit(ws: &Workspace) -> String {
+    format!("wad-{}-display.service", ws.id)
+}
+
 fn stream_url(ws: &Workspace) -> Option<String> {
     (ws.display == Display::Stream).then(|| ws.port.map(|p| format!("http://127.0.0.1:{p}/"))).flatten()
 }
@@ -184,22 +200,53 @@ impl Registry {
             mounts: Mutex::default(),
             ran: Mutex::default(),
             up_order: Mutex::default(),
+            streamed: Mutex::default(),
+            on_unstream: Mutex::new(None),
+            installing: tokio::sync::Mutex::new(()),
         })
     }
 
-    /// The unit wadd writes for a workspace.
+    /// The unit wadd writes for a workspace (on the screen).
     pub fn unit_text(&self, ws: &Workspace) -> String {
         wad_core::generator::quadlet(
-            &wadd_spec(
-                ws,
-                &self.settings.signins_dir,
-                &self.mounts_of(&ws.id),
-                &self.settings.device_rules,
-                self.settings.drives_dir.as_deref(),
-            ),
+            &self.spec_of(ws),
             &self.settings.state_dir.to_string_lossy(),
             self.settings.rootless_uid,
         )
+    }
+
+    /// A workspace as wad-core renders it. A streamed one gets no devices
+    /// and no ~/Drives: they stay on this machine.
+    fn spec_of(&self, ws: &Workspace) -> Value {
+        let streamed = self.is_streamed(&ws.id);
+        wadd_spec(
+            ws,
+            &self.settings.signins_dir,
+            &self.mounts_of(&ws.id),
+            if streamed { &[] } else { &self.settings.device_rules },
+            self.settings.drives_dir.as_deref().filter(|_| !streamed),
+        )
+    }
+
+    /// A workspace's files: its unit, or while it's streamed, its unit, its
+    /// sidecar's and their display volume.
+    fn units_for(&self, ws: &Workspace) -> Vec<(String, String)> {
+        match self.stream_of(&ws.id) {
+            Some(stream) => wad_core::generator::stream_quadlets(
+                &self.spec_of(ws),
+                &stream,
+                &self.settings.state_dir.to_string_lossy(),
+                self.settings.rootless_uid,
+            ),
+            None => vec![(format!("wad-{}.container", ws.id), self.unit_text(ws))],
+        }
+    }
+
+    /// Writes every workspace's units as they are now (systemd reloaded if
+    /// anything changed).
+    async fn install(&self) -> Result<bool, String> {
+        let _one = self.installing.lock().await;
+        self.backend.install_units(self.units(&self.workspaces())).await
     }
 
     /// The mounts found for a workspace when it last started.
@@ -210,10 +257,7 @@ impl Registry {
     /// The units for these workspaces: one per container (an app's unit is
     /// made when it starts).
     fn units(&self, list: &[Workspace]) -> Vec<(String, String)> {
-        list.iter()
-            .filter(|w| w.kind == Kind::Container)
-            .map(|w| (format!("wad-{}.container", w.id), self.unit_text(w)))
-            .collect()
+        list.iter().filter(|w| w.kind == Kind::Container).flat_map(|w| self.units_for(w)).collect()
     }
 
     /// An app's status, in a container's words: "running" while its unit
@@ -229,7 +273,13 @@ impl Registry {
     /// Takes on a list of workspaces: writes their units (and reloads systemd
     /// if any changed) and starts tracking their state.
     pub async fn load(&self, list: Vec<Workspace>) -> Result<(), String> {
-        let units = self.units(&list);
+        // A streamed workspace that's gone is streamed no more.
+        let gone: Vec<String> = {
+            let mut streamed = self.streamed.lock().unwrap();
+            let gone = streamed.keys().filter(|id| !list.iter().any(|w| &w.id == *id)).cloned().collect();
+            streamed.retain(|id, _| list.iter().any(|w| &w.id == id));
+            gone
+        };
         {
             let mut states = self.states.lock().unwrap();
             states.retain(|id, _| list.iter().any(|w| &w.id == id));
@@ -246,11 +296,87 @@ impl Registry {
                     streaming: false,
                 });
             }
+            let streamed = self.streamed.lock().unwrap();
+            for st in states.values_mut() {
+                st.streaming = streamed.contains_key(&st.id);
+            }
         }
         *self.workspaces.lock().unwrap() = list.clone();
         self.bus.set_states(self.states());
         self.bus.publish(Event::Workspaces(list));
-        self.backend.install_units(units).await.map(drop)
+        let installed = self.install().await.map(drop);
+        for id in gone {
+            self.unstreamed(&id);
+        }
+        installed
+    }
+
+    // ------------------------------------------------------------ streams
+    /// The streams there were before wadd started (streams.json): their
+    /// units are written as streams from the first load, so running ones
+    /// aren't rewritten under them. Before `load`.
+    pub fn seed_streams(&self, streams: HashMap<String, Value>) {
+        *self.streamed.lock().unwrap() = streams;
+    }
+
+    /// Draws a workspace on its stream sidecar (`Some`: stream_quadlets'
+    /// `stream`) or on the screen (`None`) from its next start: its units
+    /// rewritten.
+    pub async fn set_stream(&self, id: &str, stream: Option<Value>) -> Result<(), String> {
+        {
+            let mut s = self.streamed.lock().unwrap();
+            match stream {
+                Some(v) => s.insert(id.into(), v),
+                None => s.remove(id),
+            };
+        }
+        let streaming = self.is_streamed(id);
+        if let Some(ws) = self.workspaces().into_iter().find(|w| w.id == id) {
+            self.update(&ws, |st| st.streaming = streaming);
+        }
+        self.install().await.map(drop)
+    }
+
+    /// The stream a workspace is drawn on, if it is.
+    pub fn stream_of(&self, id: &str) -> Option<Value> {
+        self.streamed.lock().unwrap().get(id).cloned()
+    }
+
+    pub fn is_streamed(&self, id: &str) -> bool {
+        self.streamed.lock().unwrap().contains_key(id)
+    }
+
+    /// Where a streamed workspace's sidecar answers (127.0.0.1).
+    fn stream_url_of(&self, id: &str) -> Option<String> {
+        let port = self.stream_of(id)?.get("web_port")?.as_u64()?;
+        Some(format!("http://127.0.0.1:{port}/"))
+    }
+
+    /// Calls `f` with a workspace's id when it stops being streamed.
+    pub fn on_unstream(&self, f: impl Fn(&str) + Send + Sync + 'static) {
+        *self.on_unstream.lock().unwrap() = Some(Box::new(f));
+    }
+
+    fn unstreamed(&self, id: &str) {
+        if let Some(f) = self.on_unstream.lock().unwrap().as_ref() {
+            f(id);
+        }
+    }
+
+    /// Back on the screen: a streamed workspace is stopped (its sidecar
+    /// with it) and drawn on the screen from its next start. The person at
+    /// the machine wins over a viewer elsewhere.
+    pub async fn unstream(self: &Arc<Self>, id: &str) -> Result<(), ApiError> {
+        if !self.is_streamed(id) {
+            return Ok(());
+        }
+        tracing::info!("{id}: its stream ends");
+        if self.workspace(id).is_ok() {
+            self.stop(id).await?;
+        }
+        self.set_stream(id, None).await.map_err(|e| ApiError::new(ErrorCode::Internal, e))?;
+        self.unstreamed(id);
+        Ok(())
     }
 
     /// A new workspace list (a build added or changed one): saved, units
@@ -332,7 +458,7 @@ impl Registry {
             }
         };
         if changed {
-            self.backend.install_units(self.units(&self.workspaces())).await?;
+            self.install().await?;
         }
         Ok(())
     }
@@ -422,7 +548,7 @@ impl Registry {
     fn track_run(&self, ws: &Workspace, container: &str) {
         let mut runs = self.runs.lock().unwrap();
         let r = if container == RUNNING && !runs.is_open(&ws.id) {
-            let mode = if ws.display == Display::Host { "local" } else { "stream" };
+            let mode = if ws.display == Display::Host && !self.is_streamed(&ws.id) { "local" } else { "stream" };
             let projects: Vec<String> = ws.projects.iter().map(|p| p.id.clone()).collect();
             runs.start(&ws.id, &ws.name, mode, &projects)
         } else if container != RUNNING && container != "unknown" && runs.is_open(&ws.id) {
@@ -642,6 +768,14 @@ impl Registry {
             if let Some(f) = self.on_prepare.lock().unwrap().as_ref() {
                 f(ws)?;
             }
+            // Streamed: its sidecar (the compositor it draws on) first.
+            if self.is_streamed(&ws.id) {
+                self.update(ws, |st| {
+                    st.phase = Phase::Starting;
+                    st.message = Some("starting its stream".into());
+                });
+                self.backend.start(&display_unit(ws)).await?;
+            }
             self.update(ws, |st| {
                 st.phase = Phase::Starting;
                 st.message = Some("starting container".into());
@@ -653,7 +787,8 @@ impl Registry {
             st.container = RUNNING.into();
             st.message = Some("waiting for the desktop".into());
         });
-        match stream_url(ws) {
+        // A streamed one is ready when its sidecar answers (its login counts).
+        match self.stream_url_of(&ws.id).or_else(|| stream_url(ws)) {
             Some(url) => self.wait_http(ws, &url).await?,
             None if ws.display == Display::Host => self.wait_window(ws).await?,
             None => {}
@@ -728,6 +863,12 @@ impl Registry {
         // An app that already ended has no unit left to stop.
         let gone = ws.kind == Kind::App && self.app_status(&ws).await != RUNNING;
         let mut stopped = if gone { Ok(()) } else { self.backend.stop(&unit_name(&ws)).await };
+        // A streamed one's sidecar goes with it (it would anyway, unneeded).
+        if self.is_streamed(&ws.id)
+            && let Err(e) = self.backend.stop(&display_unit(&ws)).await
+        {
+            tracing::debug!("stopping {}'s stream: {e}", ws.id);
+        }
         // It ended (and its unit went) between the look and the stop.
         if ws.kind == Kind::App && stopped.is_err() && self.app_status(&ws).await != RUNNING {
             stopped = Ok(());
@@ -820,7 +961,7 @@ impl Registry {
             let present = if up { self.backend.image_exists(&ws.image).await.ok() } else { None };
             let phase = self.state(&ws.id).map(|s| s.phase).unwrap_or(Phase::Idle);
             let ready = if container == RUNNING && phase == Phase::Idle {
-                match stream_url(&ws) {
+                match self.stream_url_of(&ws.id).or_else(|| stream_url(&ws)) {
                     Some(url) => self.backend.http_ok(&url).await,
                     None => true,
                 }

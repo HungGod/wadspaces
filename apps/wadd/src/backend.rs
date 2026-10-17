@@ -8,7 +8,7 @@ use std::time::Duration;
 
 use async_trait::async_trait;
 use wad_podman::Podman;
-pub use wad_podman::{Df, DfImage, DfVolume, ImageInfo};
+pub use wad_podman::{ContainerInfo, Df, DfImage, DfVolume, ImageInfo};
 use wad_proto::v1::Workspace;
 use wad_systemd::{Systemd, TransientSpec};
 
@@ -65,6 +65,19 @@ pub trait Backend: Send + Sync + 'static {
     }
     /// The names of podman's secrets.
     async fn secret_names(&self) -> Result<Vec<String>, String> {
+        Err("no podman".into())
+    }
+    /// A secret's value, for wadd's own use (a stream's password, handed on
+    /// with its link); None if there's no such secret.
+    async fn secret_value(&self, _name: &str) -> Result<Option<String>, String> {
+        Err("no podman".into())
+    }
+    /// The running containers that carry a label.
+    async fn containers_labelled(&self, _label: &str) -> Result<Vec<ContainerInfo>, String> {
+        Err("no podman".into())
+    }
+    /// Stops a container itself (its unit may be gone). False if there was none.
+    async fn stop_container(&self, _name: &str) -> Result<bool, String> {
         Err("no podman".into())
     }
     /// podman's own description.
@@ -358,6 +371,18 @@ impl Backend for Real {
 
     async fn secret_names(&self) -> Result<Vec<String>, String> {
         self.podman.secret_names().await.map_err(|e| e.to_string())
+    }
+
+    async fn secret_value(&self, name: &str) -> Result<Option<String>, String> {
+        self.podman.secret_value(name).await.map_err(|e| e.to_string())
+    }
+
+    async fn containers_labelled(&self, label: &str) -> Result<Vec<ContainerInfo>, String> {
+        self.podman.containers_labelled(label).await.map_err(|e| e.to_string())
+    }
+
+    async fn stop_container(&self, name: &str) -> Result<bool, String> {
+        self.podman.stop_container(name, 10).await.map_err(|e| e.to_string())
     }
 
     async fn podman_info(&self) -> Result<serde_json::Value, String> {

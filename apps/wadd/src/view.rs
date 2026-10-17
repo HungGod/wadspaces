@@ -222,6 +222,18 @@ impl View {
         if self.locked() && !self.session_ids().iter().any(|w| w == id) {
             return Err(locked());
         }
+        // Streamed to a browser: back on the screen (its stream ends).
+        if self.registry.is_streamed(id) {
+            self.inner.lock().unwrap().pending = Some(id.into());
+            self.publish_view();
+            let (registry, id) = (self.registry.clone(), id.to_string());
+            tokio::spawn(async move {
+                if let Err(e) = registry.unstream(&id).await.and_then(|_| registry.start(&id)) {
+                    tracing::warn!("{id} back on the screen: {}", e.message);
+                }
+            });
+            return Ok(());
+        }
         let st = self.registry.state(id);
         if st.is_some_and(|s| s.phase == Phase::Ready && s.container == "running") {
             self.inner.lock().unwrap().pending = None;
@@ -303,6 +315,8 @@ impl View {
             .running_order()
             .into_iter()
             .filter_map(|id| list.iter().find(|w| w.id == id && w.enabled).cloned())
+            // A streamed one isn't on this screen: it's in a browser.
+            .filter(|w| !self.registry.is_streamed(&w.id))
             .filter(|w| self.running(&w.id) && (!locked || picks.contains(&w.id)))
             .collect();
         let (spaces, apps): (Vec<Workspace>, Vec<Workspace>) = up.into_iter().partition(|w| w.kind == Kind::Container);
