@@ -853,3 +853,32 @@ async fn files_show_whats_saved_and_keep_secrets_out() {
     assert_eq!(files.delete("home", "", &e.reg, &b).await.unwrap_err().code, ErrorCode::BadRequest);
     assert!(files.roots(&e.reg).await.iter().any(|r| r.id == "home"));
 }
+
+#[tokio::test]
+async fn what_a_build_makes_stays_after_the_tidy_up() {
+    // A real base carries build_version, and every image built on it
+    // inherits that label: those images aren't old bases.
+    let e = env().await;
+    e.fake.with(|m| {
+        let labels = json!({"io.wadspaces.projects": "3", "build_version": "WadSpaces base version:- 20261017"});
+        m.image_labels.insert(BASE.into(), labels.as_object().unwrap().clone());
+    });
+    let b = e.builds.create_layer(&custom(dev(), plus())).unwrap();
+    let l = wait(&e, &b.id).await;
+    assert_eq!(l.build.status, BuildStatus::Done, "{l:?}");
+    let f = images::prune(&e.fake).await.unwrap();
+    assert!(f.removed.is_empty(), "removed {:?}", f.removed);
+    let here: Vec<String> = e.fake.0.lock().unwrap().images.iter().cloned().collect();
+    for want in [BASE, T_REF, C_REF] {
+        assert!(here.iter().any(|i| i == want), "{want} gone: {here:?}");
+    }
+    // An older base (not tagged as the base, nothing built on it) still goes.
+    e.fake.with(|m| {
+        let old = "localhost/old-base@1";
+        m.images.insert(old.into());
+        let labels = json!({"build_version": "WadSpaces base version:- 20261001"});
+        m.image_labels.insert(old.into(), labels.as_object().unwrap().clone());
+    });
+    let f = images::prune(&e.fake).await.unwrap();
+    assert_eq!(f.removed.len(), 1, "{:?}", f.removed);
+}

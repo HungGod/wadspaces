@@ -335,7 +335,10 @@ pub async fn prune(backend: &dyn Backend) -> Result<Freed, ApiError> {
 }
 
 /// Bases that aren't the base any more (localhost/wadspaces-base:trixie
-/// names a newer one) and that no image here is built on.
+/// names a newer one) and that no image here is built on. A layer's image
+/// is never one: it inherits its base's build_version label, but it has its
+/// own layer label (counting it made the tidy-up after a build delete the
+/// very images it built, those no other image is built on).
 async fn old_bases(backend: &dyn Backend) -> Vec<ImageInfo> {
     let base = wad_core::spec::DEFAULT_BASE_IMAGE;
     let Ok(all) = backend.images_all().await else { return vec![] };
@@ -345,7 +348,8 @@ async fn old_bases(backend: &dyn Backend) -> Vec<ImageInfo> {
         .filter(|i| {
             let is_base =
                 i.labels.get("build_version").and_then(Value::as_str).is_some_and(|v| v.contains("WadSpaces base"));
-            is_base && !i.tags.iter().any(|t| t == base) && !under.contains(&short(&i.id))
+            let layer = i.labels.contains_key(LAYER_LABEL) || i.labels.contains_key(SHA_LABEL);
+            is_base && !layer && !i.tags.iter().any(|t| t == base) && !under.contains(&short(&i.id))
         })
         .collect()
 }
