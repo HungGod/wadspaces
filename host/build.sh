@@ -23,10 +23,12 @@
 #                                  and -custom-<id>, built here by images/build.sh
 #                                  --example or wadd) onto the drive, labels and
 #                                  ids intact, so the machine counts them built
-#   --bases                        with update: also copy the base image
-#                                  (localhost/wadspaces-base:trixie, built by
-#                                  images/build.sh) onto the drive; the machine
-#                                  builds templates on it. install copies it unless
+#   --bases                        with update: also copy the base images
+#                                  (localhost/wadspaces-base:trixie, and the stream
+#                                  sidecar localhost/wadspaces-stream:trixie, built
+#                                  by images/build.sh) onto the drive; the machine
+#                                  builds templates on the base, and streams draw
+#                                  on the sidecar. install copies them unless
 #                                  --no-bases
 #   --stage-only DIR               with update: write what would go onto the
 #                                  drive into DIR instead (for testing)
@@ -52,6 +54,11 @@
 #   firebase.toml          the account's Firebase project, the web app's config
 #                          (api_key, project_id; required)
 #   admin_password_hash    crypt hash for `admin` (default: the one in bib-config.toml)
+#   cloudflare.toml        [cloudflare.turn] token_id, api_token: Cloudflare TURN,
+#                          for streams' WebRTC (only that table is baked in)
+# and the Cloudflare tunnel's token from this machine's /etc/cloudflared/token
+# (read with sudo if need be), handed to the build as a secret: it's baked
+# into the image's /etc/cloudflared/token and nowhere else.
 # No GitHub token is baked in any more: a machine gets its token when you sign
 # in to WadSpaces Client with GitHub, or from the account.
 # ADMIN_SSH_KEY (default: the key in bib-config.toml) is admin's SSH key.
@@ -249,6 +256,22 @@ stage_secrets() {
         echo ">> WARNING: no admin password hash; admin can only log in with the SSH key"
     fi
 
+    # Streams' WebRTC (off unless wadd.toml says): Cloudflare TURN's key, the
+    # [cloudflare.turn] table alone (the file's other tokens stay here).
+    local turn="${SECRETS_DIR}/cloudflare.toml"
+    if [[ -f "${turn}" ]]; then
+        (umask 077 && python3 - "${turn}" > "${out}/cloudflare.toml" <<'PY'
+import json, sys, tomllib
+t = tomllib.load(open(sys.argv[1], "rb")).get("cloudflare", {}).get("turn", {})
+if t.get("token_id") and t.get("api_token"):
+    print("[cloudflare.turn]")
+    print("token_id = " + json.dumps(t["token_id"]))
+    print("api_token = " + json.dumps(t["api_token"]))
+PY
+        )
+        [[ -s "${out}/cloudflare.toml" ]] || { rm -f "${out}/cloudflare.toml"; echo ">> WARNING: ${turn} has no [cloudflare.turn] key"; }
+    fi
+
     local ssh="${ROOT}/.build/ssh"
     rm -rf "${ssh}" && mkdir -p "${ssh}"
     if [[ -n "${ADMIN_SSH_KEY:-}" ]]; then
@@ -355,7 +378,7 @@ stage_stick() {
     # Bases keep their own names: wadd builds on them as they are.
     local b
     local b src
-    for b in ${BASES:+base}; do
+    for b in ${BASES:+base stream}; do
         src="localhost/wadspaces-${b}:trixie"
         podman image exists "${src}" || { echo "${src} is not built: images/build.sh --only ${b}" >&2; exit 1; }
         echo ">> staging ${src}"
@@ -441,8 +464,23 @@ stage_wadbrowser
 stage_assets
 stage_ours
 stage_secrets
+# The tunnel's token: read from /etc/cloudflared/token (it's root's) into a
+# private file in the runtime dir, handed to the build as a secret and
+# removed straight after. Never in .build/ or the build context.
+TOKEN_FILE=/etc/cloudflared/token
+token_args=()
+if [[ -e "${TOKEN_FILE}" ]]; then
+    TOKEN_COPY="$(umask 077 && mktemp -p "${XDG_RUNTIME_DIR:-/tmp}" cloudflared-token.XXXXXX)"
+    trap 'rm -f "${TOKEN_COPY}"; cleanup' EXIT
+    if [[ -r "${TOKEN_FILE}" ]]; then cat "${TOKEN_FILE}"; else sudo cat "${TOKEN_FILE}"; fi > "${TOKEN_COPY}"
+    token_args=(--secret "id=cloudflared_token,src=${TOKEN_COPY}"
+        --build-arg "CLOUDFLARED_TOKEN_SHA=$(sha256sum "${TOKEN_COPY}" | cut -c1-16)")
+else
+    echo ">> WARNING: no ${TOKEN_FILE} here: the image has no tunnel token (streaming waits for one)"
+fi
 echo ">> building ${IMAGE}"
-podman build -f "${ROOT}/host/Containerfile" -t "${IMAGE%:*}:unchunked" "${ROOT}"
+podman build "${token_args[@]}" -f "${ROOT}/host/Containerfile" -t "${IMAGE%:*}:unchunked" "${ROOT}"
+if [[ -n "${TOKEN_COPY:-}" ]]; then rm -f "${TOKEN_COPY}"; fi
 rechunk
 
 case "${TARGET}" in

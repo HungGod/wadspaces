@@ -26,6 +26,8 @@ ProtectHome=read-only
 # image cloned into a workspace's /config volume.
 ReadWritePaths=/var/lib/wadspaces /run/containers/systemd
 ReadWritePaths=-/var/lib/wadspaces-projects -/var/lib/wadspaces-signins -/var/lib/containers/storage/volumes
+# The Cloudflare tunnel's token, when it's replaced (Secrets → Cloud Tunnel).
+ReadWritePaths=-/etc/cloudflared
 PrivateTmp=yes
 NoNewPrivileges=yes
 

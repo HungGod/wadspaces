@@ -1,11 +1,12 @@
 # Images
 
-What wadspaces run on. `base` is built here; the Builder's layers are built
-on it by wadd, on the machine.
+What wadspaces run on. `base` and `stream` are built here; the Builder's
+layers are built on the base by wadd, on the machine.
 
 | Image | What it is |
 |---|---|
 | `localhost/wadspaces-base:trixie` (`base/`) | The lean desktop (labwc, selkies-desktop's icons and panel with the WadSpaces logo, Xwayland), WadBrowser (the browser, every web app's window, and what links open in), and the helpers layers build with: `wadspaces-feature` (one script per app or tool, `base/root/usr/local/lib/wadspaces/features/`), `wadspaces-apt`, `wadspaces-webapp`, `wadspaces-vscode-extensions`, `wadspaces-layout`. Its window goes on whatever compositor is mounted at `/run/wadspaces-display`. `build.sh` builds WadBrowser for it first, in `builder/` (a Debian container with Rust and WebKitGTK's headers), and stages Dolphin from linuxserver's image. |
+| `localhost/wadspaces-stream:trixie` (`stream/`) | The stream sidecar: linuxserver's Selkies (pinned), its compositor, encoder and web client behind nginx's login. A streamed wadspace draws on it through a display volume they share (the same `/run/wadspaces-display`), and plays its sound through it; wadd publishes it behind its proxy (`host/STREAMS.md`). It won't start without `CUSTOM_USER` and `PASSWORD`. |
 | `localhost/wadspaces-template-<id>:latest` | A template: `FROM` the base, with its apps. |
 | `localhost/wadspaces-template-<id>:latest` built on another | A template that builds on another (its `parent`): `FROM` that template's image, adding its own apps. |
 | `localhost/wadspaces-custom-<id>:latest` | An Extensions layer: `FROM` its template's image, with tools, VS Code extensions and web apps. |
@@ -27,7 +28,8 @@ it was built on). wad-core writes their build folders
 (`POST /v1/images/build`), what a layer builds on first.
 
 ```bash
-images/build.sh                    # the base
+images/build.sh                    # the base and the stream sidecar
+images/build.sh --only stream      # just the sidecar
 images/build.sh --example vanua-academy  # an example's layers (the base first, if missing)
 images/base/try-apps.sh            # every catalog app over the base, opened in a headless sway
 images/base/try-signins.sh         # each sign-in kind's files kept across runs
@@ -35,6 +37,6 @@ apps/wadd/dev/try-layers.sh        # Extensions (their template first) and a tem
 apps/wadd/dev/try-projects.sh      # projects cloned and copied into a wadspace, fast-forwarded, a throwaway run
 ```
 
-A machine gets the base from its drive: `host/build.sh install` brings it, and
-`host/build.sh update --bases` updates it. Layer images are built on the
+A machine gets the base and the stream sidecar from its drive: `host/build.sh
+install` brings them, and `host/build.sh update --bases` updates them. Layer images are built on the
 machine the first time something needs them.

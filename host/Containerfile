@@ -1,7 +1,8 @@
 # WadSpaces host OS: Fedora bootc -> greetd -> sway -> WadSpaces Client (Tauri),
-# plus wadd (the machine daemon: workspaces, projects, the account link;
-# apps/wadd, Rust). Two apps run on the machine itself, opened and closed by
-# wadd like wadspaces: a terminal (foot) and WadBrowser (apps/wadbrowser); see
+# plus wadd (the machine daemon: workspaces, projects, the account link,
+# streams; apps/wadd, Rust) and cloudflared (the tunnel streams go through).
+# Two apps run on the machine itself, opened and closed by wadd like
+# wadspaces: a terminal (foot) and WadBrowser (apps/wadbrowser); see
 # usr/lib/wadspaces/workspaces.d/{terminal,browser}.toml. Build from the repo root:
 #   host/build.sh image        (or: podman build -f host/Containerfile -t localhost/wadspaces-host .)
 FROM quay.io/fedora/fedora-bootc:43
@@ -37,6 +38,18 @@ RUN dnf -y install --setopt=install_weak_deps=False --setopt=tsflags=nodocs \
 RUN dnf -y install --setopt=install_weak_deps=False --setopt=tsflags=nodocs \
       gstreamer1-plugins-good gstreamer1-plugins-bad-free gstreamer1-plugin-libav \
     && dnf clean all
+
+# cloudflared, the Cloudflare tunnel's connector: streams reach browsers
+# through it to wadd's proxy (host/STREAMS.md). Cloudflare's own RPM, pinned
+# and checked, without its scriptlets (they'd write under /usr/local, which
+# is /var on bootc; updates come with the image: --no-autoupdate).
+ARG CLOUDFLARED_VERSION=2026.10.1
+ARG CLOUDFLARED_SHA256=31a084f530043ba511b6cb62acbe5e28d104e95a49266da33316d2be233650cc
+RUN curl -fsSLo /tmp/cloudflared.rpm \
+      "https://github.com/cloudflare/cloudflared/releases/download/${CLOUDFLARED_VERSION}/cloudflared-linux-x86_64.rpm" \
+    && echo "${CLOUDFLARED_SHA256}  /tmp/cloudflared.rpm" | sha256sum -c - \
+    && dnf -y install --setopt=tsflags=noscripts,nodocs /tmp/cloudflared.rpm \
+    && dnf clean all && rm /tmp/cloudflared.rpm
 
 # The initramfs again, with the Surface's drivers in it, loaded in order in the
 # first seconds of boot: without them the stock kernel's controller hub fails
@@ -78,6 +91,19 @@ COPY .build/secrets/ /usr/lib/wadspaces/secrets/
 COPY .build/ssh/ /usr/share/wadspaces/ssh/
 # What's WadSpaces' own here (host/etc, host/usr, staged by host/build.sh).
 COPY .build/ours.list /usr/lib/wadspaces/ours.list
+# The tunnel's token, root's alone: the build machine's /etc/cloudflared/token,
+# handed over as a build secret by host/build.sh (never in the build context
+# or .build/). Without one, the machine waits for one (Secrets → Cloud
+# Tunnel). CLOUDFLARED_TOKEN_SHA rebuilds this layer when it changes (a
+# secret's contents don't count for the build cache).
+ARG CLOUDFLARED_TOKEN_SHA=none
+RUN --mount=type=secret,id=cloudflared_token,required=false \
+    install -d -m 700 -o root -g root /etc/cloudflared && \
+    if [ -s /run/secrets/cloudflared_token ]; then \
+      install -m 600 -o root -g root /run/secrets/cloudflared_token /etc/cloudflared/token; \
+    else \
+      echo "no tunnel token (${CLOUDFLARED_TOKEN_SHA}): streaming waits for one"; \
+    fi
 
 RUN /usr/bin/client --version && \
     /usr/bin/wadbrowser --version && \
@@ -85,13 +111,13 @@ RUN /usr/bin/client --version && \
     find /usr/lib/wadspaces/secrets -type d -exec chmod 700 {} + && \
     find /usr/lib/wadspaces/secrets -type f -exec chmod 600 {} + && \
     chmod 644 /usr/share/wadspaces/ssh/* && \
-    for b in dbus-run-session sway curl nmcli skopeo bootc wpctl foot bluetoothctl; do \
+    for b in dbus-run-session sway curl nmcli skopeo bootc wpctl foot bluetoothctl cloudflared; do \
       command -v "$b" > /dev/null || { echo "missing $b" >&2; exit 1; }; \
     done && \
     ls /usr/lib/firmware/mrvl/pcie8897_uapsta.bin* /usr/lib64/libgtk4-layer-shell.so.0 > /dev/null && \
     /usr/bin/wadd version && \
     systemctl enable greetd.service podman.socket wadd.socket wadd.service bluetooth.service \
-      wadspaces-admin-password.service wadspaces-import.service && \
+      wadspaces-admin-password.service wadspaces-import.service cloudflared.service && \
     systemctl mask bootc-fetch-apply-updates.timer bootc-fetch-apply-updates.service && \
     systemctl set-default graphical.target && \
     systemctl mask getty@tty1.service && \

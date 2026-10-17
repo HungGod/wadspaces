@@ -1,0 +1,19 @@
+[Unit]
+Description=Cloudflare Tunnel: streams reach browsers through it (to wadd's proxy)
+# The token is the tunnel's: baked into the image, or put there by wadd
+# (Secrets → Cloud Tunnel). No token, no tunnel.
+ConditionPathExists=/etc/cloudflared/token
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=notify
+TimeoutStartSec=15
+# No self-updates: cloudflared comes with the image. Its metrics' /ready
+# tells wadd whether it's connected (Secrets → Cloud Tunnel).
+ExecStart=/usr/bin/cloudflared --no-autoupdate tunnel --metrics 127.0.0.1:20241 run --token-file /etc/cloudflared/token
+Restart=on-failure
+RestartSec=5s
+
+[Install]
+WantedBy=multi-user.target
