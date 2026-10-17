@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
-# Build the base every template is made from. Templates and customizations
-# are built by wadd from the WadSpaces Client's Builder, on the machine.
+# Build the base every template is made from, and the stream sidecar.
+# Templates and customizations are built by wadd from the WadSpaces Client's
+# Builder, on the machine.
 #
-#   images/build.sh                  the base
-#   images/build.sh --only base      the same
+#   images/build.sh                  the base and the stream sidecar
+#   images/build.sh --only base      just one (base or stream)
 #   images/build.sh --example vanua-academy
 #                                    an example wadspace's layers
 #                                    (images/examples/<name>/layers.json):
@@ -21,24 +22,28 @@
 #           takes a while), and Dolphin is staged in it from linuxserver's
 #           build (lscr.io/linuxserver/dolphin, pulled once: DOLPHIN_PULL=1
 #           gets a newer one)
+#   stream  localhost/wadspaces-stream:trixie  the sidecar a streamed wadspace
+#           draws on: Selkies (linuxserver's baseimage-selkies, pinned in
+#           images/stream/Dockerfile), published by wadd behind its
+#           streaming proxy
 #
-# host/build.sh install (or update --bases) copies it onto a machine's drive:
-# the machine builds templates and customizations on it.
+# host/build.sh install (or update --bases) copies them onto a machine's
+# drive: the machine builds templates and customizations on the base.
 set -euo pipefail
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
 REGISTRY="${REGISTRY:-ghcr.io/hunggod}"
-ALL=(base)
+ALL=(base stream)
 ONLY=()
 EXAMPLES=()
 NO_CACHE=false
 PUSH=false
 
-usage() { sed -n '2,26p' "$0" | sed 's/^# \{0,1\}//'; }
+usage() { sed -n '2,31p' "$0" | sed 's/^# \{0,1\}//'; }
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        --only) [[ $# -gt 1 && " ${ALL[*]} " == *" $2 "* ]] || { echo "--only base" >&2; exit 2; }
+        --only) [[ $# -gt 1 && " ${ALL[*]} " == *" $2 "* ]] || { echo "--only ${ALL[*]// /|}" >&2; exit 2; }
                 ONLY+=("$2"); shift 2 ;;
         --example) [[ $# -gt 1 && -f "${HERE}/examples/$2/layers.json" ]] || {
                        echo "--example: one of $(ls "${HERE}/examples" | tr '\n' ' ')" >&2; exit 2; }
@@ -51,9 +56,7 @@ while [[ $# -gt 0 ]]; do
 done
 if [[ ${#EXAMPLES[@]} -gt 0 ]]; then
     # An example needs the base.
-    for name in "${ALL[@]}"; do
-        podman image exists "localhost/wadspaces-${name}:trixie" || ONLY+=("${name}")
-    done
+    podman image exists localhost/wadspaces-base:trixie || ONLY+=(base)
 elif [[ ${#ONLY[@]} -eq 0 ]]; then
     ONLY=("${ALL[@]}")
 fi

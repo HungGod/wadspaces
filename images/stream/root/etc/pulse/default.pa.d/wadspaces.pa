@@ -1,0 +1,4 @@
+# The wadspace beside this sidecar plays here: a second native socket in the
+# display volume they share (its PULSE_SERVER). Same uid (abc) on both sides,
+# so pulseaudio's credential check lets it in.
+load-module module-native-protocol-unix socket=/run/wadspaces-display/pulse/native

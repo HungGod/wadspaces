@@ -1,0 +1,24 @@
+#!/usr/bin/with-contenv bash
+# shellcheck shell=bash
+#
+# Refuse to stream without a login: Selkies' nginx only asks for one when
+# PASSWORD is set, and would otherwise serve the desktop to anyone with the
+# link. S6_BEHAVIOUR_IF_STAGE2_FAILS=2 halts the container when this fails.
+if [[ -z "${CUSTOM_USER:-}" || -z "${PASSWORD:-}" ]]; then
+    echo "[stream-display] no CUSTOM_USER or PASSWORD: not streaming without a login" >&2
+    exit 1
+fi
+
+# Put pixelflux's Wayland socket where the wadspace container can reach it.
+# init-selkies-config has just pointed XDG_RUNTIME_DIR at ~/.XDG; point it at
+# the volume shared with the wadspace instead, before selkies starts and
+# creates wayland-1 there.
+DIR="/run/wadspaces-display"
+mkdir -p "${DIR}"
+# A socket left over from the last run would look live to the wadspace.
+rm -f "${DIR}"/wayland-* "${DIR}"/pulse/native
+mkdir -p "${DIR}/pulse"
+chown abc:abc "${DIR}" "${DIR}/pulse"
+chmod 700 "${DIR}" "${DIR}/pulse"
+printf '%s' "${DIR}" > /run/s6/container_environment/XDG_RUNTIME_DIR
+echo "[stream-display] display socket goes in ${DIR}"
