@@ -13,6 +13,10 @@
 # link with no login first (the login prompt), then the sign-in link (the
 # desktop, no login asked). Enter ends the stream; everything it made is
 # removed. Needs podman.socket and the images (see try-stream.sh).
+#
+#   PHONE=1 apps/wadd/dev/try-tunnel.sh  also opens the sign-in link in the
+#                                        WadSpaces app's stream view, on the
+#                                        phone on adb (a debug build)
 set -euo pipefail
 ulimit -c 0
 root=$(cd "$(dirname "$0")/../../.." && pwd)
@@ -105,6 +109,10 @@ command -v qrencode >/dev/null && qrencode -t ANSIUTF8 "$open"
 echo "On the phone (Wi-Fi off): open the plain link and cancel the login (the"
 echo "prompt should stay, no desktop). Then open the sign-in link (or scan the"
 echo "code): the desktop, with no login asked."
+if [ -n "${PHONE:-}" ]; then
+  adb shell "am start -S -n io.wadspaces.android/.MainActivity --es stream '$open'" >/dev/null &&
+    echo "Opened in the WadSpaces app on the phone." || echo "adb couldn't open it in the app."
+fi
 read -r -p "Enter ends the stream... " _
 out=$(api DELETE /v1/workspaces/$ws/stream)
 if [ -z "$out" ]; then echo "ended"; else echo "  it had ended already: $out"; fi
