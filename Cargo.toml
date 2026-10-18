@@ -29,6 +29,7 @@ wad-wadd-client = { path = "crates/wad-wadd-client" }
 wad-gtk = { path = "crates/wad-gtk" }
 wad-account = { path = "crates/wad-account" }
 wad-board = { path = "crates/wad-board" }
+wad-tailscale = { path = "crates/wad-tailscale" }
 
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["preserve_order"] }

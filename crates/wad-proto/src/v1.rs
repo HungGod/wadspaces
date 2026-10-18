@@ -110,6 +110,9 @@ pub enum Event {
     /// Streams began, ended or were watched (all of them, as GET /v1/streams
     /// has them: never their passwords).
     Streams(Vec<StreamInfo>),
+    /// The tailnet changed: joined or left, a device trusted or removed, a
+    /// device asking to manage the machine (as GET /v1/tailnet has it).
+    Tailnet(TailnetStatus),
 }
 
 impl Event {
@@ -134,6 +137,7 @@ impl Event {
             Event::Devices(_) => "devices",
             Event::Bluetooth(_) => "bluetooth",
             Event::Streams(_) => "streams",
+            Event::Tailnet(_) => "tailnet",
         }
     }
 }
@@ -817,6 +821,112 @@ pub struct TunnelStatus {
     pub idle_minutes: u64,
     /// Streaming can start: a token, cloudflared running and connected.
     pub ready: bool,
+}
+
+/// GET /v1/tailnet: the machine on its owner's tailnet (Tailscale), the
+/// owner's devices there, and which of them may manage it over wadd's remote
+/// API (host/TAILNET.md).
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TailnetStatus {
+    /// tailscaled is on this machine and answering.
+    pub available: bool,
+    /// "off" (no tailscaled, or [tailnet] is off), "needsLogin" (not joined),
+    /// "loggingIn" (waiting to be approved at `loginUrl`), "needsApproval"
+    /// (the tailnet's admin must approve it), "stopped", "starting" or
+    /// "running".
+    pub state: String,
+    /// While joining: where to approve the machine (a QR code's link).
+    #[serde(default)]
+    pub login_url: Option<String>,
+    /// The last join or leave that failed: why.
+    #[serde(default)]
+    pub error: Option<String>,
+    /// The machine on the tailnet: its name, addresses and MagicDNS name.
+    #[serde(default)]
+    pub hostname: String,
+    #[serde(default)]
+    pub ips: Vec<String>,
+    #[serde(default)]
+    pub dns_name: String,
+    /// The tailnet's name, and the person the machine is logged in as.
+    #[serde(default)]
+    pub tailnet: String,
+    #[serde(default)]
+    pub user: String,
+    /// When the machine must log in again (RFC 3339). None: it never does.
+    #[serde(default)]
+    pub key_expiry: Option<String>,
+    /// The remote API's port, and whether it's listening now.
+    pub port: u16,
+    pub listening: bool,
+    /// The owner's own devices (untagged, theirs) on the tailnet, and the
+    /// trusted ones that aren't there now.
+    #[serde(default)]
+    pub devices: Vec<TailnetDevice>,
+    /// The owner's devices that asked to manage the machine and aren't
+    /// trusted: the machine asks whether to.
+    #[serde(default)]
+    pub asks: Vec<TailnetAsk>,
+}
+
+/// One of the owner's devices on the tailnet.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TailnetDevice {
+    /// Its stable node id (what it's trusted by).
+    pub id: String,
+    pub name: String,
+    /// "android", "linux", "windows", "macOS", "iOS", ...
+    #[serde(default)]
+    pub os: String,
+    #[serde(default)]
+    pub online: bool,
+    /// It may manage this machine.
+    pub trusted: bool,
+    /// When it was trusted, and when it last asked anything (Unix ms).
+    #[serde(default)]
+    pub trusted_at: Option<u64>,
+    #[serde(default)]
+    pub last_used: Option<u64>,
+}
+
+/// A device that asked to manage the machine.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TailnetAsk {
+    pub id: String,
+    pub name: String,
+    #[serde(default)]
+    pub os: String,
+    /// When it asked (Unix ms).
+    pub at: u64,
+}
+
+/// PUT /v1/tailnet/devices/{id}: trust it.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TrustDevice {
+    /// What to call it, when the machine doesn't know it by name yet.
+    #[serde(default)]
+    pub name: Option<String>,
+}
+
+/// GET /v1/remote/hello, on the remote API: the machine, and how it sees the
+/// device asking.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RemoteHello {
+    /// The machine's name, its id in the account (None: not linked), and
+    /// wadd's version.
+    pub machine: String,
+    #[serde(default)]
+    pub machine_id: Option<String>,
+    pub version: String,
+    /// The device, as the machine knows it.
+    pub device: String,
+    /// "trusted", or "asked": the machine is asking its owner whether to.
+    pub trust: String,
 }
 
 /// POST /v1/tunnel/selftest: https://ws-selftest.<domain>/ fetched from

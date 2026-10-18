@@ -1,0 +1,18 @@
+{
+  "Node": {
+    "ID": 103,
+    "StableID": "nServer1CNTRL",
+    "Name": "build-box.tail1234.ts.net.",
+    "User": 9001,
+    "Key": "nodekey:3333333333333333333333333333333333333333333333333333333333333333",
+    "KeyExpiry": "0001-01-01T00:00:00Z",
+    "Addresses": ["100.64.0.9/32"],
+    "Hostinfo": { "OS": "linux", "Hostname": "build-box" },
+    "Created": "2026-10-01T00:00:00Z",
+    "Tags": ["tag:server"],
+    "MachineAuthorized": true,
+    "ComputedName": "build-box"
+  },
+  "UserProfile": { "ID": 9001, "LoginName": "tagged-devices", "DisplayName": "Tagged Devices", "ProfilePicURL": "" },
+  "CapMap": null
+}

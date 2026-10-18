@@ -1,0 +1,18 @@
+{
+  "Node": {
+    "ID": 104,
+    "StableID": "nFriend1CNTRL",
+    "Name": "friends-laptop.tail1234.ts.net.",
+    "User": 3001,
+    "Sharer": 3001,
+    "Key": "nodekey:4444444444444444444444444444444444444444444444444444444444444444",
+    "KeyExpiry": "2027-04-01T00:00:00Z",
+    "Addresses": ["100.64.0.11/32"],
+    "Hostinfo": { "OS": "macOS", "Hostname": "friends-laptop" },
+    "Created": "2026-10-02T00:00:00Z",
+    "MachineAuthorized": true,
+    "ComputedName": "friends-laptop"
+  },
+  "UserProfile": { "ID": 3001, "LoginName": "friend@example.com", "DisplayName": "Friend", "ProfilePicURL": "" },
+  "CapMap": null
+}

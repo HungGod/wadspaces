@@ -24,6 +24,7 @@ struct Latest {
     devices: Option<Event>,
     bluetooth: Option<Event>,
     streams: Option<Event>,
+    tailnet: Option<Event>,
     states: Vec<WorkspaceState>,
 }
 
@@ -40,6 +41,7 @@ impl Bus {
             devices: None,
             bluetooth: None,
             streams: None,
+            tailnet: None,
             states: vec![],
         };
         Self { tx: broadcast::channel(256).0, latest: Arc::new(Mutex::new(latest)) }
@@ -63,6 +65,7 @@ impl Bus {
                 Event::Devices(_) => l.devices = Some(e.clone()),
                 Event::Bluetooth(_) => l.bluetooth = Some(e.clone()),
                 Event::Streams(_) => l.streams = Some(e.clone()),
+                Event::Tailnet(_) => l.tailnet = Some(e.clone()),
                 Event::Notice { .. }
                 | Event::Shortcut { .. }
                 | Event::Projects { .. }
@@ -102,6 +105,7 @@ impl Bus {
                 &l.devices,
                 &l.bluetooth,
                 &l.streams,
+                &l.tailnet,
             ]
             .into_iter()
             .flatten()

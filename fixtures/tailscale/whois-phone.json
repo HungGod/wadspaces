@@ -1,0 +1,25 @@
+{
+  "Node": {
+    "ID": 102,
+    "StableID": "nPhone1CNTRL",
+    "Name": "pixel-9.tail1234.ts.net.",
+    "User": 2001,
+    "Key": "nodekey:2222222222222222222222222222222222222222222222222222222222222222",
+    "KeyExpiry": "2027-04-15T09:00:00Z",
+    "Machine": "mkey:5555555555555555555555555555555555555555555555555555555555555555",
+    "DiscoKey": "discokey:6666666666666666666666666666666666666666666666666666666666666666",
+    "Addresses": ["100.64.0.7/32", "fd7a:115c:a1e0::7/128"],
+    "AllowedIPs": ["100.64.0.7/32", "fd7a:115c:a1e0::7/128"],
+    "Endpoints": ["192.0.2.10:41641"],
+    "HomeDERP": 7,
+    "Hostinfo": { "OS": "android", "OSVersion": "16", "DeviceModel": "Google Pixel 9", "Hostname": "Pixel 9" },
+    "Created": "2026-10-17T09:00:00Z",
+    "Cap": 130,
+    "Online": true,
+    "MachineAuthorized": true,
+    "ComputedName": "pixel-9",
+    "ComputedNameWithHost": "pixel-9 (Pixel 9)"
+  },
+  "UserProfile": { "ID": 2001, "LoginName": "owner@example.com", "DisplayName": "Owner", "ProfilePicURL": "" },
+  "CapMap": null
+}

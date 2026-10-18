@@ -1,0 +1,19 @@
+[package]
+name = "wad-tailscale"
+description = "tailscaled for wadd: its LocalAPI (status, whois) over its Unix socket, and the tailscale CLI (joining, leaving)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+reqwest.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tokio = { workspace = true, features = ["process"] }
+tracing.workspace = true
+
+[dev-dependencies]
+axum.workspace = true
+tempfile.workspace = true

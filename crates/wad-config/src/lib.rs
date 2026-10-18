@@ -36,6 +36,7 @@ pub struct Config {
     pub display: Display,
     pub cloud: Cloud,
     pub streaming: Streaming,
+    pub tailnet: Tailnet,
 }
 
 /// The account link (the cloud relay). An empty project_id: no account to
@@ -123,6 +124,53 @@ impl Default for Streaming {
             metrics: "127.0.0.1:20241".into(),
             require_tunnel: true,
         }
+    }
+}
+
+/// The owner's tailnet (Tailscale): the machine joins it, and the devices
+/// the owner trusts reach wadd's remote API over it (host/TAILNET.md).
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+#[serde(default)]
+pub struct Tailnet {
+    pub enabled: bool,
+    /// tailscaled's LocalAPI.
+    pub socket: PathBuf,
+    /// The `tailscale` CLI (joining, leaving, the name).
+    pub cli: PathBuf,
+    /// The remote API's port, on the machine's tailnet addresses.
+    pub port: u16,
+    /// Listen here instead (the laptop trial: tailscaled in userspace mode
+    /// forwards the tailnet's connections to loopback). Empty: the machine's
+    /// tailnet addresses, with `port`.
+    pub listen: Vec<String>,
+    /// The interface the remote API is bound to, so nothing from another
+    /// network reaches it. Empty: none.
+    pub bind_device: String,
+    /// The machine's name on the tailnet. Empty: from [machine] name.
+    pub hostname: String,
+    /// How often tailscaled's status is read.
+    pub poll_s: u64,
+}
+
+impl Tailnet {
+    pub fn for_profile(profile: Profile) -> Self {
+        Self {
+            // A laptop has its own Tailscale, if any: the trial turns it on.
+            enabled: profile == Profile::System,
+            socket: "/run/tailscale/tailscaled.sock".into(),
+            cli: "/usr/bin/tailscale".into(),
+            port: 8087,
+            listen: vec![],
+            bind_device: "tailscale0".into(),
+            hostname: String::new(),
+            poll_s: 10,
+        }
+    }
+}
+
+impl Default for Tailnet {
+    fn default() -> Self {
+        Self::for_profile(Profile::System)
     }
 }
 
@@ -326,6 +374,7 @@ impl Config {
             display: Display::for_profile(profile),
             cloud: Cloud::default(),
             streaming: Streaming::default(),
+            tailnet: Tailnet::for_profile(profile),
         }
     }
 
@@ -389,6 +438,7 @@ struct Raw {
     display: Display,
     cloud: Cloud,
     streaming: Streaming,
+    tailnet: Tailnet,
 }
 #[derive(serde::Serialize)]
 struct RawMachine {
@@ -440,6 +490,7 @@ impl From<&Config> for Raw {
             display: c.display.clone(),
             cloud: c.cloud.clone(),
             streaming: c.streaming.clone(),
+            tailnet: c.tailnet.clone(),
         }
     }
 }
@@ -500,6 +551,10 @@ mod tests {
         assert!(c.streaming.enabled && !c.streaming.webrtc && c.streaming.require_tunnel);
         assert_eq!(c.streaming.domain, "wadspaces.com");
         assert_eq!(c.streaming.listen, ["127.0.0.1:8085", "[::1]:8085"]);
+        // The remote API: on the tailnet's interface only.
+        assert!(c.tailnet.enabled && c.tailnet.listen.is_empty());
+        assert_eq!((c.tailnet.port, c.tailnet.bind_device.as_str()), (8087, "tailscale0"));
+        assert_eq!(c.tailnet.socket, Path::new("/run/tailscale/tailscaled.sock"));
     }
 
     fn write(dir: &Path, name: &str, text: &str) -> PathBuf {
@@ -516,6 +571,7 @@ mod tests {
         let u = Config::load(Profile::User, &[]).unwrap();
         assert!(u.daemon.socket.ends_with("wadd/wadd.sock"));
         assert!(u.daemon.allow_users.is_empty());
+        assert!(c.tailnet.enabled && !u.tailnet.enabled);
     }
 
     #[test]

@@ -23,3 +23,11 @@ functions_region = "australia-southeast2"
 # WebSockets only; `webrtc = true` adds WebRTC (STUN and Cloudflare's TURN).
 domain = "wadspaces.com"
 webrtc = false
+
+[tailnet]
+# The owner's Tailscale network (tailscaled.service): the machine joins it
+# from WadSpaces (Machines → this machine → Tailnet), and the devices the
+# owner trusts reach wadd's remote API on its tailnet addresses, :8087,
+# bound to tailscale0 (host/TAILNET.md).
+port = 8087
+bind_device = "tailscale0"
