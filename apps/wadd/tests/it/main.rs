@@ -17,4 +17,5 @@ mod registry;
 mod secrets;
 mod signins;
 mod streams;
+mod tailnet;
 mod view;

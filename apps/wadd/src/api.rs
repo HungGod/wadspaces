@@ -71,6 +71,9 @@ pub struct AppState {
     pub bluetooth: Arc<crate::bluetooth::Bluetooth>,
     /// Wadspaces streamed to browsers, and the tunnel they go through.
     pub streams: Arc<crate::streams::Streams>,
+    /// The owner's tailnet, and the devices trusted to manage the machine
+    /// over it (the remote API, remote.rs).
+    pub tailnet: Arc<crate::tailnet::Tailnet>,
 }
 
 /// An ApiError as an HTTP response.
@@ -164,6 +167,11 @@ pub fn router(app: Arc<AppState>) -> Router {
         .route("/v1/tunnel", get(tunnel))
         .route("/v1/tunnel/selftest", post(tunnel_selftest))
         .route("/v1/tunnel/token", axum::routing::put(tunnel_token))
+        .route("/v1/tailnet", get(tailnet))
+        .route("/v1/tailnet/login", post(tailnet_login))
+        .route("/v1/tailnet/logout", post(tailnet_logout))
+        .route("/v1/tailnet/devices/{id}", axum::routing::put(tailnet_trust).delete(tailnet_untrust))
+        .route("/v1/tailnet/asks/{id}/dismiss", post(tailnet_dismiss))
         .route("/v1/states", get(states))
         .route("/v1/view", get(view))
         .route("/v1/view/home", post(home))
@@ -1216,6 +1224,44 @@ async fn tunnel_token(
     Json(b): Json<wad_proto::v1::TunnelToken>,
 ) -> Result<Json<wad_proto::v1::TunnelStatus>, Failure> {
     Ok(Json(app.streams.tunnel.replace_token(&b.token).await?))
+}
+
+async fn tailnet(State(app): State<Arc<AppState>>) -> Json<wad_proto::v1::TailnetStatus> {
+    Json(app.tailnet.view())
+}
+
+/// Join the tailnet: the answer has the link to approve the machine at.
+async fn tailnet_login(State(app): State<Arc<AppState>>) -> Result<Json<wad_proto::v1::TailnetStatus>, Failure> {
+    Ok(Json(app.tailnet.login().await?))
+}
+
+async fn tailnet_logout(State(app): State<Arc<AppState>>) -> Result<Json<wad_proto::v1::TailnetStatus>, Failure> {
+    Ok(Json(app.tailnet.logout().await?))
+}
+
+/// Trust one of the owner's devices to manage the machine.
+async fn tailnet_trust(
+    State(app): State<Arc<AppState>>,
+    Path(id): Path<String>,
+    body: Option<Json<wad_proto::v1::TrustDevice>>,
+) -> Result<Json<wad_proto::v1::TailnetStatus>, Failure> {
+    let name = body.and_then(|Json(b)| b.name);
+    Ok(Json(app.tailnet.trust(&id, name)?))
+}
+
+async fn tailnet_untrust(
+    State(app): State<Arc<AppState>>,
+    Path(id): Path<String>,
+) -> Result<Json<wad_proto::v1::TailnetStatus>, Failure> {
+    Ok(Json(app.tailnet.untrust(&id)?))
+}
+
+/// "Not now" to a device's ask.
+async fn tailnet_dismiss(
+    State(app): State<Arc<AppState>>,
+    Path(id): Path<String>,
+) -> Result<Json<wad_proto::v1::TailnetStatus>, Failure> {
+    Ok(Json(app.tailnet.dismiss(&id)?))
 }
 
 async fn secrets(State(app): State<Arc<AppState>>) -> Result<Json<Vec<wad_proto::v1::SecretInfo>>, Failure> {

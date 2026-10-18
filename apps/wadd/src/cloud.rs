@@ -157,6 +157,9 @@ pub struct Parts {
     pub signins: Arc<crate::signins::SignIns>,
     /// podman, for the layer images.
     pub backend: Arc<dyn crate::backend::Backend>,
+    /// The tailnet, when it's on here: where the owner's devices find the
+    /// remote API.
+    pub tailnet: Option<Arc<crate::tailnet::Tailnet>>,
 }
 
 pub struct CloudRelay {
@@ -454,6 +457,9 @@ impl CloudRelay {
             p.signins.list().into_iter().map(|s| json!({"id": s.id, "name": s.name, "app": s.app})).collect();
         m.insert("signins".into(), signins.into());
         m.insert("screen".into(), serde_json::to_value(p.view.screen().await).unwrap_or(Value::Null));
+        if let Some(t) = p.tailnet.as_ref().and_then(|t| t.heartbeat_value()) {
+            m.insert("tailnet".into(), t);
+        }
         m
     }
 

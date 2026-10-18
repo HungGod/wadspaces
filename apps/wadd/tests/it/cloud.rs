@@ -149,6 +149,7 @@ async fn env() -> Env {
                 builds: builds.clone(),
                 signins: signins.clone(),
                 backend: backend.clone(),
+                tailnet: None,
             };
             CloudRelay::new(settings, http, ends, parts)
         }

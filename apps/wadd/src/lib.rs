@@ -27,12 +27,14 @@ pub mod network;
 pub mod projects;
 pub mod proxy;
 pub mod registry;
+pub mod remote;
 pub mod screen;
 pub mod secrets;
 pub mod signins;
 pub mod storage;
 pub mod streams;
 pub mod systemd;
+pub mod tailnet;
 pub mod tunnel;
 pub mod view;
 
@@ -341,6 +343,7 @@ impl Server {
         launches.set_signins(Arc::downgrade(&signins));
         launches.set_builds(Arc::downgrade(&builds));
         let registry_backend = backend.clone();
+        let tailnet = tailnet::Tailnet::new(&config.tailnet, &config.machine.name, &d.state_dir, bus.clone());
         let cloud_cfg = cloud_settings(config);
         let github = github::GithubService::new(
             wad_github::Github::new(reqwest::Client::new()),
@@ -362,6 +365,7 @@ impl Server {
                     builds: builds.clone(),
                     signins: signins.clone(),
                     backend: registry_backend.clone(),
+                    tailnet: tailnet.enabled().then(|| tailnet.clone()),
                 },
             )
         });
@@ -413,6 +417,7 @@ impl Server {
             graph_root: Default::default(),
             files: files::Files::new(&config.daemon.state_dir, &config.daemon.signins_dir, profile == Profile::System),
             streams,
+            tailnet,
         });
         Ok(Self {
             listener,
@@ -514,12 +519,19 @@ impl Server {
         let listeners = proxy::bind(&self.proxy_listen).await;
         let proxy = (!listeners.is_empty())
             .then(|| tokio::spawn(proxy::Proxy::new(self.state.streams.clone()).serve(listeners, proxy_stop)));
+        // The tailnet, and the remote API on its addresses.
+        let tailwatch = tokio::spawn(self.state.tailnet.clone().run());
+        let (stop_remote, remote_stop) = tokio::sync::watch::channel(false);
+        let remote = tokio::spawn(remote::serve(self.state.clone(), remote_stop));
         let app = api::router(self.state.clone()).into_make_service_with_connect_info::<Peer>();
         let res = axum::serve(self.listener, app).with_graceful_shutdown(shutdown).await;
         let _ = stop_proxy.send(true);
         if let Some(p) = proxy {
             p.abort();
         }
+        let _ = stop_remote.send(true);
+        remote.abort();
+        tailwatch.abort();
         streamwatch.abort();
         reconcile.abort();
         netwatch.abort();

@@ -20,6 +20,7 @@ wad-firebase.workspace = true
 wad-github.workspace = true
 wad-net.workspace = true
 wad-bt.workspace = true
+wad-tailscale.workspace = true
 wad-icons = { workspace = true, features = ["fetch"] }
 async-trait.workspace = true
 base64.workspace = true
