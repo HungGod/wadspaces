@@ -18,7 +18,7 @@ use serde_json::{Value, json};
 
 pub use board::Board;
 pub use model::*;
-pub use sync::{Docs, Plan, plan, to_board, with_refs};
+pub use sync::{Docs, Plan, plan, plan_new, to_board, with_refs};
 
 fn arg<T: DeserializeOwned>(args: &[Value], i: usize) -> Result<T, String> {
     serde_json::from_value(args.get(i).cloned().unwrap_or(Value::Null)).map_err(|e| format!("argument {i}: {e}"))
@@ -46,6 +46,13 @@ pub fn call(name: &str, args: &[Value]) -> Result<Value, String> {
             let owner: String = arg(args, 2)?;
             let now: String = arg(args, 3)?;
             to(sync::plan(&stacks, &docs, &owner, &now))
+        }
+        "planNew" => {
+            let stack: Stack = arg(args, 0)?;
+            let docs: Docs = arg(args, 1)?;
+            let owner: String = arg(args, 2)?;
+            let now: String = arg(args, 3)?;
+            to(sync::plan_new(&stack, &docs, &owner, &now))
         }
         "withRefs" => {
             let stacks: Vec<Stack> = arg(args, 0)?;
@@ -110,3 +117,5 @@ pub fn call(name: &str, args: &[Value]) -> Result<Value, String> {
 
 #[cfg(test)]
 mod goldens;
+#[cfg(test)]
+mod phone;

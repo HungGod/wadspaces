@@ -9,6 +9,8 @@
 //!   is what the module is; else one just like it; else it changes its own
 //!   document when no other stack has it; else a new one is made. Wadspaces
 //!   are written when they differ; a stack that's gone is deleted softly.
+//! - [`plan_new`]: the writes that add one new stack and touch nothing else
+//!   (the WadSpaces Android app's builder, which has no board).
 
 use std::collections::HashMap;
 
@@ -555,6 +557,91 @@ pub fn plan(stacks: &[Stack], docs: &Docs, owner: &str, now: &str) -> Plan {
         extensions: extensions.values().cloned().collect(),
         wadspaces: wadspaces.values().cloned().collect(),
     };
+    out
+}
+
+/// The writes that add one new stack (`stack`, not on the board yet) to
+/// the documents, and nothing else: [`plan`] over the board with it last,
+/// kept to this stack's own writes (a whole board's save renumbers, renames
+/// and deletes what isn't on it). First, a new module that has a live twin
+/// (a template with the same apps on the same parent; Extensions with the
+/// same setups on the same template) takes that document as it is, name
+/// and apps' order and all, so saving changes nothing of it. The stack goes after the last one.
+pub fn plan_new(stack: &Stack, docs: &Docs, owner: &str, now: &str) -> Plan {
+    let mut stack = stack.clone();
+    // Twins, bottom up: a module that's a document (or a twin's) is its
+    // parent's for the one above; past a new one, nothing has a twin.
+    let mut parent: Option<Option<String>> = Some(None);
+    for m in stack.templates.iter_mut().filter(|t| !t.apps.is_empty()) {
+        let Some(under) = parent.clone() else { break };
+        if m.doc.is_none()
+            && let Some(t) = docs.templates.iter().find(|t| {
+                alive(t)
+                    && same_set(&strs(t, "apps"), &m.apps)
+                    && t.get("parent").and_then(Value::as_str).filter(|p| !p.is_empty()).map(String::from) == under
+            })
+        {
+            m.doc = Some(s(t, "id").into());
+            m.name = s(t, "name").into();
+            m.description = s(t, "description").into();
+            // Its desktop's order too.
+            m.apps = strs(t, "apps");
+        }
+        parent = m.doc.clone().map(Some);
+    }
+    if let (Some(Some(tid)), Some(em)) = (parent, stack.extensions.as_mut())
+        && em.doc.is_none()
+    {
+        let want = setup_key(&setup_of_module(em));
+        if let Some(e) = docs.extensions.iter().find(|e| alive(e) && s(e, "templateId") == tid && setup_key(e) == want)
+        {
+            em.doc = Some(s(e, "id").into());
+            em.name = s(e, "name").into();
+        }
+    }
+
+    let mut stacks = to_board(docs);
+    stacks.retain(|st| st.id != stack.id);
+    stacks.push(stack.clone());
+    let all = plan(&stacks, docs, owner, now);
+
+    // Only this stack's.
+    let mine: Vec<String> =
+        stack.templates.iter().map(|t| t.id.clone()).chain(stack.extensions.iter().map(|e| e.id.clone())).collect();
+    let refs: Map<String, Value> = all.refs.into_iter().filter(|(k, _)| mine.contains(k)).collect();
+    let ids: Vec<&str> = refs.values().filter_map(Value::as_str).collect();
+    let order = docs
+        .wadspaces
+        .iter()
+        .filter(|w| alive(w) && s(w, "id") != stack.id)
+        .filter_map(|w| w.get("order").and_then(Value::as_f64))
+        .fold(0.0, f64::max) as i64
+        + 1;
+    let mut out = Plan {
+        templates: all.templates.into_iter().filter(|t| ids.contains(&s(t, "id"))).collect(),
+        extensions: all.extensions.into_iter().filter(|e| ids.contains(&s(e, "id"))).collect(),
+        wadspaces: all
+            .wadspaces
+            .into_iter()
+            .filter(|w| s(w, "id") == stack.id)
+            .map(|mut w| {
+                w["order"] = order.into();
+                w
+            })
+            .collect(),
+        deleted: vec![],
+        refs,
+        docs: docs.clone(),
+    };
+    for t in &out.templates {
+        put(&mut out.docs.templates, t.clone());
+    }
+    for e in &out.extensions {
+        put(&mut out.docs.extensions, e.clone());
+    }
+    for w in &out.wadspaces {
+        put(&mut out.docs.wadspaces, w.clone());
+    }
     out
 }
 
