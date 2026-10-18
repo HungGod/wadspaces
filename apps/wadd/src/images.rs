@@ -500,6 +500,42 @@ pub fn decode_wallpaper(up: &WallpaperUpload) -> Result<Vec<u8>, ApiError> {
     Ok(bytes)
 }
 
+/// A wadspace's wallpaper as the file its desktop shows, made here (the
+/// remote API's builds; the client draws its own): a gradient or a colour
+/// drawn, a picture sent along (a data: URL), or one of WadSpaces' own
+/// (/wallpapers/…, from `assets`). Anything else gets the blank one, and
+/// says so. (ext, bytes, a warning).
+pub fn wallpaper_for(wall: &Value, assets: &Path) -> (String, Vec<u8>, Option<String>) {
+    let blank = |why: String| {
+        let w = wad_wallpaper::Wallpaper { kind: wad_wallpaper::Kind::Gradient, value: wad_wallpaper::BLANK.into() };
+        ("png".to_string(), wad_wallpaper::draw_png(&w).unwrap_or_default(), Some(why))
+    };
+    let Ok(w) = serde_json::from_value::<wad_wallpaper::Wallpaper>(wall.clone()) else {
+        return blank("It has no wallpaper: it gets the plain one.".into());
+    };
+    if w.kind != wad_wallpaper::Kind::Image {
+        return match wad_wallpaper::draw_png(&w) {
+            Some(png) => ("png".into(), png, None),
+            None => blank("Its wallpaper didn't draw: it gets the plain one.".into()),
+        };
+    }
+    let bytes = if let Some((_, b64)) = w.value.strip_prefix("data:").and_then(|d| d.split_once(";base64,")) {
+        base64::engine::general_purpose::STANDARD.decode(b64).ok()
+    } else {
+        crate::api::asset_path(assets, &w.value).and_then(|p| std::fs::read(p).ok())
+    };
+    let Some(bytes) = bytes.filter(|b| b.len() <= MAX_WALLPAPER) else {
+        return blank("Its wallpaper's picture isn't here: it gets the plain one.".into());
+    };
+    if bytes.starts_with(b"\x89PNG\r\n\x1a\n") {
+        ("png".into(), bytes, None)
+    } else if bytes.starts_with(&[0xFF, 0xD8, 0xFF]) {
+        ("jpg".into(), bytes, None)
+    } else {
+        blank("Its wallpaper isn't a PNG or a JPEG: it gets the plain one.".into())
+    }
+}
+
 /// Writes it (and drops the other kind), readable inside.
 pub fn write_wallpaper(state_dir: &Path, id: &str, ext: &str, bytes: &[u8]) -> std::io::Result<String> {
     use std::os::unix::fs::PermissionsExt;

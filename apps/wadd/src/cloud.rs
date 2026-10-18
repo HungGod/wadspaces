@@ -24,7 +24,11 @@
 //!   `launch-run` (anything the launcher starts, maybe as a focus session)
 //!   and `session`. The heartbeat carries the layer images here, the saved
 //!   sign-ins' names (never what they hold) and the screen's size.
+//! - for the remote API (remote.rs): a wadspace of the owner's with the
+//!   library it stands on ([`CloudRelay::stack_docs`]), and whether a
+//!   device's sign-in is the owner's ([`CloudRelay::owner_token`]).
 
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicI64, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
@@ -32,6 +36,7 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value, json};
+use sha2::{Digest, Sha256};
 use tokio::sync::Notify;
 use wad_firebase::values::{doc_id, doc_path, from_fields, time, to_ms};
 use wad_firebase::{Firestore, Functions, Identity};
@@ -162,6 +167,18 @@ pub struct Parts {
     pub tailnet: Option<Arc<crate::tailnet::Tailnet>>,
 }
 
+/// A wadspace of the owner's, as the account has it, and the library it
+/// stands on: `{templates, extensions}` (its template chain, bottom first,
+/// and its Extensions).
+#[derive(Debug, Clone)]
+pub struct StackDocs {
+    pub wadspace: Value,
+    pub lib: Value,
+}
+
+/// How long an ID token's check is kept.
+const OWNER_CHECK_FOR: Duration = Duration::from_secs(300);
+
 pub struct CloudRelay {
     settings: Settings,
     http: reqwest::Client,
@@ -179,6 +196,8 @@ pub struct CloudRelay {
     repos_written: Mutex<Option<wad_proto::github::Repos>>,
     status: Mutex<(Option<u64>, Option<String>)>,
     kick: Notify,
+    /// ID tokens checked (by their sha-256): the owner's or not, until when.
+    owners: Mutex<HashMap<[u8; 32], (bool, Instant)>>,
 }
 
 impl CloudRelay {
@@ -201,6 +220,7 @@ impl CloudRelay {
             repos_written: Mutex::default(),
             status: Mutex::default(),
             kick: Notify::new(),
+            owners: Mutex::default(),
         })
     }
 
@@ -584,35 +604,116 @@ impl CloudRelay {
             template = Some(self.owner_doc("templates", &tid).await?);
         }
         let template = template.unwrap_or_default();
-        let mut parents: Vec<Value> = match cmd.get("parents").and_then(Value::as_array) {
+        let parents: Vec<Value> = match cmd.get("parents").and_then(Value::as_array) {
             Some(p) => p.clone(),
-            None => {
-                let mut up = Vec::new();
-                let mut next = s(&template, "parent");
-                while !next.is_empty() && up.len() < wad_core::layers::MAX_CHAIN {
-                    let t = self.owner_doc("templates", &next).await?;
-                    next = s(&t, "parent");
-                    up.push(t);
-                }
-                up
-            }
+            None => self.template_chain(&s(&template, "parent"), true).await?,
         };
-        if cmd.get("parents").is_none() {
-            parents.reverse();
-        }
         Ok(wad_proto::v1::LayerBuildRequest { layer, template, parents, extensions })
+    }
+
+    /// A template and those it builds on, from the account, bottom first
+    /// ("": none). `strict`: a template that isn't there is an error, else
+    /// the chain stops at it (and wad-core says it's gone).
+    async fn template_chain(&self, tid: &str, strict: bool) -> Result<Vec<Value>, String> {
+        let mut up = Vec::new();
+        let mut next = tid.to_string();
+        while !next.is_empty() && up.len() < wad_core::layers::MAX_CHAIN {
+            let t = match self.owner_doc_opt("templates", &next).await? {
+                Some(t) => t,
+                None if strict => return Err(format!("no template {next} in the account")),
+                None => break,
+            };
+            next = s(&t, "parent");
+            up.push(t);
+            // A loop in the account ends the chain.
+            if up.iter().any(|u| s(u, "id") == next) {
+                break;
+            }
+        }
+        up.reverse();
+        Ok(up)
     }
 
     /// One of the owner's documents (users/{uid}/<collection>/<id>), with its id.
     async fn owner_doc(&self, collection: &str, id: &str) -> Result<Value, String> {
         let (uid, _) = self.ids().ok_or("not linked")?;
+        self.owner_doc_opt(collection, id)
+            .await?
+            .ok_or_else(|| format!("no users/{uid}/{collection}/{id} in the account"))
+    }
+
+    async fn owner_doc_opt(&self, collection: &str, id: &str) -> Result<Option<Value>, String> {
+        let (uid, _) = self.ids().ok_or("not linked")?;
+        self.doc_at(&format!("users/{uid}/{collection}/{id}"), id).await
+    }
+
+    /// A document by its path, with its id; None when it isn't there.
+    async fn doc_at(&self, path: &str, id: &str) -> Result<Option<Value>, String> {
         let tok = self.id_token().await?;
-        let path = format!("users/{uid}/{collection}/{id}");
-        let doc = self.firestore()?.get(&tok, &path).await.map_err(|e| e.to_string())?;
-        let doc = doc.ok_or_else(|| format!("no {path} in the account"))?;
-        let mut v = from_fields(doc.get("fields").unwrap_or(&Value::Null));
-        v["id"] = id.into();
-        Ok(v)
+        let doc = self.firestore()?.get(&tok, path).await.map_err(|e| e.to_string())?;
+        Ok(doc.map(|d| {
+            let mut v = from_fields(d.get("fields").unwrap_or(&Value::Null));
+            v["id"] = id.into();
+            v
+        }))
+    }
+
+    /// One of the owner's wadspaces (wadspaces/{id}), with its templates and
+    /// Extensions: what the remote API builds from. Only the owner's own
+    /// (the rules let a machine read wadspaces shared with its owner too,
+    /// but their templates are someone else's), and not one that's deleted.
+    pub async fn stack_docs(&self, ws_id: &str) -> Result<StackDocs, ApiError> {
+        let (uid, _) =
+            self.ids().ok_or_else(|| ApiError::new(ErrorCode::Offline, "This machine isn't linked to an account."))?;
+        if !wad_core::spec::is_id(ws_id) {
+            return Err(ApiError::new(ErrorCode::BadRequest, format!("{ws_id:?} isn't a wadspace's id")));
+        }
+        let up = |e: String| ApiError::new(ErrorCode::Upstream, format!("The account: {e}"));
+        let w = self.doc_at(&format!("wadspaces/{ws_id}"), ws_id).await.map_err(up)?;
+        let w = w.ok_or_else(|| ApiError::new(ErrorCode::NotFound, "That wadspace isn't in the account."))?;
+        if s(&w, "owner") != uid {
+            return Err(ApiError::new(ErrorCode::Forbidden, "That wadspace isn't the machine owner's."));
+        }
+        if w.get("deletedAt").is_some_and(|d| !d.is_null()) {
+            return Err(ApiError::new(ErrorCode::NotFound, "That wadspace is deleted."));
+        }
+        let templates = self.template_chain(&s(&w, "template"), false).await.map_err(up)?;
+        let eid = s(&w, "extensions");
+        let mut extensions = vec![];
+        if !eid.is_empty() {
+            // Kept as "customizations" until the account moves to stacks.
+            let e = match self.owner_doc_opt("extensions", &eid).await.map_err(up)? {
+                Some(e) => Some(e),
+                None => self.owner_doc_opt("customizations", &eid).await.map_err(up)?,
+            };
+            extensions.extend(e);
+        }
+        Ok(StackDocs { wadspace: w, lib: json!({ "templates": templates, "extensions": extensions }) })
+    }
+
+    /// Whether an ID token is the machine owner's: Firebase is asked (it
+    /// checks the signature and that it hasn't expired), and the answer is
+    /// kept for a few minutes.
+    pub async fn owner_token(&self, id_token: &str) -> Result<bool, String> {
+        let (uid, _) = self.ids().ok_or("not linked")?;
+        let key: [u8; 32] = Sha256::digest(id_token.as_bytes()).into();
+        {
+            let mut known = self.owners.lock().unwrap();
+            known.retain(|_, (_, until)| *until > Instant::now());
+            if let Some((ok, _)) = known.get(&key) {
+                return Ok(*ok);
+            }
+        }
+        let ok = match self.ends.identity.lookup(&self.api_key(), id_token).await {
+            Ok(who) => who == uid,
+            Err(wad_firebase::Error::Auth { message, .. }) => {
+                tracing::debug!("remote: a sign-in that didn't check out: {message}");
+                false
+            }
+            Err(e) => return Err(e.to_string()),
+        };
+        self.owners.lock().unwrap().insert(key, (ok, Instant::now() + OWNER_CHECK_FOR));
+        Ok(ok)
     }
 
     pub async fn poll_once(&self) -> Result<(), String> {

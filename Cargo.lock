@@ -5924,6 +5924,7 @@ dependencies = [
  "wad-sway",
  "wad-systemd",
  "wad-tailscale",
+ "wad-wallpaper",
  "wiremock",
 ]
 

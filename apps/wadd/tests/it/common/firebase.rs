@@ -1,6 +1,7 @@
-//! A Firebase for tests: enrollMachine, Auth's custom-token sign-in and
-//! refresh, and a Firestore keeping documents in memory (REST form). Tokens
-//! say who they are: `id:<uid>:<mid>:<n>`, `rt:<uid>:<mid>:<n>`.
+//! A Firebase for tests: enrollMachine, Auth's custom-token sign-in, refresh
+//! and token lookup, and a Firestore keeping documents in memory (REST form).
+//! Tokens say who they are: `id:<uid>:<mid>:<n>`, `rt:<uid>:<mid>:<n>`, and a
+//! person's `user:<uid>`.
 
 use std::collections::{BTreeMap, HashMap};
 use std::sync::{Arc, Mutex};
@@ -25,6 +26,8 @@ pub struct Fb {
     pub enrolls: Vec<Value>,
     /// Answer every Firestore call with this status.
     pub down: Option<u16>,
+    /// accounts:lookup calls.
+    pub lookups: u32,
 }
 
 #[derive(Clone, Default)]
@@ -49,6 +52,7 @@ impl FakeFirebase {
         let app = Router::new()
             .route("/functions/enrollMachine", post(enroll))
             .route("/identitytoolkit/{op}", post(sign_in))
+            .route("/identitytoolkit/accounts:lookup", post(lookup))
             .route("/securetoken/token", post(refresh))
             .route("/v1/projects/{p}/databases/{db}/documents/{*rest}", any(firestore))
             .with_state(self.clone());
@@ -95,6 +99,15 @@ async fn enroll(State(fb): State<FakeFirebase>, Json(b): Json<Value>) -> Respons
         .entry(format!("users/{uid}/machines/{mid}"))
         .or_insert_with(|| to_fields(json!({"name": d["machineName"]}).as_object().unwrap()));
     Json(json!({"result": {"machineId": mid, "ownerUid": uid, "customToken": format!("ct:{uid}:{mid}"), "projectId": "demo", "apiKey": "key", "relink": relink}})).into_response()
+}
+
+/// A person's ID token (`user:<uid>`): whose it is.
+async fn lookup(State(fb): State<FakeFirebase>, Json(b): Json<Value>) -> Response {
+    fb.0.lock().unwrap().lookups += 1;
+    match b["idToken"].as_str().and_then(|t| t.strip_prefix("user:")) {
+        Some(uid) => Json(json!({"users": [{"localId": uid}]})).into_response(),
+        None => (StatusCode::BAD_REQUEST, Json(json!({"error": {"message": "INVALID_ID_TOKEN"}}))).into_response(),
+    }
 }
 
 async fn sign_in(Path(op): Path<String>, Json(b): Json<Value>) -> Response {

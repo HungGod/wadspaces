@@ -6,21 +6,33 @@
 //! Every request is checked first ([`gate`]): tailscaled says which device
 //! the connection is from, and only the owner's own untagged devices get
 //! anywhere. An untrusted one can only say hello, which asks the machine
-//! whether to trust it.
+//! whether to trust it. Past hello, a request also carries the owner's
+//! sign-in (`Authorization: Bearer <Firebase ID token>`), so a trusted
+//! phone's other apps can't use the machine.
+//!
+//! What it does: lists the wadspaces here; builds one of the owner's from
+//! the account (wadd reads it, the device sends only its id), opens or
+//! stops one on the machine's screen, and streams one (the stream's sign-in
+//! link goes back to the device that asked, never anywhere else).
 
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
 
 use axum::extract::connect_info::Connected;
-use axum::extract::{ConnectInfo, Request, State};
+use axum::extract::{ConnectInfo, Path, Query, Request, State};
+use axum::http::StatusCode;
 use axum::middleware::{self, Next};
 use axum::response::{IntoResponse, Response};
-use axum::routing::get;
+use axum::routing::{get, post};
 use axum::{Extension, Json, Router};
+use serde::Deserialize;
 use tokio::net::{TcpListener, TcpSocket};
 use tokio::sync::watch;
-use wad_proto::v1::RemoteHello;
+use wad_proto::v1::{
+    BuildLog, Event, Kind, Launch, RemoteBuild, RemoteHello, RemoteWadspace, StreamRequest, StreamShare, View,
+    Workspace,
+};
 use wad_proto::{ApiError, ErrorCode};
 
 use crate::api::{AppState, Failure};
@@ -69,14 +81,51 @@ pub async fn gate(
         ))
         .into_response();
     }
+    let token = bearer(&req);
+    if path != HELLO
+        && let Err(f) = owners_sign_in(&app, token).await
+    {
+        tracing::warn!(device = %caller.name, %path, "remote: {}", f.0.message);
+        return f.into_response();
+    }
     tracing::debug!(device = %caller.name, %path, "remote");
     req.extensions_mut().insert(caller);
     next.run(req).await
 }
 
+/// The sign-in a request carries (`Authorization: Bearer <ID token>`).
+fn bearer(req: &Request) -> Option<String> {
+    let h = req.headers().get(axum::http::header::AUTHORIZATION)?.to_str().ok()?;
+    h.strip_prefix("Bearer ").filter(|t| !t.is_empty()).map(String::from)
+}
+
+/// The request carries the machine owner's sign-in.
+async fn owners_sign_in(app: &AppState, token: Option<String>) -> Result<(), Failure> {
+    let relay = app
+        .cloud
+        .as_ref()
+        .filter(|c| c.linked())
+        .ok_or_else(|| Failure(ApiError::new(ErrorCode::Offline, "This machine isn't linked to an account.")))?;
+    let token = token.ok_or_else(|| Failure(ApiError::new(ErrorCode::Unauthorized, "Sign in to WadSpaces first.")))?;
+    match relay.owner_token(&token).await {
+        Ok(true) => Ok(()),
+        Ok(false) => Err(Failure(ApiError::new(
+            ErrorCode::Unauthorized,
+            "That sign-in isn't this machine's owner's (or it ran out): sign in again.",
+        ))),
+        Err(e) => Err(Failure(ApiError::new(ErrorCode::Upstream, format!("Couldn't check the sign-in: {e}")))),
+    }
+}
+
 pub fn router(app: Arc<AppState>) -> Router {
     Router::new()
         .route(HELLO, get(hello))
+        .route("/v1/remote/wadspaces", get(wadspaces))
+        .route("/v1/remote/wadspaces/{id}/build", post(build))
+        .route("/v1/remote/wadspaces/{id}/open", post(open))
+        .route("/v1/remote/wadspaces/{id}/stop", post(stop))
+        .route("/v1/remote/wadspaces/{id}/stream", post(stream).delete(stream_stop))
+        .route("/v1/remote/builds/{id}", get(build_log))
         .fallback(|| async { Failure(ApiError::new(ErrorCode::NotFound, "no such endpoint")) })
         .layer(axum::extract::DefaultBodyLimit::max(BODY))
         .layer(middleware::from_fn_with_state(app.clone(), gate))
@@ -94,6 +143,207 @@ async fn hello(State(app): State<Arc<AppState>>, Extension(c): Extension<Caller>
         device: c.name,
         trust: if c.trusted { "trusted" } else { "asked" }.into(),
     })
+}
+
+/// Something on the machine's screen to say what a device did.
+fn notice(app: &AppState, text: String) {
+    tracing::info!("remote: {text}");
+    app.bus.publish(Event::Notice { text });
+}
+
+/// A wadspace here (not one of the machine's own apps).
+fn wadspace(app: &AppState, id: &str) -> Result<Workspace, Failure> {
+    match app.registry.workspace(id) {
+        Ok(w) if w.kind == Kind::Container => Ok(w),
+        _ => Err(Failure(ApiError::new(
+            ErrorCode::NotFound,
+            "That wadspace isn't on this machine: build it here first.",
+        ))),
+    }
+}
+
+/// The layer an installed wadspace runs ("" for none of the Builder's).
+fn layer_of(image: &str) -> String {
+    let name = image.strip_suffix(":latest").unwrap_or(image);
+    if let Some(id) = name.strip_prefix("localhost/wadspaces-custom-") {
+        format!("custom:{id}")
+    } else if let Some(id) = name.strip_prefix("localhost/wadspaces-template-") {
+        format!("template:{id}")
+    } else {
+        String::new()
+    }
+}
+
+/// The build making `layer`'s image now.
+fn building(app: &AppState, layer: &str) -> Option<String> {
+    app.builds.list().into_iter().find(|b| b.ws_id == layer && !b.status.finished()).map(|b| b.id)
+}
+
+/// The wadspaces on the machine: built or building, running, on the
+/// screen, streamed.
+async fn wadspaces(State(app): State<Arc<AppState>>) -> Result<Json<Vec<RemoteWadspace>>, Failure> {
+    let images = crate::images::list(app.registry_backend.as_ref()).await.unwrap_or_default();
+    let streams = app.streams.list();
+    let on_screen = match app.view.current() {
+        View::Workspace(id) => Some(id),
+        View::Home => None,
+    };
+    let list = app
+        .registry
+        .workspaces()
+        .into_iter()
+        .filter(|w| w.kind == Kind::Container && w.enabled && !w.ephemeral)
+        .map(|w| {
+            let layer = layer_of(&w.image);
+            let st = app.registry.state(&w.id);
+            let stream = streams.iter().find(|s| s.workspace == w.id);
+            RemoteWadspace {
+                built: images.iter().any(|r| r.layer == layer),
+                building: building(&app, &layer),
+                container: st.as_ref().map(|s| s.container.clone()).unwrap_or_else(|| "unknown".into()),
+                phase: st.map(|s| s.phase),
+                on_screen: on_screen.as_deref() == Some(w.id.as_str()),
+                streamed: stream.is_some(),
+                live: stream.is_some_and(|s| s.live),
+                id: w.id,
+                name: w.name,
+                layer,
+            }
+        })
+        .collect();
+    Ok(Json(list))
+}
+
+/// The machine's time zone (what a wadspace's clock shows).
+fn time_zone() -> Option<String> {
+    std::fs::read_link("/etc/localtime")
+        .ok()
+        .and_then(|p| p.to_str().and_then(|p| p.split("zoneinfo/").nth(1)).map(String::from))
+}
+
+/// One of the owner's wadspaces installed here as the account has it now,
+/// its wallpaper made, and its image built unless that's up to date or
+/// building already.
+async fn build(
+    State(app): State<Arc<AppState>>,
+    Extension(c): Extension<Caller>,
+    Path(id): Path<String>,
+) -> Result<Json<RemoteBuild>, Failure> {
+    let relay = app
+        .cloud
+        .as_ref()
+        .ok_or_else(|| Failure(ApiError::new(ErrorCode::Offline, "This machine isn't linked to an account.")))?;
+    let docs = relay.stack_docs(&id).await?;
+    let (w, lib) = (&docs.wadspace, &docs.lib);
+    let name = w["customization"]["name"].as_str().unwrap_or(&id).to_string();
+    if let Some(why) = wad_core::layers::not_ready(w, lib) {
+        return Err(Failure(ApiError::new(ErrorCode::Conflict, format!("{name}: {why}"))));
+    }
+    let r = wad_core::layers::resolve_stack(lib, w);
+    let install = crate::images::Install {
+        wadspace: w.clone(),
+        template: r["template"].clone(),
+        extensions: r.get("extensions").cloned().filter(|e| !e.is_null()),
+        tz: time_zone(),
+    };
+    let saved = crate::images::install(&app.registry, app.registry_backend.as_ref(), &id, &install).await?;
+    let mut warnings = vec![];
+    let (ext, bytes, warn) = crate::images::wallpaper_for(&w["customization"]["wallpaper"], &crate::api::assets_dir());
+    warnings.extend(warn);
+    if let Err(e) = crate::images::write_wallpaper(&app.store.dir, &id, &ext, &bytes) {
+        warnings.push(format!("Its wallpaper wasn't saved: {e}"));
+    }
+    let layer = wad_core::layers::stack_image_key(w);
+    let mut out = RemoteBuild {
+        workspace: saved.workspace.id.clone(),
+        layer: layer.clone(),
+        build_id: building(&app, &layer),
+        built: false,
+        restart_required: saved.restart_required,
+        warnings,
+    };
+    if out.build_id.is_some() {
+        return Ok(Json(out));
+    }
+    let rows = crate::images::list(app.registry_backend.as_ref()).await?;
+    let images = rows
+        .into_iter()
+        .map(|r| {
+            let row = wad_core::layers::LayerImage { id: r.id, from: r.from, sha: r.dockerfile_sha };
+            (r.layer, row)
+        })
+        .collect();
+    if wad_core::layers::image_state(&layer, lib, &images) == wad_core::layers::ImageState::Built {
+        out.built = true;
+        return Ok(Json(out));
+    }
+    let req =
+        wad_core::layers::layer_request(&layer, lib).map_err(|e| Failure(ApiError::new(ErrorCode::Conflict, e)))?;
+    let req = serde_json::from_value(req).map_err(|e| Failure(ApiError::new(ErrorCode::Internal, e.to_string())))?;
+    let b = app.builds.create_layer(&req)?;
+    notice(&app, format!("{} is building {name}", c.name));
+    out.build_id = Some(b.id);
+    Ok(Json(out))
+}
+
+#[derive(Deserialize)]
+struct Since {
+    #[serde(default)]
+    since: u64,
+}
+
+/// A build's progress: its state, and its log's lines from `since` on.
+async fn build_log(
+    State(app): State<Arc<AppState>>,
+    Path(id): Path<String>,
+    Query(q): Query<Since>,
+) -> Result<Json<BuildLog>, Failure> {
+    Ok(Json(app.builds.log(&id, q.since)?))
+}
+
+/// Opens a wadspace on the machine's screen.
+async fn open(
+    State(app): State<Arc<AppState>>,
+    Extension(c): Extension<Caller>,
+    Path(id): Path<String>,
+) -> Result<(StatusCode, Json<Launch>), Failure> {
+    let w = wadspace(&app, &id)?;
+    let launch = app.launches.create(&id, false)?;
+    notice(&app, format!("{} opened {}", c.name, w.name));
+    Ok((StatusCode::CREATED, Json(launch)))
+}
+
+/// Stops a wadspace (its stream too).
+async fn stop(
+    State(app): State<Arc<AppState>>,
+    Extension(c): Extension<Caller>,
+    Path(id): Path<String>,
+) -> Result<StatusCode, Failure> {
+    let w = wadspace(&app, &id)?;
+    app.view.stop(&id).await?;
+    notice(&app, format!("{} stopped {}", c.name, w.name));
+    Ok(StatusCode::NO_CONTENT)
+}
+
+/// Streams a wadspace (built here): its sign-in link, for the device that
+/// asked. Open on the screen, it's only taken off with `takeover`.
+async fn stream(
+    State(app): State<Arc<AppState>>,
+    Extension(c): Extension<Caller>,
+    Path(id): Path<String>,
+    body: Option<Json<StreamRequest>>,
+) -> Result<Json<StreamShare>, Failure> {
+    let w = wadspace(&app, &id)?;
+    let takeover = body.is_some_and(|Json(b)| b.takeover);
+    let share = app.streams.start(&id, takeover).await?;
+    notice(&app, format!("{} is streaming {}", c.name, w.name));
+    Ok(Json(share))
+}
+
+async fn stream_stop(State(app): State<Arc<AppState>>, Path(id): Path<String>) -> Result<StatusCode, Failure> {
+    wadspace(&app, &id)?;
+    app.streams.stop(&id).await?;
+    Ok(StatusCode::NO_CONTENT)
 }
 
 /// A listener on `addr`, bound to `device` when there is one.

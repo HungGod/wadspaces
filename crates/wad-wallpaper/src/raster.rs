@@ -4,7 +4,7 @@ use tiny_skia::{
     Color, GradientStop, LinearGradient, Paint, Pixmap, Point, RadialGradient, Rect, SpreadMode, Transform,
 };
 
-use crate::{Layer, Rgba, Stop};
+use crate::{Layer, Paint as Drawn, Rgba, Stop, Wallpaper};
 
 /// The size gradients are drawn at, as the client does.
 pub const SIZE: (u32, u32) = (1920, 1080);
@@ -16,6 +16,15 @@ fn rgba(c: Rgba) -> Color {
 fn gradient_stops(stops: &[Stop]) -> Vec<GradientStop> {
     // tiny-skia wants 0..1 (CSS allows stops past the ends): clamped, as the client does.
     stops.iter().map(|s| GradientStop::new(s.at.clamp(0.0, 1.0), rgba(s.color))).collect()
+}
+
+/// A gradient or a colour drawn at [`SIZE`], as a PNG; None for a picture
+/// (it's a file already) or what can't be drawn.
+pub fn draw_png(w: &Wallpaper) -> Option<Vec<u8>> {
+    match w.paint() {
+        Drawn::Layers(l) if !l.is_empty() => png(&l, SIZE.0, SIZE.1),
+        _ => None,
+    }
 }
 
 /// `layers` (bottom first) drawn on the dark base, as a PNG.

@@ -334,8 +334,7 @@ async fn desktop_icon(
         let domain = percent_decoded(domain.split('&').next().unwrap_or_default());
         app.builds.icons().favicon(&format!("https://{domain}")).await.ok_or_else(none)?
     } else {
-        let dir = std::env::var_os("WADD_ASSETS").map(std::path::PathBuf::from).unwrap_or_else(|| ASSETS.into());
-        let path = asset_path(&dir, &q.src).ok_or_else(none)?;
+        let path = asset_path(&assets_dir(), &q.src).ok_or_else(none)?;
         tokio::fs::read(path).await.map_err(|_| none())?
     };
     let png = tokio::task::spawn_blocking(move || {
@@ -374,9 +373,14 @@ fn percent_decoded(s: &str) -> String {
     String::from_utf8_lossy(&out).into_owned()
 }
 
+/// Where WadSpaces' own pictures are here.
+pub(crate) fn assets_dir() -> std::path::PathBuf {
+    std::env::var_os("WADD_ASSETS").map(std::path::PathBuf::from).unwrap_or_else(|| ASSETS.into())
+}
+
 /// An asset's file in `dir`, if `src` names one ("/apps/vscode/icon.png";
 /// nothing outside it, links included).
-fn asset_path(dir: &std::path::Path, src: &str) -> Option<std::path::PathBuf> {
+pub(crate) fn asset_path(dir: &std::path::Path, src: &str) -> Option<std::path::PathBuf> {
     let rel = src.strip_prefix('/')?;
     if rel.is_empty() || !rel.split('/').all(|c| !c.is_empty() && c != "." && c != "..") {
         return None;

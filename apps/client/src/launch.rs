@@ -62,95 +62,26 @@ fn browser_signins(secrets: &Value) -> Vec<Value> {
         .collect()
 }
 
-/// A layer image's state against the library (the web app's imageState).
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ImageState {
-    Never,
-    Changed,
-    Update,
-    Built,
-}
+pub use wad_core::layers::{ImageState, not_ready};
 
 fn s<'a>(v: &'a Value, k: &str) -> &'a str {
     v.get(k).and_then(Value::as_str).unwrap_or("")
 }
 
+/// A layer image's state against the library (wad-core's image_state, with
+/// wadd's image rows).
 pub fn image_state(key: &str, lib: &Value, images: &HashMap<String, ImageRow>) -> ImageState {
-    let Some(row) = images.get(key) else { return ImageState::Never };
-    let under = |parent: Option<String>, sha: &str| -> ImageState {
-        if row.dockerfile_sha != sha {
-            return ImageState::Changed;
-        }
-        let Some(pk) = parent else {
-            let base = images.get("base");
-            return if base.is_some_and(|b| !row.from.is_empty() && b.id != row.from) {
-                ImageState::Update
-            } else {
-                ImageState::Built
-            };
-        };
-        match image_state(&pk, lib, images) {
-            ImageState::Changed | ImageState::Never => ImageState::Changed,
-            p => match images.get(&pk) {
-                Some(parent) if parent.id == row.from => p,
-                _ => ImageState::Update,
-            },
-        }
-    };
-    let find = |coll: &str, id: &str| lib[coll].as_array().into_iter().flatten().find(|x| s(x, "id") == id).cloned();
-    if let Some(tid) = key.strip_prefix("template:") {
-        let Some(t) = find("templates", tid) else { return ImageState::Built };
-        let chain = core::chain_of(lib, tid);
-        let parent = (chain.len() > 1).then(|| chain[chain.len() - 2].clone());
-        let sha =
-            core::template_layer(&t, parent.as_ref().unwrap_or(&Value::Null))["sha"].as_str().unwrap_or("").to_string();
-        return under(parent.map(|p| format!("template:{}", s(&p, "id"))), &sha);
-    }
-    let Some(e) = key.strip_prefix("custom:").and_then(|id| find("extensions", id)) else { return ImageState::Built };
-    let Some(t) = find("templates", s(&e, "templateId")) else { return ImageState::Built };
-    let sha = core::extensions_layer(&e, &t)["sha"].as_str().unwrap_or("").to_string();
-    under(Some(format!("template:{}", s(&t, "id"))), &sha)
+    let rows = images
+        .iter()
+        .map(|(k, r)| {
+            (k.clone(), core::LayerImage { id: r.id.clone(), from: r.from.clone(), sha: r.dockerfile_sha.clone() })
+        })
+        .collect();
+    core::image_state(key, lib, &rows)
 }
 
-/// Why a stack can't be installed or built yet (the web app's notReady).
-pub fn not_ready(w: &Value, lib: &Value) -> Option<&'static str> {
-    if s(w, "template").is_empty() {
-        return Some("It needs a template with apps.");
-    }
-    if core::resolve_stack(lib, w).is_null() {
-        return Some("Its template is gone.");
-    }
-    if !w["customization"].is_object() {
-        return Some("It needs a customization.");
-    }
-    if s(&w["customization"], "name").trim().is_empty() {
-        return Some("Its customization needs a name.");
-    }
-    None
-}
-
-/// The layer build request: a template's (with those it builds on), or an
-/// Extensions layer's (its template and those under it).
 fn layer_request(key: &str, lib: &Value) -> Result<Value, String> {
-    let on = |tid: &str| -> Result<(Value, Vec<Value>), String> {
-        let chain = core::chain_of(lib, tid);
-        let (t, parents) = chain.split_last().ok_or("That template is gone.")?;
-        Ok((t.clone(), parents.to_vec()))
-    };
-    if let Some(tid) = key.strip_prefix("template:") {
-        let (template, parents) = on(tid)?;
-        return Ok(json!({ "layer": key, "template": template, "parents": parents, "extensions": null }));
-    }
-    let id = key.strip_prefix("custom:").unwrap_or(key);
-    let e = lib["extensions"]
-        .as_array()
-        .into_iter()
-        .flatten()
-        .find(|x| s(x, "id") == id)
-        .cloned()
-        .ok_or("Those Extensions are gone.")?;
-    let (template, parents) = on(s(&e, "templateId"))?;
-    Ok(json!({ "layer": key, "template": template, "parents": parents, "extensions": e }))
+    core::layer_request(key, lib)
 }
 
 /// The machine's time zone (what the wadspace's clock shows).
@@ -187,10 +118,10 @@ pub fn wallpaper_upload(wall: &Value) -> Result<Value, String> {
             json!({ "ext": "jpg", "data": base64::Engine::encode(&base64::engine::general_purpose::STANDARD, out.into_inner()) }),
         );
     }
-    let layers =
-        if kind == "color" { wad_wallpaper::layer(value).into_iter().collect() } else { wad_wallpaper::layers(value) };
-    let (w, h) = wad_wallpaper::SIZE;
-    let png = wad_wallpaper::png(&layers, w, h).ok_or("The wallpaper couldn't be drawn.")?;
+    let wall: wad_wallpaper::Wallpaper =
+        serde_json::from_value(json!({ "type": if kind == "color" { "color" } else { "gradient" }, "value": value }))
+            .map_err(|e| e.to_string())?;
+    let png = wad_wallpaper::draw_png(&wall).ok_or("The wallpaper couldn't be drawn.")?;
     Ok(json!({ "ext": "png", "data": base64::Engine::encode(&base64::engine::general_purpose::STANDARD, png) }))
 }
 

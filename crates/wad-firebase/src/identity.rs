@@ -148,6 +148,25 @@ impl Identity {
         })
     }
 
+    /// Whose an ID token is: its uid, if Firebase says the token is good
+    /// (signed, not expired, the account not disabled). A token that isn't
+    /// is Error::Auth (INVALID_ID_TOKEN, TOKEN_EXPIRED, USER_NOT_FOUND).
+    pub async fn lookup(&self, api_key: &str, id_token: &str) -> Result<String, Error> {
+        let res = self
+            .http
+            .post(format!("{}/accounts:lookup", self.identity))
+            .query(&[("key", api_key)])
+            .json(&json!({"idToken": id_token}))
+            .send()
+            .await
+            .map_err(Error::Network)?;
+        let b = Self::answer(res).await?;
+        match b.pointer("/users/0/localId").and_then(Value::as_str) {
+            Some(uid) if !uid.is_empty() => Ok(uid.to_string()),
+            _ => Err(Error::Auth { status: 400, message: "USER_NOT_FOUND".into() }),
+        }
+    }
+
     pub async fn refresh(&self, api_key: &str, refresh_token: &str) -> Result<Tokens, Error> {
         let res = self
             .http

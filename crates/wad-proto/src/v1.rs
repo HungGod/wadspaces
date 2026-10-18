@@ -929,6 +929,51 @@ pub struct RemoteHello {
     pub trust: String,
 }
 
+/// GET /v1/remote/wadspaces: a wadspace on the machine, as a device sees it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RemoteWadspace {
+    pub id: String,
+    pub name: String,
+    /// Its layer's image key ("template:<id>" or "custom:<id>"), whether
+    /// that image is here, and the build making it now.
+    pub layer: String,
+    pub built: bool,
+    #[serde(default)]
+    pub building: Option<String>,
+    /// Its container ("running", "exited", "missing", ...) and where it is
+    /// in starting up.
+    pub container: String,
+    #[serde(default)]
+    pub phase: Option<Phase>,
+    /// It's on the machine's screen now.
+    #[serde(default)]
+    pub on_screen: bool,
+    /// It's streamed, and the stream is up.
+    #[serde(default)]
+    pub streamed: bool,
+    #[serde(default)]
+    pub live: bool,
+}
+
+/// POST /v1/remote/wadspaces/{id}/build: installed here from the account,
+/// and its image built (a build's id to follow), or built already.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RemoteBuild {
+    pub workspace: String,
+    pub layer: String,
+    #[serde(default)]
+    pub build_id: Option<String>,
+    pub built: bool,
+    /// It was running with the old settings: it takes the new ones when it
+    /// starts again.
+    #[serde(default)]
+    pub restart_required: bool,
+    #[serde(default)]
+    pub warnings: Vec<String>,
+}
+
 /// POST /v1/tunnel/selftest: https://ws-selftest.<domain>/ fetched from
 /// here, through Cloudflare and the tunnel back to this proxy.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

@@ -235,6 +235,104 @@ pub fn stack_image_key(w: &Value) -> String {
     }
 }
 
+/// A layer's image on a machine, as [`image_state`] reads it: podman's id
+/// for it, the id of the image it was built FROM, and the sha of the build
+/// folder it was built from.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct LayerImage {
+    pub id: String,
+    pub from: String,
+    pub sha: String,
+}
+
+/// A layer's image against the library (the web app's imageState).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ImageState {
+    /// Never built here.
+    Never,
+    /// Its layer (or one under it) changed since.
+    Changed,
+    /// Built on an older base or parent: still runs, an update is there.
+    Update,
+    Built,
+}
+
+/// The state of the image for layer `key` ("template:<id>" or
+/// "custom:<id>"), given the machine's layer images by key ("base" for the
+/// base image). A layer the library doesn't have counts as built.
+pub fn image_state(key: &str, lib: &Value, images: &std::collections::HashMap<String, LayerImage>) -> ImageState {
+    let Some(row) = images.get(key) else { return ImageState::Never };
+    let under = |parent: Option<String>, sha: &str| -> ImageState {
+        if row.sha != sha {
+            return ImageState::Changed;
+        }
+        let Some(pk) = parent else {
+            let base = images.get("base");
+            return if base.is_some_and(|b| !row.from.is_empty() && b.id != row.from) {
+                ImageState::Update
+            } else {
+                ImageState::Built
+            };
+        };
+        match image_state(&pk, lib, images) {
+            ImageState::Changed | ImageState::Never => ImageState::Changed,
+            p => match images.get(&pk) {
+                Some(parent) if parent.id == row.from => p,
+                _ => ImageState::Update,
+            },
+        }
+    };
+    let find = |coll: &str, id: &str| js::arr(lib, coll).iter().find(|x| s(x, "id") == id).cloned();
+    if let Some(tid) = key.strip_prefix("template:") {
+        let Some(t) = find("templates", tid) else { return ImageState::Built };
+        let chain = chain_of(lib, tid);
+        let parent = (chain.len() > 1).then(|| chain[chain.len() - 2].clone());
+        let sha = template_layer(&t, parent.as_ref().unwrap_or(&Value::Null))["sha"].as_str().unwrap_or("").to_string();
+        return under(parent.map(|p| format!("template:{}", s(&p, "id"))), &sha);
+    }
+    let Some(e) = key.strip_prefix("custom:").and_then(|id| find("extensions", id)) else { return ImageState::Built };
+    let Some(t) = find("templates", s(&e, "templateId")) else { return ImageState::Built };
+    let sha = extensions_layer(&e, &t)["sha"].as_str().unwrap_or("").to_string();
+    under(Some(format!("template:{}", s(&t, "id"))), &sha)
+}
+
+/// Why a stack can't be installed or built yet (the web app's notReady).
+pub fn not_ready(w: &Value, lib: &Value) -> Option<&'static str> {
+    if s(w, "template").is_empty() {
+        return Some("It needs a template with apps.");
+    }
+    if resolve_stack(lib, w).is_null() {
+        return Some("Its template is gone.");
+    }
+    if !w["customization"].is_object() {
+        return Some("It needs a customization.");
+    }
+    if s(&w["customization"], "name").trim().is_empty() {
+        return Some("Its customization needs a name.");
+    }
+    None
+}
+
+/// A layer's build request (wadd's POST /v1/images/build): a template's,
+/// with those it builds on, or an Extensions layer's, with its template and
+/// those under it.
+pub fn layer_request(key: &str, lib: &Value) -> Result<Value, String> {
+    let on = |tid: &str| -> Result<(Value, Vec<Value>), String> {
+        let chain = chain_of(lib, tid);
+        let (t, parents) = chain.split_last().ok_or("That template is gone.")?;
+        Ok((t.clone(), parents.to_vec()))
+    };
+    if let Some(tid) = key.strip_prefix("template:") {
+        let (template, parents) = on(tid)?;
+        return Ok(json!({ "layer": key, "template": template, "parents": parents, "extensions": null }));
+    }
+    let id = key.strip_prefix("custom:").unwrap_or(key);
+    let e =
+        js::arr(lib, "extensions").iter().find(|x| s(x, "id") == id).cloned().ok_or("Those Extensions are gone.")?;
+    let (template, parents) = on(s(&e, "templateId"))?;
+    Ok(json!({ "layer": key, "template": template, "parents": parents, "extensions": e }))
+}
+
 /// WadBrowser's apps that keep keys: the browser itself ("browser") and
 /// each web app ("web:<id>"), when the template has WadBrowser.
 pub fn key_items(template: &Value, setup: &Value) -> Vec<String> {

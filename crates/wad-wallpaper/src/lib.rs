@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "raster")]
 mod raster;
 #[cfg(feature = "raster")]
-pub use raster::{SIZE, png};
+pub use raster::{SIZE, draw_png, png};
 
 /// A wallpaper as the Builder keeps it.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
