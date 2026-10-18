@@ -315,10 +315,15 @@ async fn only_the_owners_trusted_devices_get_in() {
     assert_eq!((book["user"].clone(), book["devices"][0]["name"].clone()), (json!(2001), json!("Pixel 9")));
     let (_, hello) = e.remote("/v1/remote/hello", Some(PHONE)).await;
     assert_eq!(hello["trust"], "trusted");
-    // The machine's full API isn't there (and this machine has no account
-    // to check a sign-in against).
-    let (status, _) = e.remote("/v1/secrets", Some(PHONE)).await;
-    assert_ne!(status, 200);
+    // The bare address says hello too (what a person types).
+    let (status, hello) = e.remote("/", Some(PHONE)).await;
+    assert_eq!((status, hello["trust"].as_str()), (200, Some("trusted")));
+    // The machine's full API isn't there, nor a capitalised path, nor a
+    // browser's favicon: no such endpoint, not "sign in".
+    for path in ["/v1/secrets", "/V1/remote/hello", "/favicon.ico"] {
+        let (status, body) = e.remote(path, Some(PHONE)).await;
+        assert_eq!(status, 404, "{path}: {body}");
+    }
     assert!(e.tailnet().await["devices"][0]["lastUsed"].is_u64());
 
     // Removed: it's asking again.

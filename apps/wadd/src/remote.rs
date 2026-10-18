@@ -40,8 +40,20 @@ use crate::tailnet::Caller;
 
 /// A request body's most.
 const BODY: usize = 64 * 1024;
-/// The one path an untrusted device may use.
+/// The one path an untrusted device may use (the app's).
 const HELLO: &str = "/v1/remote/hello";
+
+/// Hello: the app's path, or the bare address (what a person types into a
+/// phone's browser, which may capitalise a path).
+fn is_hello(path: &str) -> bool {
+    path == HELLO || path == "/"
+}
+
+/// What acts on the machine: the owner's sign-in too. Anything else that
+/// isn't hello is no such endpoint (404), whatever the sign-in.
+fn needs_account(path: &str) -> bool {
+    path.starts_with("/v1/remote/") && path != HELLO
+}
 
 /// A connection to the remote API: where it's from, and where it arrived.
 #[derive(Debug, Clone, Copy)]
@@ -73,7 +85,7 @@ pub async fn gate(
             return Failure(ApiError::new(ErrorCode::Forbidden, r.message())).into_response();
         }
     };
-    if !caller.trusted && path != HELLO {
+    if !caller.trusted && !is_hello(&path) {
         let machine = app.bus.machine().name;
         return Failure(ApiError::new(
             ErrorCode::Forbidden,
@@ -82,7 +94,7 @@ pub async fn gate(
         .into_response();
     }
     let token = bearer(&req);
-    if path != HELLO
+    if needs_account(&path)
         && let Err(f) = owners_sign_in(&app, token).await
     {
         tracing::warn!(device = %caller.name, %path, "remote: {}", f.0.message);
@@ -120,6 +132,7 @@ async fn owners_sign_in(app: &AppState, token: Option<String>) -> Result<(), Fai
 pub fn router(app: Arc<AppState>) -> Router {
     Router::new()
         .route(HELLO, get(hello))
+        .route("/", get(hello))
         .route("/v1/remote/wadspaces", get(wadspaces))
         .route("/v1/remote/wadspaces/{id}/build", post(build))
         .route("/v1/remote/wadspaces/{id}/open", post(open))

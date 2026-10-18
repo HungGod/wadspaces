@@ -15,7 +15,7 @@
 # "wadd-try-tailnet" in your tailnet. Its state is kept in
 # .build/wadd-try-tailnet, so later runs are already on the tailnet.
 #
-# Then, on the phone (Tailscale on): http://<the address it shows>:8087/v1/remote/hello
+# Then, on the phone (Tailscale on): http://<the address it shows>:8087/
 # says "asked"; the script asks here whether to allow it; after a reload it
 # says "trusted". Enter ends; it stops only what it started.
 set -euo pipefail
@@ -133,7 +133,7 @@ echo "== on the tailnet as $(echo "$t" | field 'd["dnsName"]') ($(echo "$t" | fi
 echo "  remote API listening: $(echo "$t" | field 'd["listening"]')"
 echo "  your devices: $(echo "$t" | field '", ".join("%s%s" % (x["name"], " (trusted)" if x["trusted"] else "") for x in d["devices"]) or "none"')"
 echo
-echo "On the phone (Tailscale on), open:  http://$ip:$port/v1/remote/hello"
+echo "On the phone (Tailscale on), open:  http://$ip:$port/"
 echo "It says \"asked\"; allow it here; reload: \"trusted\". Enter ends."
 asked=" "
 while true; do
