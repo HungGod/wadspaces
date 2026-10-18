@@ -37,6 +37,8 @@ impl Topic {
     pub const DEVICES: Topic = Topic(1 << 13);
     /// Wadspaces streamed to browsers, and the tunnel (GET /v1/streams, /v1/tunnel).
     pub const STREAMS: Topic = Topic(1 << 14);
+    /// The tailnet, and the devices trusted or asking (GET /v1/tailnet).
+    pub const TAILNET: Topic = Topic(1 << 15);
     pub const NONE: Topic = Topic(0);
 
     pub fn any(self, other: Topic) -> bool {
@@ -78,6 +80,8 @@ pub struct AppState {
     pub streams: Vec<wad_proto::v1::StreamInfo>,
     /// The Cloudflare tunnel streams go through (None until read).
     pub tunnel: Option<wad_proto::v1::TunnelStatus>,
+    /// The machine on its owner's tailnet (None until read).
+    pub tailnet: Option<wad_proto::v1::TailnetStatus>,
 }
 
 /// A job's log, with lines from `from` on (an event repeats or skips none).
@@ -306,6 +310,12 @@ impl Store {
                     Event::Streams(list) => {
                         s.streams = list;
                         Topic::STREAMS
+                    }
+                    Event::Tailnet(t) => {
+                        // A device asking for the first time: a toast with Allow.
+                        crate::pages::machines::tailnet::toast_asks(s.tailnet.as_ref(), &t);
+                        s.tailnet = Some(t);
+                        Topic::TAILNET
                     }
                     // Something wadd tells whoever's watching: a toast.
                     Event::Notice { text } => {

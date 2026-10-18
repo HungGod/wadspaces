@@ -149,6 +149,7 @@
       { "id": "old-steam", "name": "Steam", "app": "steam", "paths": [".steam/", ".local/share/Steam/config/", ".local/share/Steam/userdata/"], "createdAt": 1790000000000, "size": 0, "changedAt": null, "usedBy": [], "inUse": [] }
     ],
     "/v1/secrets": [{ "name": "github_token", "origin": "local" }],
+    "/v1/tailnet": { "available": true, "state": "running", "hostname": "wadspaces-surface", "ips": ["100.101.102.103", "fd7a:115c:a1e0::a01:2b03"], "dnsName": "wadspaces-surface.tail1234.ts.net", "tailnet": "owner@example.com", "user": "owner@example.com", "keyExpiry": "2027-04-16T03:00:00Z", "port": 8087, "listening": true, "devices": [{ "id": "nPhone1CNTRL", "name": "Pixel 9", "os": "android", "online": true, "trusted": true, "trustedAt": 1792015200000, "lastUsed": 1792021800000 }, { "id": "nLaptop1CNTRL", "name": "work-laptop", "os": "windows", "online": false, "trusted": false }], "asks": [{ "id": "nTablet1CNTRL", "name": "Galaxy Tab S9", "os": "android", "at": 1792021900000 }] },
     "/v1/tunnel": { "cloudflaredInstalled": true, "tokenPresent": true, "tunnelId": "8f0e5a2c-1b3d-4e6f-9a7b-0c1d2e3f4a5b", "service": "active", "connected": true, "connections": 4, "domain": "wadspaces.com", "webrtc": false, "idleMinutes": 30, "ready": true },
     "/v1/streams": [
       { "workspace": "vanua-academy", "host": "ws-3f9c2a7be81d4c06a5f1e2d3c4b5a697.wadspaces.com", "link": "https://ws-3f9c2a7be81d4c06a5f1e2d3c4b5a697.wadspaces.com/", "user": "wad-kqmtrz", "started": 1792021800, "lastActive": 1792022400, "viewers": 1, "live": true }

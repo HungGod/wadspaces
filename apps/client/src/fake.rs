@@ -67,6 +67,7 @@ pub fn load(path: &std::path::Path) {
         let wadd = &v["wadd"];
         s.streams = take(wadd, "/v1/streams").unwrap_or_default();
         s.tunnel = take(wadd, "/v1/tunnel").ok();
+        s.tailnet = take(wadd, "/v1/tailnet").ok();
         s.account.checked = true;
         s.account.user = take(&v, "user").ok();
         s.account.github = Some(true);
@@ -90,5 +91,6 @@ pub fn load(path: &std::path::Path) {
             | Topic::ACTIVITY
             | Topic::CLOUD
             | Topic::STREAMS
+            | Topic::TAILNET
     });
 }

@@ -51,6 +51,7 @@ LayoutGrid layout-grid
 Link2 link-2
 Loader2 loader-circle
 Lock lock
+LogIn log-in
 LogOut log-out
 MemoryStick memory-stick
 Minus minus
@@ -75,7 +76,10 @@ Search search
 Server server
 Settings settings
 ShieldCheck shield-check
+ShieldOff shield-off
+ShieldQuestionMark shield-question-mark
 SlidersHorizontal sliders-horizontal
+Smartphone smartphone
 Sparkles sparkles
 Square square
 Stethoscope stethoscope

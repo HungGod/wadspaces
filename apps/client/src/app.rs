@@ -202,7 +202,7 @@ fn snapshot(w: &gtk::ApplicationWindow, dir: std::path::PathBuf) {
             crate::modal::escape();
         }
         crate::shell::go(crate::shell::Page::Machines);
-        for tab in ["wadspaces", "history", "storage", "files", "devices", "diagnostics"] {
+        for tab in ["wadspaces", "history", "storage", "files", "devices", "tailnet", "diagnostics"] {
             crate::pages::machines::show_tab(tab);
             let name = if tab == "wadspaces" { "machines".to_string() } else { format!("machines-{tab}") };
             for t in [wad_gtk::Theme::Dark, wad_gtk::Theme::Light] {
@@ -213,7 +213,7 @@ fn snapshot(w: &gtk::ApplicationWindow, dir: std::path::PathBuf) {
         }
         // The long tabs whole, and another machine's.
         wad_gtk::theme::set(&display, wad_gtk::Theme::Dark);
-        for tab in ["storage", "diagnostics"] {
+        for tab in ["storage", "diagnostics", "tailnet"] {
             crate::pages::machines::show_tab(tab);
             settle(800).await;
             if let Some(tab) = crate::pages::machines::tab_widget() {

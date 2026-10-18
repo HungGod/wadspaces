@@ -10,6 +10,7 @@ mod diagnostics;
 mod files;
 mod history;
 mod storage;
+pub mod tailnet;
 mod tree;
 pub mod wadspaces;
 
@@ -272,6 +273,7 @@ fn tabs(m: &Machine) -> Vec<(&'static str, Option<&'static str>, &'static str)> 
         t.push(("storage", Some("hard-drive"), "Storage"));
         t.push(("files", Some("folder-open"), "Files"));
         t.push(("devices", Some("usb"), "Devices"));
+        t.push(("tailnet", Some("network"), "Tailnet"));
     }
     t.push(("diagnostics", Some("stethoscope"), "Diagnostics"));
     t
@@ -486,6 +488,7 @@ impl Page {
                 "storage" => storage::view(),
                 "files" => files::view(),
                 "devices" => devices::view(),
+                "tailnet" => tailnet::view(),
                 "diagnostics" => diagnostics::view(machine.to_string()),
                 _ => wadspaces::view(machine.to_string()),
             };

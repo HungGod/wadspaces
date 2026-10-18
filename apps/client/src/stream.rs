@@ -258,7 +258,7 @@ pub fn share_dialog(share: StreamShare, name: String) {
 
 /// A QR code of `text` (a stream's link), as an SVG document: dark on
 /// white whatever the theme, so phones read it.
-fn qr_svg(text: &str) -> String {
+pub(crate) fn qr_svg(text: &str) -> String {
     use qrcode::render::svg;
     qrcode::QrCode::new(text.as_bytes())
         .map(|q| q.render::<svg::Color>().min_dimensions(176, 176).quiet_zone(true).build())

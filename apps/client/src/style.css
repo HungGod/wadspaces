@@ -2363,4 +2363,6 @@ image.qr {
 .tunnel-row:last-child { border-bottom: none; }
 .tunnel-key { font-size: 13px; color: var(--muted); }
 .stream-row { padding: 10px 0; border-bottom: 1px solid var(--line); }
+/* Machines → Tailnet: joining's QR code and link. */
+.tailnet-join { padding: 0 20px 20px; }
 .stream-row:last-child { border-bottom: none; }
