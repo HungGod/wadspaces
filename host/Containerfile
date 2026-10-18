@@ -1,6 +1,7 @@
 # WadSpaces host OS: Fedora bootc -> greetd -> sway -> WadSpaces Client (Tauri),
 # plus wadd (the machine daemon: workspaces, projects, the account link,
-# streams; apps/wadd, Rust) and cloudflared (the tunnel streams go through).
+# streams; apps/wadd, Rust), cloudflared (the tunnel streams go through) and
+# tailscaled (the tailnet the owner's trusted devices reach wadd over).
 # Two apps run on the machine itself, opened and closed by wadd like
 # wadspaces: a terminal (foot) and WadBrowser (apps/wadbrowser); see
 # usr/lib/wadspaces/workspaces.d/{terminal,browser}.toml. Build from the repo root:
@@ -50,6 +51,19 @@ RUN curl -fsSLo /tmp/cloudflared.rpm \
     && echo "${CLOUDFLARED_SHA256}  /tmp/cloudflared.rpm" | sha256sum -c - \
     && dnf -y install --setopt=tsflags=noscripts,nodocs /tmp/cloudflared.rpm \
     && dnf clean all && rm /tmp/cloudflared.rpm
+
+# Tailscale, the owner's private network: the devices they trust (a phone)
+# reach wadd's remote API over it (host/TAILNET.md). Tailscale's own RPM,
+# pinned and checked like cloudflared, without its scriptlets (they only
+# preset the unit, which is enabled below). tailscaled keeps its state in
+# /var/lib/tailscale, which bootc keeps across updates.
+ARG TAILSCALE_VERSION=1.104.1
+ARG TAILSCALE_SHA256=7b4369268fb239f1332e6b113d6c77ad3fc2551c4c84c12da8a0f1f37ccb84dd
+RUN curl -fsSLo /tmp/tailscale.rpm \
+      "https://pkgs.tailscale.com/stable/fedora/x86_64/tailscale_${TAILSCALE_VERSION}_x86_64.rpm" \
+    && echo "${TAILSCALE_SHA256}  /tmp/tailscale.rpm" | sha256sum -c - \
+    && dnf -y install --setopt=install_weak_deps=False --setopt=tsflags=noscripts,nodocs /tmp/tailscale.rpm \
+    && dnf clean all && rm /tmp/tailscale.rpm
 
 # The initramfs again, with the Surface's drivers in it, loaded in order in the
 # first seconds of boot: without them the stock kernel's controller hub fails
@@ -111,13 +125,13 @@ RUN /usr/bin/client --version && \
     find /usr/lib/wadspaces/secrets -type d -exec chmod 700 {} + && \
     find /usr/lib/wadspaces/secrets -type f -exec chmod 600 {} + && \
     chmod 644 /usr/share/wadspaces/ssh/* && \
-    for b in dbus-run-session sway curl nmcli skopeo bootc wpctl foot bluetoothctl cloudflared; do \
+    for b in dbus-run-session sway curl nmcli skopeo bootc wpctl foot bluetoothctl cloudflared tailscale tailscaled; do \
       command -v "$b" > /dev/null || { echo "missing $b" >&2; exit 1; }; \
     done && \
     ls /usr/lib/firmware/mrvl/pcie8897_uapsta.bin* /usr/lib64/libgtk4-layer-shell.so.0 > /dev/null && \
     /usr/bin/wadd version && \
     systemctl enable greetd.service podman.socket wadd.socket wadd.service bluetooth.service \
-      wadspaces-admin-password.service wadspaces-import.service cloudflared.service && \
+      wadspaces-admin-password.service wadspaces-import.service cloudflared.service tailscaled.service && \
     systemctl mask bootc-fetch-apply-updates.timer bootc-fetch-apply-updates.service && \
     systemctl set-default graphical.target && \
     systemctl mask getty@tty1.service && \
