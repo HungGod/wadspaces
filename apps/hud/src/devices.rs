@@ -4,8 +4,9 @@
 //! Bluetooth (on or off, looking for devices, pair, connect, forget).
 //!
 //! Its questions come up by themselves, over everything: where a device
-//! plugged in for the first time goes, and what Bluetooth pairing asks
-//! (does the device show this code? type this code on it; its PIN).
+//! plugged in for the first time goes, what Bluetooth pairing asks (does
+//! the device show this code? type this code on it; its PIN), and whether
+//! one of the owner's devices on the tailnet may manage the machine.
 
 use std::cell::{Cell, RefCell};
 use std::collections::HashSet;
@@ -13,11 +14,19 @@ use std::rc::Rc;
 
 use gtk::prelude::*;
 use gtk4_layer_shell::KeyboardMode;
-use wad_proto::v1::{BluetoothAsk, BluetoothDevice, BluetoothStatus, Device, DeviceKind};
+use wad_proto::v1::{BluetoothAsk, BluetoothDevice, BluetoothStatus, Device, DeviceKind, TailnetAsk, TailnetStatus};
 
 use crate::model::Space;
 use crate::wadd::Wadd;
 use crate::{Place, background, button, dimmed, icon, label};
+
+/// An Adwaita symbolic icon for a device on the tailnet, by its OS.
+pub fn os_icon(os: &str) -> &'static str {
+    match os.to_ascii_lowercase().as_str() {
+        "android" | "ios" => "phone-symbolic",
+        _ => "computer-symbolic",
+    }
+}
 
 /// An Adwaita symbolic icon for a kind of device.
 pub fn kind_icon(kind: DeviceKind) -> &'static str {
@@ -79,12 +88,15 @@ pub struct Panel {
     ask_card: gtk::Box,
     devices: RefCell<Vec<Device>>,
     bt: RefCell<BluetoothStatus>,
+    /// Devices on the tailnet asking to manage the machine.
+    tailnet_asks: RefCell<Vec<TailnetAsk>>,
     /// Native wadspaces: (id, name).
     spaces: RefCell<Vec<(String, String)>>,
     running: RefCell<HashSet<String>>,
     /// New devices asked about (or waved off) since the HUD started.
     asked: RefCell<HashSet<String>>,
-    /// What the question card is showing: "bt:<prompt id>" or "dev:<key>".
+    /// What the question card is showing: "bt:<prompt id>", "tn:<device
+    /// id>" or "dev:<key>".
     asking: RefCell<Option<String>>,
     syncing: Cell<bool>,
 }
@@ -170,6 +182,7 @@ impl Panel {
             ask_card,
             devices: RefCell::default(),
             bt: RefCell::default(),
+            tailnet_asks: RefCell::default(),
             spaces: RefCell::default(),
             running: RefCell::default(),
             asked: RefCell::default(),
@@ -242,6 +255,12 @@ impl Panel {
         if self.win.is_visible() {
             self.fill_bluetooth();
         }
+        self.ask_next();
+    }
+
+    /// The tailnet: a device asking to manage the machine is asked about.
+    pub fn on_tailnet(self: &Rc<Self>, s: TailnetStatus) {
+        self.tailnet_asks.replace(s.asks);
         self.ask_next();
     }
 
@@ -431,13 +450,24 @@ impl Panel {
         row
     }
 
-    /// Puts up the next question: pairing's first, then a new device's.
+    /// Puts up the next question: pairing's first, then a device on the
+    /// tailnet asking, then a new device's.
     fn ask_next(self: &Rc<Self>) {
         if let Some(prompt) = self.bt.borrow().prompt.clone() {
             let tag = format!("bt:{}", prompt.id);
             if self.asking.borrow().as_deref() != Some(&tag) {
                 self.asking.replace(Some(tag));
                 self.ask_bluetooth(prompt);
+            }
+            return;
+        }
+        let ask =
+            self.tailnet_asks.borrow().iter().find(|a| !self.asked.borrow().contains(&format!("tn:{}", a.id))).cloned();
+        if let Some(a) = ask {
+            let tag = format!("tn:{}", a.id);
+            if self.asking.borrow().as_deref() != Some(&tag) {
+                self.asking.replace(Some(tag));
+                self.ask_tailnet(a);
             }
             return;
         }
@@ -458,10 +488,10 @@ impl Panel {
         }
     }
 
-    fn ask_head(&self, kind: DeviceKind, title: &str, text: &str) {
+    fn ask_head(&self, icon_name: &str, title: &str, text: &str) {
         Self::clear(&self.ask_card);
         let head = gtk::Box::new(gtk::Orientation::Horizontal, 10);
-        head.append(&icon(kind_icon(kind), 22));
+        head.append(&icon(icon_name, 22));
         let t = label(title, "title");
         t.set_xalign(0.0);
         t.set_wrap(true);
@@ -470,13 +500,15 @@ impl Panel {
         let s = label(text, "sub");
         s.set_wrap(true);
         s.set_xalign(0.0);
+        // Wrapped at a card's width, not the screen's.
+        s.set_max_width_chars(56);
         self.ask_card.append(&s);
     }
 
     /// A device plugged in for the first time: which wadspaces get it.
     fn ask_device(self: &Rc<Self>, d: Device) {
         self.ask_head(
-            d.kind,
+            kind_icon(d.kind),
             &d.name,
             "Plugged in for the first time. Which wadspaces get it? It goes back to them whenever it's plugged in.",
         );
@@ -521,12 +553,43 @@ impl Panel {
         self.ask_win.present();
     }
 
+    /// One of the owner's devices on the tailnet asks to manage the machine:
+    /// Allow trusts it, Not now puts it off (wadd won't ask again for a while).
+    fn ask_tailnet(self: &Rc<Self>, a: TailnetAsk) {
+        self.ask_head(
+            os_icon(&a.os),
+            &format!("Allow {} to manage this machine?", a.name),
+            "It's asking from the WadSpaces app, over your tailnet. Allowed, it can build, open, stop and stream \
+             wadspaces here. Only allow a device of your own; Machines → Tailnet can take it off again.",
+        );
+        let buttons = gtk::Box::new(gtk::Orientation::Horizontal, 8);
+        buttons.set_halign(gtk::Align::End);
+        let later = button("Not now", &["small-button"]);
+        let allow = button("Allow", &["small-button", "primary"]);
+        buttons.append(&later);
+        buttons.append(&allow);
+        self.ask_card.append(&buttons);
+        for (b, trust) in [(&later, false), (&allow, true)] {
+            let (p, id) = (self.clone(), a.id.clone());
+            b.connect_clicked(move |_| {
+                p.asked.borrow_mut().insert(format!("tn:{id}"));
+                let (w, id, p2) = (p.wadd.clone(), id.clone(), p.clone());
+                background(
+                    move || if trust { w.tailnet_trust(&id) } else { w.tailnet_dismiss(&id) },
+                    move |r| p2.done(r),
+                );
+                p.ask_next();
+            });
+        }
+        self.ask_win.present();
+    }
+
     /// What Bluetooth pairing asks.
     fn ask_bluetooth(self: &Rc<Self>, prompt: wad_proto::v1::BluetoothPrompt) {
         let kind =
             self.bt.borrow().devices.iter().find(|d| d.address == prompt.address).map_or(DeviceKind::Other, |d| d.kind);
         self.ask_head(
-            kind,
+            kind_icon(kind),
             &format!("Pairing {}", prompt.name),
             &question(prompt.ask, &prompt.name, prompt.code.as_deref()),
         );
@@ -603,5 +666,6 @@ mod tests {
         let buds = Device { attachable: false, kind: DeviceKind::Audio, ..pad(true, &[], &[]) };
         assert_eq!(whereabouts(&buds, &names), "Works in every wadspace");
         assert_eq!(question(BluetoothAsk::Confirm, "Pad", Some("123456")), "Does Pad show 123456?");
+        assert_eq!((os_icon("android"), os_icon("windows")), ("phone-symbolic", "computer-symbolic"));
     }
 }

@@ -175,6 +175,16 @@ impl Wadd {
         self.post("/v1/bluetooth/prompt", body)
     }
 
+    /// Trust one of the owner's devices on the tailnet to manage the machine.
+    pub fn tailnet_trust(&self, id: &str) -> Result<(), String> {
+        self.put::<Value>(&format!("/v1/tailnet/devices/{id}"), json!({})).map(drop)
+    }
+
+    /// "Not now" to a device on the tailnet asking.
+    pub fn tailnet_dismiss(&self, id: &str) -> Result<(), String> {
+        self.post(&format!("/v1/tailnet/asks/{id}/dismiss"), json!({}))
+    }
+
     /// A workspace's icon (`/v1/workspaces/<id>/icon`), as bytes.
     pub fn bytes(&self, path: &str) -> Option<Vec<u8>> {
         let (status, body) = self.call("GET", path, None, Some(Duration::from_secs(20))).ok()?.text(8 << 20).ok()?;

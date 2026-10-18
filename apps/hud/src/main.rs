@@ -2073,6 +2073,11 @@ impl Hud {
                     self.devices.on_bluetooth(s);
                 }
             }
+            Incoming::Event(name, data) if name == "tailnet" => {
+                if let Ok(s) = serde_json::from_value(data) {
+                    self.devices.on_tailnet(s);
+                }
+            }
             Incoming::Event(name, data) if name == "workspaceState" => {
                 if let (Some(id), Some(c)) = (data["id"].as_str(), data["container"].as_str()) {
                     self.devices.on_state(id, c == "running");
@@ -2430,6 +2435,17 @@ fn snapshot(hud: Rc<Hud>, app: gtk::Application, dir: std::path::PathBuf) {
             save_png(win, &dir.join(format!("{name}.png")));
         }
         hud.notes_menu.win.set_visible(false);
+        // A device on the tailnet asking to manage the machine (it comes
+        // before a new device's question).
+        hud.devices.on_tailnet(wad_proto::v1::TailnetStatus {
+            asks: vec![wad_proto::v1::TailnetAsk {
+                id: "nPhone1CNTRL".into(),
+                name: "Pixel 9".into(),
+                os: "android".into(),
+                at: 0,
+            }],
+            ..Default::default()
+        });
         // A note open in its preview (the card grows leftwards) and an event
         // open to edit (it grows over the tasks, drawn on top of them).
         hud.notes.notes.open_first(true);
@@ -2444,6 +2460,7 @@ fn snapshot(hud: Rc<Hud>, app: gtk::Application, dir: std::path::PathBuf) {
         hud.update_bar();
         glib::timeout_add_local_once(std::time::Duration::from_millis(300), move || {
             save_png(&hud.bar, &dir.join("bar-focus.png"));
+            save_png(&hud.devices.ask_win, &dir.join("tailnet-ask.png"));
             save_png(&hud.notes.win, &dir.join("notes-editors.png"));
             // Put away with the button: the cards go, the button unlit.
             hud.notes.set_put_away(true);
