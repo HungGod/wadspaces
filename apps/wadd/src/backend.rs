@@ -14,6 +14,8 @@ use wad_systemd::{Systemd, TransientSpec};
 
 /// Lines from a build, as they come.
 pub type OnLine = Box<dyn FnMut(&str) + Send>;
+/// A download's bytes so far, and in all.
+pub type OnBytes = Box<dyn FnMut(u64, u64) + Send>;
 
 #[async_trait]
 pub trait Backend: Send + Sync + 'static {
@@ -110,6 +112,20 @@ pub trait Backend: Send + Sync + 'static {
     }
     /// An image's id, age, size and labels; None if it isn't here.
     async fn image_info(&self, _image: &str) -> Result<Option<ImageInfo>, String> {
+        Err("no podman".into())
+    }
+    /// Downloads an image unless it's here (`auth`: the registry's user and
+    /// token); returns its id. Dropping the future stops it.
+    async fn pull(
+        &self,
+        _reference: &str,
+        _auth: Option<(String, String)>,
+        _on_bytes: OnBytes,
+    ) -> Result<String, String> {
+        Err("no podman".into())
+    }
+    /// Gives an image another name ("repo:tag").
+    async fn tag(&self, _image: &str, _target: &str) -> Result<(), String> {
         Err("no podman".into())
     }
     /// The images that carry a label.
@@ -427,6 +443,16 @@ impl Backend for Real {
 
     async fn images_labelled(&self, label: &str) -> Result<Vec<ImageInfo>, String> {
         self.podman.images_labelled(label).await.map_err(|e| e.to_string())
+    }
+
+    async fn pull(&self, reference: &str, auth: Option<(String, String)>, on_bytes: OnBytes) -> Result<String, String> {
+        let server = reference.split('/').next().unwrap_or_default();
+        let auth = auth.map(|(user, token)| wad_podman::registry_auth(&user, &token, server));
+        self.podman.pull(reference, auth.as_deref(), on_bytes).await.map_err(|e| e.to_string())
+    }
+
+    async fn tag(&self, image: &str, target: &str) -> Result<(), String> {
+        self.podman.tag(image, target).await.map_err(|e| e.to_string())
     }
 
     async fn volume_sizes(&self) -> Result<Vec<(String, u64)>, String> {

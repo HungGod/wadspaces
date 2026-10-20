@@ -12,6 +12,7 @@ layers are built on the base by wadd, on the machine.
 | `localhost/wadspaces-custom-<id>:latest` | An Extensions layer: `FROM` its template's image, with tools, VS Code extensions and web apps. |
 | `examples/` | Two real wadspaces' layers as documents (Cosmic Bodybuilding on Writing; VanuaAcademy on Extensions on Dev), which `--example` builds as wadd would. |
 | `localhost/wadspaces-<id>:latest` | A wadspace's own image from before the layers; a migrated one runs it until its layers are built. |
+| `localhost/wadspaces-pkg-<id>:<image id>` | A package: one app's, tool's or VS Code extension's files on their own, `FROM scratch` (`crates/wad-core/src/packages.rs`). CI builds them on the base (`.github/workflows/packages.yml`) and publishes them, privately, as `ghcr.io/hunggod/wadspaces-pkg-<id>:<abi>` with an index (`index.json` on the `packages` release); wadd gets one when a build needs it, or ahead of time (`GET /v1/packages`, `POST /v1/packages/fetch`): the one here, else downloaded with the machine's GitHub token, else built here. Named by image id, which the drive's copies keep. |
 
 A wadspace's own layer (its Customization) has no image: its wallpaper and
 saved sign-ins are handed over when it starts, and its projects aren't mounted
@@ -35,6 +36,8 @@ images/base/try-apps.sh            # every catalog app over the base, opened in 
 images/base/try-signins.sh         # each sign-in kind's files kept across runs
 apps/wadd/dev/try-layers.sh        # Extensions (their template first) and a template on a template built by wadd, a stack installed on them
 apps/wadd/dev/try-projects.sh      # projects cloned and copied into a wadspace, fast-forwarded, a throwaway run
+apps/wadd/dev/try-packages.sh      # packages captured and assembled, timed, in a podman store of its own
+GITHUB_TOKEN=… apps/wadd/dev/try-fetch.sh [ids]  # wadd downloading packages from CI's registry, in a store of its own
 ```
 
 A machine gets the base and the stream sidecar from its drive: `host/build.sh

@@ -59,6 +59,11 @@ pub struct Machine {
     pub next_pid: u32,
     /// Podman doesn't answer (its API service restarting, say).
     pub podman_down: bool,
+    /// CI's registry: "repo@digest" -> (image id, labels, size in bytes).
+    pub registry: HashMap<String, (String, serde_json::Map<String, serde_json::Value>, u64)>,
+    /// Pulls asked for: (reference, signed in).
+    pub pulls: Vec<(String, bool)>,
+    pub pull_fails: Option<String>,
 }
 
 pub const TOKEN: &str = "ghp_TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT";
@@ -236,6 +241,52 @@ impl Backend for Fake {
             let n = m.builds.len();
             m.image_ids.insert(tag.into(), format!("{n:0>64}"));
         });
+        Ok(())
+    }
+    async fn pull(
+        &self,
+        reference: &str,
+        auth: Option<(String, String)>,
+        mut on_bytes: wadd::backend::OnBytes,
+    ) -> Result<String, String> {
+        let (found, fails) = {
+            let mut m = self.0.lock().unwrap();
+            m.pulls.push((reference.into(), auth.is_some()));
+            (m.registry.get(reference).cloned(), m.pull_fails.clone())
+        };
+        if let Some(e) = fails {
+            return Err(e);
+        }
+        let (id, labels, size) = found.ok_or_else(|| format!("manifest unknown: {reference}"))?;
+        on_bytes(size / 2, size);
+        on_bytes(size, size);
+        let mut m = self.0.lock().unwrap();
+        m.images.insert(reference.into());
+        m.image_ids.insert(reference.into(), id.clone());
+        m.image_labels.insert(reference.into(), labels);
+        m.image_sizes.insert(reference.into(), size);
+        Ok(id)
+    }
+    async fn tag(&self, image: &str, target: &str) -> Result<(), String> {
+        let mut m = self.0.lock().unwrap();
+        m.calls.push(format!("tag {image} {target}"));
+        let id_of = |m: &Machine, n: &str| m.image_ids.get(n).cloned().unwrap_or_else(|| format!("{:x<64}", n.len()));
+        let name = m
+            .images
+            .iter()
+            .find(|n| *n == image || id_of(&m, n) == image)
+            .cloned()
+            .ok_or(format!("no image {image}"))?;
+        let (id, labels, size) =
+            (id_of(&m, &name), m.image_labels.get(&name).cloned(), m.image_sizes.get(&name).copied());
+        m.images.insert(target.into());
+        m.image_ids.insert(target.into(), id);
+        if let Some(l) = labels {
+            m.image_labels.insert(target.into(), l);
+        }
+        if let Some(s) = size {
+            m.image_sizes.insert(target.into(), s);
+        }
         Ok(())
     }
     async fn volume_sizes(&self) -> Result<Vec<(String, u64)>, String> {

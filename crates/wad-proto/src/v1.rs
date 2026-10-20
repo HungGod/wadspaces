@@ -82,6 +82,8 @@ pub enum Event {
     Launch(LaunchLog),
     /// A build moved on: the job, and its log lines since the last event.
     Build(BuildLog),
+    /// A packages fetch moved on.
+    Packages(PackageFetch),
     /// The account link changed (linked, unlinked, a heartbeat, an error).
     Cloud(CloudLink),
     /// The network changed (joined, left, connectivity).
@@ -128,6 +130,7 @@ impl Event {
             Event::SignIns { .. } => "signins",
             Event::Launch(_) => "launch",
             Event::Build(_) => "build",
+            Event::Packages(_) => "packages",
             Event::Cloud(_) => "cloud",
             Event::Network(_) => "network",
             Event::Workspaces(_) => "workspaces",
@@ -1327,6 +1330,101 @@ pub struct ImageRow {
     /// The id of the image it was built FROM, as it was then (a template's
     /// image rebuilt since makes its customizations "changed").
     pub from: String,
+}
+
+/// GET /v1/packages: the packages CI published for the base's ABI (its
+/// index), whether this machine has each, and the fetch going on.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PackageList {
+    pub base: String,
+    /// The base's ABI (io.wadspaces.abi); none: a base from before packages.
+    pub abi: Option<String>,
+    /// Where the index came from: "network", "saved" (the last one fetched),
+    /// "drive" (the update drive's) or "none".
+    pub index_from: String,
+    /// When that index was fetched (Unix seconds).
+    pub index_at: Option<f64>,
+    pub packages: Vec<PackageRow>,
+    /// The fetch going on, or the last one.
+    pub fetch: Option<PackageFetch>,
+}
+
+/// Whether a package is on this machine.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum PackageState {
+    /// The one CI published is here.
+    Here,
+    /// An older one is here: a fetch gets the new one.
+    Older,
+    /// Not here: it comes when a build needs it, or with a fetch.
+    Missing,
+    /// Built on this machine: CI has none for this base.
+    Built,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PackageRow {
+    pub id: String,
+    pub version: String,
+    pub size_mb: f64,
+    /// What it's copied on top of.
+    pub needs: Vec<String>,
+    pub state: PackageState,
+    /// The one here (localhost/wadspaces-pkg-<id>:<image id>).
+    pub image: Option<String>,
+}
+
+/// POST /v1/packages/fetch: packages, and what they need, onto this machine
+/// now rather than when a build needs them.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PackageFetchRequest {
+    /// Empty: every package CI published.
+    #[serde(default)]
+    pub ids: Vec<String>,
+    /// The base they're for; none: the machine's base.
+    #[serde(default)]
+    pub base: Option<String>,
+}
+
+/// How a package came to be on this machine.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum PackageHow {
+    /// It was here already.
+    Here,
+    /// Downloaded from CI's registry.
+    Fetched,
+    /// Built here (CI hasn't published it, or it couldn't be downloaded).
+    Built,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PackageGot {
+    pub id: String,
+    pub how: PackageHow,
+}
+
+/// A fetch (POST /v1/packages/fetch); `packages` events as it goes.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PackageFetch {
+    pub ids: Vec<String>,
+    pub status: BuildStatus,
+    /// The package it's on.
+    pub current: Option<String>,
+    /// Bytes downloaded so far, of all it's downloading.
+    pub done_bytes: u64,
+    pub total_bytes: u64,
+    pub got: Vec<PackageGot>,
+    pub error: Option<String>,
+    /// Unix seconds.
+    pub started: f64,
+    pub finished: Option<f64>,
 }
 
 /// Something in the design the build leaves out, and why.

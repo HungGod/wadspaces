@@ -72,6 +72,7 @@ impl Bus {
                 | Event::SignIns { .. }
                 | Event::Launch(_)
                 | Event::Build(_)
+                | Event::Packages(_)
                 | Event::Storage { .. } => {}
             }
         }

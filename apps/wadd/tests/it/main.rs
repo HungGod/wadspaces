@@ -12,6 +12,7 @@ mod drives;
 mod github;
 mod launches;
 mod layers;
+mod packages;
 mod proxy;
 mod registry;
 mod secrets;

@@ -5756,7 +5756,9 @@ name = "wad-podman"
 version = "0.1.0"
 dependencies = [
  "axum",
+ "base64 0.22.1",
  "bytes",
+ "futures-util",
  "http-body-util",
  "hyper",
  "hyper-util",

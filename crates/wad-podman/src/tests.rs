@@ -25,6 +25,8 @@ async fn fake() -> (tempfile::TempDir, Podman) {
             get(|Path(name): Path<String>| async move {
                 if name == "ghcr.io/o/here:latest" {
                     axum::Json(json!({"Labels": {"io.wadspaces.projects": "1"}})).into_response()
+                } else if name == "ghcr.io/o/pkg@sha256:dd" {
+                    axum::Json(json!({"Id": "a".repeat(64), "Labels": {"io.wadspaces.pkg": "rust"}})).into_response()
                 } else {
                     (StatusCode::NOT_FOUND, axum::Json(json!({"message": "no such image"}))).into_response()
                 }
@@ -68,6 +70,45 @@ async fn fake() -> (tempfile::TempDir, Podman) {
                     ("github_token", _) => axum::Json(json!({"Spec": {"Name": "github_token"}})).into_response(),
                     _ => StatusCode::NOT_FOUND.into_response(),
                 }
+            }),
+        )
+        .route(
+            "/v5.0.0/libpod/images/pull",
+            post(|Query(q): Query<std::collections::HashMap<String, String>>, headers: axum::http::HeaderMap| async move {
+                use base64::Engine;
+                assert_eq!((q["policy"].as_str(), q["compatMode"].as_str()), ("missing", "true"));
+                if q["reference"] == "ghcr.io/o/denied:1" {
+                    assert!(headers.get("x-registry-auth").is_none(), "no token, no header");
+                    return axum::body::Body::from("{\"error\":\"denied\",\"errorDetail\":{\"message\":\"unauthorized: no access\\n\"}}\n");
+                }
+                assert_eq!(q["reference"], "ghcr.io/o/pkg@sha256:dd");
+                let auth = headers["x-registry-auth"].to_str().unwrap();
+                let auth: serde_json::Value =
+                    serde_json::from_slice(&base64::engine::general_purpose::URL_SAFE.decode(auth).unwrap()).unwrap();
+                assert_eq!(auth, json!({"username": "wadspaces", "password": "ghp_x", "serveraddress": "ghcr.io"}));
+                let body = [
+                    json!({"status": "Pulling fs layer", "progressDetail": {}, "id": "l1"}),
+                    json!({"status": "Downloading", "progressDetail": {"current": 5, "total": 30}, "id": "l1"}),
+                    json!({"status": "Download complete", "progressDetail": {}, "id": "l1"}),
+                    json!({"status": "Downloading", "progressDetail": {"current": 0, "total": 10}, "id": "l2"}),
+                    json!({"status": "Download complete", "progressDetail": {}, "id": "l2"}),
+                ]
+                .iter()
+                .map(|m| format!("{m}\n"))
+                .collect::<String>()
+                .into_bytes();
+                // In pieces that cut messages in two, as a socket may.
+                let pieces: Vec<Result<Vec<u8>, std::io::Error>> =
+                    body.chunks(37).map(|c| Ok(c.to_vec())).collect();
+                axum::body::Body::from_stream(futures_util::stream::iter(pieces))
+            }),
+        )
+        .route(
+            "/v5.0.0/libpod/images/{name}/tag",
+            post(|Path(name): Path<String>, Query(q): Query<std::collections::HashMap<String, String>>| async move {
+                assert_eq!(name, "ghcr.io/o/pkg@sha256:dd");
+                assert_eq!((q["repo"].as_str(), q["tag"].as_str()), ("localhost/wadspaces-pkg-rust", "aaaaaaaaaaaa"));
+                StatusCode::CREATED
             }),
         )
         .route(
@@ -122,6 +163,32 @@ async fn images_containers_and_builds() {
     assert_eq!(out, ["STEP 1/2: FROM localhost/wadspaces-base:trixie", "STEP 2/2: COPY root/ /", "--> abc"]);
     let e = p.build(b"tar".to_vec(), "localhost/wadspaces-bad:latest", &args, &labels, |_| {}).await.unwrap_err();
     assert_eq!(e.to_string(), "RUN failed: exit status 1");
+}
+
+#[tokio::test]
+async fn pulls_count_bytes_and_tags_name() {
+    let (_d, p) = fake().await;
+    let auth = registry_auth("wadspaces", "ghp_x", "ghcr.io");
+    let mut seen = vec![];
+    let id = p.pull("ghcr.io/o/pkg@sha256:dd", Some(&auth), |done, total| seen.push((done, total))).await.unwrap();
+    assert_eq!(id, "a".repeat(64));
+    assert_eq!(seen, [(5, 30), (30, 30), (30, 40), (40, 40)], "each layer's bytes, added up");
+    p.tag("ghcr.io/o/pkg@sha256:dd", "localhost/wadspaces-pkg-rust:aaaaaaaaaaaa").await.unwrap();
+    let e = p.pull("ghcr.io/o/denied:1", None, |_, _| {}).await.unwrap_err();
+    assert_eq!(e.to_string(), "unauthorized: no access");
+}
+
+#[test]
+fn a_pull_reads_dockers_messages() {
+    let mut p = PullProgress::default();
+    assert_eq!(p.feed(&json!({"status": "Pulling from hunggod/wadspaces-pkg-rust", "id": "trixie.1"})).unwrap(), None);
+    assert_eq!(p.feed(&json!({"status": "Already exists", "progressDetail": {}, "id": "l0"})).unwrap(), Some((0, 0)));
+    let down = json!({"status": "Downloading", "progressDetail": {"current": 50, "total": 40}, "id": "l1"});
+    assert_eq!(p.feed(&down).unwrap(), Some((40, 40)), "never more than the layer");
+    assert_eq!(
+        p.feed(&json!({"error": "x", "errorDetail": {"message": "manifest unknown"}})).unwrap_err(),
+        "manifest unknown"
+    );
 }
 
 #[tokio::test]

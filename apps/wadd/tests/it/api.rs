@@ -310,6 +310,22 @@ async fn builds() {
 }
 
 #[tokio::test]
+async fn packages() {
+    let (_d, sock, stop) = start(true).await;
+    // No podman here: no base to read its ABI from.
+    let (status, body) = get(&sock, "/v1/packages").await;
+    assert_eq!(status, 500, "{body}");
+    assert!(body.contains("no machine in tests"), "{body}");
+    assert_eq!(request(&sock, "DELETE", "/v1/packages/fetch").await.0, 404, "no fetch to stop");
+    let (status, body) = send(&sock, "POST", "/v1/packages/fetch", r#"{"ids":["no-such-package"]}"#).await;
+    assert_eq!(status, 400, "{body}");
+    let (status, body) = send(&sock, "POST", "/v1/packages/fetch", r#"{"ids":["vscode"]}"#).await;
+    assert_eq!(status, 202, "{body}");
+    assert!(body.contains(r#""status":"building""#), "{body}");
+    let _ = stop.send(());
+}
+
+#[tokio::test]
 async fn github_without_a_token() {
     let (_d, sock, stop) = start(true).await;
     let (status, body) = get(&sock, "/v1/github").await;

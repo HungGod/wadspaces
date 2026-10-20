@@ -24,6 +24,7 @@ pub mod launches;
 pub mod logbuf;
 pub mod metrics;
 pub mod network;
+pub mod packages;
 pub mod projects;
 pub mod proxy;
 pub mod registry;
@@ -291,6 +292,7 @@ impl Server {
             &d.state_dir,
         );
         let builds = builds::Builds::new(backend.clone(), bus.clone(), &d.state_dir, d.build_min_free_gb);
+        let packages = packages::Packages::new(backend.clone(), bus.clone(), packages::Settings::new(config));
         // Streams: each run of wadd is told apart by the self-test.
         let instance = streams::random_hex(8);
         let tunnel = Arc::new(tunnel::Tunnel::new(
@@ -408,6 +410,7 @@ impl Server {
             copies,
             launches,
             builds,
+            packages,
             keys: std::sync::Mutex::new(None),
             keys_enabled: config.keys.enabled,
             logs,

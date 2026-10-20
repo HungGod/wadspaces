@@ -39,6 +39,8 @@ pub struct AppState {
     pub copies: Arc<crate::copies::Copies>,
     pub launches: Arc<crate::launches::Launches>,
     pub builds: Arc<crate::builds::Builds>,
+    /// Packages here and CI's index of them; fetching them.
+    pub packages: Arc<crate::packages::Packages>,
     pub secrets: Arc<crate::secrets::Secrets>,
     pub signins: Arc<crate::signins::SignIns>,
     pub github: Arc<crate::github::GithubService>,
@@ -149,6 +151,8 @@ pub fn router(app: Arc<AppState>) -> Router {
         )
         .route("/v1/wadspaces/{id}", axum::routing::put(wadspace_install))
         .route("/v1/images", get(images))
+        .route("/v1/packages", get(packages))
+        .route("/v1/packages/fetch", post(packages_fetch).delete(packages_fetch_cancel))
         .route("/v1/storage", get(storage))
         .route("/v1/storage/prune", post(storage_prune))
         .route("/v1/storage/delete", post(storage_delete))
@@ -814,6 +818,37 @@ async fn launch_batch(
 /// The layer images here.
 async fn images(State(app): State<Arc<AppState>>) -> Result<Json<Vec<ImageRow>>, Failure> {
     Ok(Json(crate::images::list(app.registry_backend.as_ref()).await?))
+}
+
+#[derive(Deserialize)]
+struct PackagesQuery {
+    base: Option<String>,
+}
+
+/// The packages CI published for the base (`?base=`, else the machine's),
+/// and whether each is here.
+async fn packages(
+    State(app): State<Arc<AppState>>,
+    Query(q): Query<PackagesQuery>,
+) -> Result<Json<wad_proto::v1::PackageList>, Failure> {
+    let base = q.base.unwrap_or_else(|| wad_core::spec::DEFAULT_BASE_IMAGE.to_string());
+    Ok(Json(app.packages.list(&base).await?))
+}
+
+/// Packages onto this machine now (`packages` events as it goes).
+async fn packages_fetch(
+    State(app): State<Arc<AppState>>,
+    Json(req): Json<wad_proto::v1::PackageFetchRequest>,
+) -> Result<(StatusCode, Json<wad_proto::v1::PackageFetch>), Failure> {
+    Ok((StatusCode::ACCEPTED, Json(app.packages.fetch(req)?)))
+}
+
+async fn packages_fetch_cancel(State(app): State<Arc<AppState>>) -> Result<StatusCode, Failure> {
+    if app.packages.cancel_fetch() {
+        Ok(StatusCode::NO_CONTENT)
+    } else {
+        Err(Failure(ApiError::new(ErrorCode::NotFound, "no packages are being fetched")))
+    }
 }
 
 #[derive(Deserialize)]

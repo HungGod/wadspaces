@@ -136,6 +136,54 @@ fn rfc3339_secs(s: &str) -> Option<f64> {
     Some((days * 86400 + hh * 3600 + mm * 60 - off) as f64 + ss)
 }
 
+/// What a pull sends as X-Registry-Auth: the registry's user and password
+/// (a token), as docker's API takes them.
+pub fn registry_auth(user: &str, password: &str, server: &str) -> String {
+    use base64::Engine;
+    let json = serde_json::json!({ "username": user, "password": password, "serveraddress": server });
+    base64::engine::general_purpose::URL_SAFE.encode(json.to_string())
+}
+
+/// "repo:tag" → (repo, tag); no tag (or only a registry's port): "latest".
+fn repo_tag(r: &str) -> (&str, &str) {
+    match r.rsplit_once(':') {
+        Some((repo, tag)) if !tag.contains('/') => (repo, tag),
+        _ => (r, "latest"),
+    }
+}
+
+/// A pull's progress from podman's compat stream (docker's messages): each
+/// layer's bytes so far, and in all.
+#[derive(Debug, Default)]
+pub struct PullProgress {
+    layers: std::collections::BTreeMap<String, (u64, u64)>,
+}
+
+impl PullProgress {
+    /// One message: Ok(Some((done, total))) when the bytes moved, Err with
+    /// what podman said when the pull failed.
+    pub fn feed(&mut self, msg: &Value) -> Result<Option<(u64, u64)>, String> {
+        let err = msg.pointer("/errorDetail/message").or_else(|| msg.get("error")).and_then(Value::as_str);
+        if let Some(e) = err.filter(|e| !e.is_empty()) {
+            return Err(e.trim().to_string());
+        }
+        let Some(id) = msg.get("id").and_then(Value::as_str) else { return Ok(None) };
+        let detail = |k: &str| msg.pointer(&format!("/progressDetail/{k}")).and_then(Value::as_u64);
+        let layer = self.layers.entry(id.to_string()).or_default();
+        match (msg.get("status").and_then(Value::as_str).unwrap_or_default(), detail("current"), detail("total")) {
+            ("Downloading", Some(done), Some(total)) => *layer = (done.min(total), total),
+            ("Download complete" | "Pull complete" | "Already exists", _, _) => layer.0 = layer.1,
+            _ => return Ok(None),
+        }
+        Ok(Some(self.totals()))
+    }
+
+    /// Bytes down so far, and in all (of the layers seen yet).
+    pub fn totals(&self) -> (u64, u64) {
+        self.layers.values().fold((0, 0), |(d, t), (a, b)| (d + a, t + b))
+    }
+}
+
 pub fn segment(s: &str) -> String {
     let mut out = String::with_capacity(s.len());
     for b in s.bytes() {
@@ -154,6 +202,16 @@ impl Podman {
     }
 
     async fn send(&self, method: Method, path: &str, body: Option<(Bytes, &str)>) -> Result<Response<Incoming>, Error> {
+        self.send_with(method, path, body, &[]).await
+    }
+
+    async fn send_with(
+        &self,
+        method: Method,
+        path: &str,
+        body: Option<(Bytes, &str)>,
+        headers: &[(&str, &str)],
+    ) -> Result<Response<Incoming>, Error> {
         let stream = UnixStream::connect(&self.socket)
             .await
             .map_err(|e| Error::Connect(self.socket.display().to_string(), e))?;
@@ -164,6 +222,9 @@ impl Podman {
             let _ = conn.await;
         });
         let mut req = Request::builder().method(method).uri(format!("{API}{path}")).header("host", "podman");
+        for (k, v) in headers {
+            req = req.header(*k, *v);
+        }
         let body = match body {
             Some((bytes, content_type)) => {
                 req = req.header("content-type", content_type);
@@ -278,6 +339,65 @@ impl Podman {
                 .map(|t| t.iter().filter_map(Value::as_str).map(String::from).collect())
                 .unwrap_or_default(),
         }))
+    }
+
+    /// Pulls an image unless it's here already (`auth`: an X-Registry-Auth
+    /// value, registry_auth's); returns its id. `on_bytes(done, total)` as its
+    /// layers come: podman's compat stream counts bytes, libpod's own doesn't.
+    /// Dropping the future stops the pull.
+    pub async fn pull(
+        &self,
+        reference: &str,
+        auth: Option<&str>,
+        mut on_bytes: impl FnMut(u64, u64),
+    ) -> Result<String, Error> {
+        let what = format!("pull {reference}");
+        let path = format!("/images/pull?reference={}&policy=missing&compatMode=true", segment(reference));
+        let headers: Vec<(&str, &str)> = auth.map(|a| ("X-Registry-Auth", a)).into_iter().collect();
+        let res = self.send_with(Method::POST, &path, None, &headers).await?;
+        if !res.status().is_success() {
+            return Err(Self::status_error(&what, res).await);
+        }
+        let mut body = res.into_body();
+        let (mut buf, mut progress) = (Vec::<u8>::new(), PullProgress::default());
+        while let Some(frame) = body.frame().await {
+            let frame = frame.map_err(|e| Error::Http(e.to_string()))?;
+            let Ok(data) = frame.into_data() else { continue };
+            buf.extend_from_slice(&data);
+            // Whole messages; a part of one waits for the rest.
+            let mut used = 0;
+            let mut messages = serde_json::Deserializer::from_slice(&buf).into_iter::<Value>();
+            loop {
+                match messages.next() {
+                    Some(Ok(msg)) => {
+                        used = messages.byte_offset();
+                        if let Some((done, total)) = progress.feed(&msg).map_err(Error::Stream)? {
+                            on_bytes(done, total);
+                        }
+                    }
+                    Some(Err(e)) if e.is_eof() => break,
+                    Some(Err(e)) => return Err(Error::Decode(what, e.to_string())),
+                    None => break,
+                }
+            }
+            buf.drain(..used);
+        }
+        match self.image_info(reference).await? {
+            Some(i) if !i.id.is_empty() => Ok(i.id),
+            _ => Err(Error::Stream(format!("{what}: it ended, and the image isn't here"))),
+        }
+    }
+
+    /// Gives an image another name ("repo:tag").
+    pub async fn tag(&self, image: &str, target: &str) -> Result<(), Error> {
+        let (repo, tag) = repo_tag(target);
+        let path = format!("/images/{}/tag?repo={}&tag={}", segment(image), segment(repo), segment(tag));
+        let res = self.send(Method::POST, &path, None).await?;
+        if res.status().is_success() {
+            Ok(())
+        } else {
+            Err(Self::status_error(&format!("tag {image} as {target}"), res).await)
+        }
     }
 
     /// The images that have a label, with their tags (`podman images --filter label=`).

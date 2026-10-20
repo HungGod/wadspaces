@@ -37,6 +37,35 @@ pub struct Config {
     pub cloud: Cloud,
     pub streaming: Streaming,
     pub tailnet: Tailnet,
+    pub packages: Packages,
+}
+
+/// Packages: an app's, a tool's or an extension's files, built once by CI
+/// (wad_core::packages) and copied onto the base. Where CI's index of them
+/// is, and whether this machine downloads them (else it builds them itself).
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+#[serde(default)]
+pub struct Packages {
+    /// Download what CI published (ghcr, with the machine's GitHub token);
+    /// false: only what's here, or built here.
+    pub pull: bool,
+    /// CI's index of what it published.
+    pub index_url: String,
+    /// The update drive's copy of the index, for a machine that's offline.
+    pub drive_index: PathBuf,
+    /// How long a fetched index is used before it's fetched again.
+    pub index_max_age_min: u64,
+}
+
+impl Default for Packages {
+    fn default() -> Self {
+        Self {
+            pull: true,
+            index_url: "https://github.com/HungGod/WadSpaces/releases/download/packages/index.json".into(),
+            drive_index: "/var/lib/wadspaces/incoming/packages-index.json".into(),
+            index_max_age_min: 60,
+        }
+    }
 }
 
 /// The account link (the cloud relay). An empty project_id: no account to
@@ -375,6 +404,7 @@ impl Config {
             cloud: Cloud::default(),
             streaming: Streaming::default(),
             tailnet: Tailnet::for_profile(profile),
+            packages: Packages::default(),
         }
     }
 
