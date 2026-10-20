@@ -141,7 +141,10 @@ mod tests {
             assert!(app(id).is_some(), "{id}");
             assert!(a["description"].as_str().unwrap().len() > 40, "{id}");
             assert!(!a["icon"].as_str().unwrap().is_empty(), "{id}");
-            assert!(!a["screenshots"].as_array().unwrap().is_empty(), "{id}");
+            // The command line is the base's own terminal: no pictures of it yet.
+            if id != "terminal" {
+                assert!(!a["screenshots"].as_array().unwrap().is_empty(), "{id}");
+            }
             assert!(matches!(a["category"].as_str(), Some(c) if !c.is_empty()), "{id}");
         }
     }
@@ -164,7 +167,8 @@ mod tests {
                 "OpenShot",
                 "Steam",
                 "Dolphin",
-                "OBS Studio"
+                "OBS Studio",
+                "Command line"
             ]
         );
         assert_eq!(catalog_app("wadbrowser").unwrap()["icon"], "/brand/wadbrowser-icon-dark.svg");

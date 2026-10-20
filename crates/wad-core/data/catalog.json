@@ -397,6 +397,28 @@
       "options": null,
       "opensFolders": false,
       "secret": null
+    },
+    {
+      "id": "terminal",
+      "name": "Command line",
+      "summary": "A terminal, with the tools you add to it",
+      "description": "Foot, the base's terminal, on the desktop. The command-line tools you add to it (C/C++, Rust, Node.js, Python and more) are installed with it.",
+      "category": "Development",
+      "icon": "/icons/terminal.png",
+      "screenshots": [],
+      "install": {
+        "kind": "builtin",
+        "desktop": [
+          "foot.desktop"
+        ],
+        "source": "Comes with the base image"
+      },
+      "example": null,
+      "license": "Part of WadSpaces",
+      "homepage": null,
+      "options": null,
+      "opensFolders": false,
+      "secret": null
     }
   ],
   "extensions": [

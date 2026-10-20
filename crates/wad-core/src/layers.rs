@@ -898,7 +898,7 @@ fn signins_v2(w: &Value, template: &Value, setup: &Value) -> Vec<Value> {
 /// A version 3 wadspace's sign-ins: its keys by slot (apps and VS Code's
 /// extensions), then WadBrowser's groups, each member signing in with its
 /// group's key. Keys for what the stack doesn't have are left out.
-fn signins_v3(w: &Value, template: &Value, setup: &Value) -> Vec<Value> {
+pub(crate) fn signins_v3(w: &Value, template: &Value, setup: &Value) -> Vec<Value> {
     let secrets = &w["customization"]["secrets"];
     let mut out = Vec::new();
     for sl in slots_for(template, setup) {
@@ -943,6 +943,21 @@ pub fn workspace_for(w: &Value, template: &Value, setup: &Value, opts: &Value) -
     } else {
         image_ref(&image_key(&w.get("base").cloned().unwrap_or(Value::Null)))
     };
+    let signins = if v3 { signins_v3(w, template, setup) } else { signins_v2(w, template, setup) };
+    let projects = v3.then(|| workspace_projects(own));
+    workspace_value(id, own, image, signins, projects, opts)
+}
+
+/// The workspace JSON every version installs as (workspace_for's, and
+/// version 4's): `own` has its name, wallpaper and title bars.
+pub(crate) fn workspace_value(
+    id: &str,
+    own: &Value,
+    image: String,
+    signins: Vec<Value>,
+    projects: Option<Vec<Value>>,
+    opts: &Value,
+) -> Value {
     let tz = match s(opts, "tz") {
         "" => "Etc/UTC",
         tz => tz,
@@ -960,7 +975,6 @@ pub fn workspace_for(w: &Value, template: &Value, setup: &Value, opts: &Value) -
     if own.get("titleBars").and_then(Value::as_bool) == Some(true) {
         env.insert("WADSPACES_TITLEBARS".into(), "1".into());
     }
-    let signins = if v3 { signins_v3(w, template, setup) } else { signins_v2(w, template, setup) };
     let mut out = Obj::new();
     out.insert("id".into(), id.into());
     out.insert("name".into(), one_line(s(own, "name")).into());
@@ -973,8 +987,8 @@ pub fn workspace_for(w: &Value, template: &Value, setup: &Value, opts: &Value) -
     out.insert("devices".into(), json!(["/dev/dri"]));
     out.insert("shm_size".into(), "1g".into());
     out.insert("signins".into(), Value::Array(signins));
-    if v3 {
-        out.insert("projects".into(), Value::Array(workspace_projects(own)));
+    if let Some(p) = projects {
+        out.insert("projects".into(), Value::Array(p));
     }
     out.insert("hotkey".into(), Value::Null);
     out.insert("autostart".into(), false.into());
@@ -986,7 +1000,7 @@ pub fn workspace_for(w: &Value, template: &Value, setup: &Value, opts: &Value) -
 /// copied in once (`from`: where its files are, for a machine that hasn't
 /// copied them yet); a mount is the machine's folder or file at `from`,
 /// mounted read-write. Anything else is left out.
-fn workspace_projects(custom: &Value) -> Vec<Value> {
+pub(crate) fn workspace_projects(custom: &Value) -> Vec<Value> {
     let mut out = Vec::new();
     for p in js::arr(custom, "projects") {
         let mut e = Obj::new();

@@ -20,6 +20,7 @@ pub mod signins;
 pub mod spec;
 pub mod tar;
 mod url;
+pub mod v4;
 
 use base64::Engine;
 use base64::engine::general_purpose::STANDARD as B64;
@@ -130,6 +131,22 @@ pub fn call(name: &str, args: &[Value]) -> Result<Value, String> {
             let parts: Vec<&str> = list(3).iter().filter_map(Value::as_str).collect();
             layers::import_into(a(0), a(1), a(2), &parts)
         }
+        // version 4 wadspaces (design B's Builder: v4.rs)
+        "textures" => json!(v4::TEXTURES),
+        "v4Check" => match v4::check(a(0)) {
+            Ok(()) => Value::Null,
+            Err(e) => e.into(),
+        },
+        "v4Apps" => Value::Array(v4::apps_of(a(0))),
+        "v4Packages" => json!(v4::packages_of(a(0))),
+        "v4ImageKey" => v4::image_key(a(0)).into(),
+        "v4TemplateSetup" => {
+            let (t, s) = v4::as_template_setup(a(0));
+            json!([t, s])
+        }
+        "v4WorkspaceFor" => v4::workspace_for(a(0), a(1)),
+        "v4State" => v4::state(a(0), list(1)).into(),
+        "v4View" => v4::view(a(0)),
         // tar
         "tar" => {
             let owned: Vec<(String, Vec<u8>)> = list(0)
