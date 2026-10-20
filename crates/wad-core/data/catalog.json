@@ -502,11 +502,6 @@
       "id": "go",
       "name": "Go",
       "description": "Debian's golang"
-    },
-    {
-      "id": "java",
-      "name": "Java",
-      "description": "OpenJDK (Debian's default-jdk)"
     }
   ]
 }

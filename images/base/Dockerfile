@@ -42,7 +42,7 @@ ARG BUILD_DATE
 ARG VERSION
 LABEL build_version="WadSpaces base version:- ${VERSION} Build-date:- ${BUILD_DATE}"
 LABEL maintainer="dwadsworth"
-LABEL org.opencontainers.image.source="https://github.com/HungGod/Workspace-Switcher"
+LABEL org.opencontainers.image.source="https://github.com/HungGod/WadSpaces"
 
 # The start-up log's banner is ours (root/etc/s6-overlay/s6-rc.d/
 # init-adduser/branding, printed with `cat`); LSIO_FIRST_PARTY=false keeps
@@ -164,6 +164,16 @@ ENV BROWSER=/usr/local/bin/wadbrowser-link
 
 # Dolphin, staged for its feature (a layer of its own: it changes rarely).
 COPY --from=dolphin / /usr/local/lib/wadspaces/dolphin/
+
+# Debian's updates, as of the build day (VERSION, from images/build.sh): the
+# installs above take what they install new, not updates to what the base
+# image already had. A package may only add files, so a base behind Debian
+# fails CI's capture whenever an app's install would upgrade a library.
+RUN \
+  echo "**** Debian's updates as of ${VERSION} ****" && \
+  apt-get update && \
+  DEBIAN_FRONTEND=noninteractive apt-get -y --with-new-pkgs upgrade && \
+  rm -rf /var/lib/apt/lists/*
 
 # Packages (wadspaces-pkg: an app's, tool's or extension's files on their
 # own, built by CI on this base and copied onto it) fit any base with the

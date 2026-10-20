@@ -291,7 +291,11 @@ def capture(pkg, out, command, needs, probe, allow, lax):
         if len(problems) > 200:
             log(f"... and {len(problems) - 200} more")
         if not lax:
-            sys.exit(f"wadspaces-pkg: {pkg} changed {len(problems)} of the base's files; a package only adds files")
+            # Debian released an update the base hasn't got: installing the app
+            # takes it. The fix is a newer base, not the package.
+            upgraded = sorted({p.split(": ", 1)[1].split(" ")[0] for p in problems if p.endswith("(a base package was upgraded)")})
+            hint = f"; the base is behind Debian's updates ({', '.join(upgraded)}): build and push it again (images/build.sh --only base --push)" if upgraded else ""
+            sys.exit(f"wadspaces-pkg: {pkg} changed {len(problems)} of the base's files; a package only adds files{hint}")
 
     # The folders above what's copied, as the base has them; never / or the
     # merged-usr links (they aren't walked into: paths are real paths).

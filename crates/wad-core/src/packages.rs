@@ -184,7 +184,6 @@ fn probe(id: &str, src: &Source) -> Option<String> {
             "nodejs" => "node --version".into(),
             "python" => "python3 --version".into(),
             "go" => "go version".into(),
-            "java" => "java -version".into(),
             "claude-code" => "claude --version".into(),
             "firebase" => "firebase --version".into(),
             "git" => "git --version".into(),

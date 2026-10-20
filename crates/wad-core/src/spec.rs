@@ -16,7 +16,6 @@ pub const FEATURES: &[&str] = &[
     "gcloud",
     "rust",
     "go",
-    "java",
     "electron-deps",
     "vscode",
     "claude-code",
