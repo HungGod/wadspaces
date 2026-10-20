@@ -33,6 +33,23 @@ pub fn card(img: &RgbaImage) -> RgbaImage {
     out
 }
 
+/// The dark theme's card, in WadSpaces' colours: a white card (a site's
+/// silhouette, or the text card) with its white made the dark violet and its
+/// black the acid green, the greys between (the border, edges) mixed so;
+/// what's see-through stays so. A picture the user chose isn't a card: it
+/// stays as it is in both themes.
+pub fn dark(card: &RgbaImage) -> RgbaImage {
+    const CARD: [f64; 3] = [31.0, 21.0, 51.0]; // #1f1533
+    const INK: [f64; 3] = [198.0, 255.0, 31.0]; // #c6ff1f
+    RgbaImage::from_fn(card.width(), card.height(), |x, y| {
+        let p = card.get_pixel(x, y);
+        let luma = 0.299 * p[0] as f64 + 0.587 * p[1] as f64 + 0.114 * p[2] as f64;
+        let t = 1.0 - luma / 255.0;
+        let mix = |c: usize| (CARD[c] * (1.0 - t) + INK[c] * t).round() as u8;
+        Rgba([mix(0), mix(1), mix(2), p[3]])
+    })
+}
+
 /// A picture the user chose for the icon: as it is, fitted to the icon's size.
 pub fn plain(img: &RgbaImage) -> RgbaImage {
     letterbox(img, SIZE)
@@ -507,5 +524,12 @@ mod tests {
         let out = card(&img);
         assert_eq!(out.get_pixel(256, 256), &Rgba([0, 0, 0, 255]), "the plus is black");
         assert_eq!(out.get_pixel(40, 256), &Rgba([255, 255, 255, 255]), "around it, the card");
+        // The dark theme's: acid on violet, corners still see-through.
+        let d = dark(&out);
+        assert_eq!(d.get_pixel(256, 256), &Rgba([198, 255, 31, 255]), "the plus is acid");
+        assert_eq!(d.get_pixel(40, 256), &Rgba([31, 21, 51, 255]), "the card is violet");
+        assert_eq!(d.get_pixel(0, 0)[3], 0);
+        let text = dark(&text_card("localhost:8080"));
+        assert!(text.pixels().any(|p| p[3] == 255 && p[1] > 200), "the text card's letters are acid");
     }
 }

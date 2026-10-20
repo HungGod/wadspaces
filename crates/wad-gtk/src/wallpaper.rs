@@ -74,7 +74,8 @@ impl Wallpaper {
                 *self.imp().layers.borrow_mut() = l.clone();
                 self.imp().picture.borrow_mut().take();
             }
-            Paint::Image(_) => self.imp().layers.borrow_mut().clear(),
+            // A picture, or a texture drawn as one: set_picture brings it.
+            Paint::Image(_) | Paint::Texture(_) => self.imp().layers.borrow_mut().clear(),
         }
         self.queue_draw();
     }

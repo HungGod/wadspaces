@@ -5849,6 +5849,7 @@ dependencies = [
 name = "wad-wallpaper"
 version = "0.1.0"
 dependencies = [
+ "resvg",
  "serde",
  "serde_json",
  "tiny-skia",

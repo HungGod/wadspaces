@@ -1,6 +1,6 @@
 [package]
 name = "wad-wallpaper"
-description = "Builder wallpapers (CSS gradients, a colour, or a picture) read and drawn: the client's lib/wallpaperRender.ts in Rust"
+description = "Builder wallpapers (textures dark and light, CSS gradients, a colour, or a picture) read and drawn: the client's lib/wallpaperRender.ts in Rust"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -10,11 +10,13 @@ publish.workspace = true
 default = ["raster"]
 # Drawing to a PNG (tiny-skia): what wadd and the native client install;
 # without it, the parser alone (for wasm).
-raster = ["dep:tiny-skia"]
+raster = ["dep:tiny-skia", "dep:resvg"]
 
 [dependencies]
 serde.workspace = true
 tiny-skia = { version = "0.12", optional = true }
+# Textures are SVG (noise filters, patterns): resvg draws them.
+resvg = { version = "0.48", default-features = false, optional = true }
 
 [dev-dependencies]
 serde_json.workspace = true

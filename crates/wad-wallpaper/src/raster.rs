@@ -18,11 +18,17 @@ fn gradient_stops(stops: &[Stop]) -> Vec<GradientStop> {
     stops.iter().map(|s| GradientStop::new(s.at.clamp(0.0, 1.0), rgba(s.color))).collect()
 }
 
-/// A gradient or a colour drawn at [`SIZE`], as a PNG; None for a picture
-/// (it's a file already) or what can't be drawn.
+/// A gradient, a colour or a texture (dark) drawn at [`SIZE`], as a PNG;
+/// None for a picture (it's a file already) or what can't be drawn.
 pub fn draw_png(w: &Wallpaper) -> Option<Vec<u8>> {
+    draw_png_toned(w, crate::Tone::Dark)
+}
+
+/// [`draw_png`], a texture in the theme's tone.
+pub fn draw_png_toned(w: &Wallpaper, tone: crate::Tone) -> Option<Vec<u8>> {
     match w.paint() {
         Drawn::Layers(l) if !l.is_empty() => png(&l, SIZE.0, SIZE.1),
+        Drawn::Texture(id) => crate::texture::png(&id, tone, SIZE.0, SIZE.1),
         _ => None,
     }
 }

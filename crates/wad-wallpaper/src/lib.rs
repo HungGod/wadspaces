@@ -9,8 +9,10 @@ use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "raster")]
 mod raster;
+pub mod texture;
 #[cfg(feature = "raster")]
-pub use raster::{SIZE, draw_png, png};
+pub use raster::{SIZE, draw_png, draw_png_toned, png};
+pub use texture::{TEXTURES, Tone};
 
 /// A wallpaper as the Builder keeps it.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -26,6 +28,8 @@ pub enum Kind {
     Gradient,
     Color,
     Image,
+    /// One of [`TEXTURES`], by id (drawn dark or light).
+    Texture,
 }
 
 /// What a wallpaper paints: its layers, bottom first, or a picture (its URL).
@@ -33,12 +37,15 @@ pub enum Kind {
 pub enum Paint {
     Layers(Vec<Layer>),
     Image(String),
+    /// A texture by id: drawn as a picture ([`texture::png`]).
+    Texture(String),
 }
 
 impl Wallpaper {
     pub fn paint(&self) -> Paint {
         match self.kind {
             Kind::Image => Paint::Image(self.value.clone()),
+            Kind::Texture => Paint::Texture(self.value.clone()),
             Kind::Color => Paint::Layers(layer(&self.value).into_iter().collect()),
             Kind::Gradient => Paint::Layers(layers(&self.value)),
         }
