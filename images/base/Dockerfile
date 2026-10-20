@@ -165,6 +165,14 @@ ENV BROWSER=/usr/local/bin/wadbrowser-link
 # Dolphin, staged for its feature (a layer of its own: it changes rarely).
 COPY --from=dolphin / /usr/local/lib/wadspaces/dolphin/
 
+# Packages (wadspaces-pkg: an app's, tool's or extension's files on their
+# own, built by CI on this base and copied onto it) fit any base with the
+# same ABI. Bump it only when packages built on the old base stop fitting
+# (a new Debian release, a library dropped): CI then builds every package again.
+ARG WADSPACES_ABI=trixie.1
+LABEL io.wadspaces.abi="${WADSPACES_ABI}"
+RUN mkdir -p /usr/share/wadspaces && echo "${WADSPACES_ABI}" > /usr/share/wadspaces/abi
+
 # A wadspace clones its GitHub projects and copies in the rest itself, into
 # its /config (wadspaces-projects, and svc-wadspaces-projects in the
 # background); a mount (the user's choice) is the machine's folder, which

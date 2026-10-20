@@ -5,13 +5,19 @@
     wadspaces-vscode-extensions --seed <home>  every start (init-wadspaces-workspace), as abc
 
 At build time each marketplace id is installed with VS Code's own CLI into
-/usr/share/wadspaces/vscode-extensions (needs the vscode feature) and listed in
-/etc/wadspaces/vscode-extensions.list.
+/usr/share/wadspaces/vscode-extensions (needs the vscode feature). Each one
+installed (with any it depends on) gets its own entry in vscode-extensions.d
+there: what VS Code's extensions.json says about it. Nothing is shared between
+installs, so a package can carry one extension (wadspaces-pkg) and any set of
+them copied onto a base adds up. Images built before that list them in
+/etc/wadspaces/vscode-extensions.list and VS Code's own extensions.json, which
+are still read.
 
-At start, any listed extension that <home>/.vscode/extensions doesn't have yet
-is copied there and added to that folder's extensions.json (VS Code only loads
-what that index lists). One already there is left alone, whatever its version:
-the user may have updated it, and the image's copy stays as it was built.
+At start, any extension the image has that <home>/.vscode/extensions doesn't
+have yet is copied there and added to that folder's extensions.json (VS Code
+only loads what that index lists). One already there is left alone, whatever
+its version: the user may have updated it, and the image's copy stays as it
+was built.
 """
 import json
 import os
@@ -21,6 +27,7 @@ import subprocess
 import sys
 
 DIR = "/usr/share/wadspaces/vscode-extensions"
+ENTRIES = "/usr/share/wadspaces/vscode-extensions.d"
 LIST = "/etc/wadspaces/vscode-extensions.list"
 ID = re.compile(r"^[A-Za-z0-9_-]+(\.[A-Za-z0-9_-]+)+$")
 
@@ -37,12 +44,31 @@ def load(path, default):
         return default
 
 
+def entries():
+    """The image's extensions: one entry per extension, VS Code's own
+    extensions.json shape (older images keep them in that file alone)."""
+    out = {ext_id(e): e for e in load(os.path.join(DIR, "extensions.json"), [])}
+    try:
+        names = sorted(os.listdir(ENTRIES))
+    except OSError:
+        names = []
+    for name in names:
+        if name.endswith(".json"):
+            entry = load(os.path.join(ENTRIES, name), None)
+            if isinstance(entry, dict) and ext_id(entry):
+                out[ext_id(entry)] = entry
+    return out
+
+
 def listed():
+    """The extensions to seed: older images' list, then every entry."""
     try:
         with open(LIST) as f:
-            return [line.strip() for line in f if line.strip() and not line.startswith("#")]
+            old = [line.strip() for line in f if line.strip() and not line.startswith("#")]
     except OSError:
-        return []
+        old = []
+    have = {i.lower() for i in old}
+    return old + [i for i in sorted(entries()) if i not in have]
 
 
 def install(ids):
@@ -52,6 +78,8 @@ def install(ids):
     if not shutil.which("code"):
         sys.exit("wadspaces-vscode-extensions needs VS Code (the vscode feature) first")
     os.makedirs(DIR, exist_ok=True)
+    index = os.path.join(DIR, "extensions.json")
+    before = {ext_id(e) for e in load(index, [])}
     data = "/tmp/wadspaces-vscode-build"
     for ext in ids:
         log(f"installing {ext}")
@@ -61,13 +89,16 @@ def install(ids):
         )
     shutil.rmtree(data, ignore_errors=True)
     shutil.rmtree("/root/.vscode", ignore_errors=True)
-    have = listed()
-    os.makedirs(os.path.dirname(LIST), exist_ok=True)
-    with open(LIST, "w") as f:
-        for ext in have + [i for i in ids if i.lower() not in (h.lower() for h in have)]:
-            f.write(ext + "\n")
+    # An entry of its own for each extension this added (with what it
+    # depends on); VS Code's extensions.json is shared, so packages leave it.
+    os.makedirs(ENTRIES, exist_ok=True)
+    for entry in load(index, []):
+        eid = ext_id(entry)
+        if eid and (eid not in before or eid in (i.lower() for i in ids)):
+            with open(os.path.join(ENTRIES, eid + ".json"), "w") as f:
+                json.dump(entry, f)
     # Anyone may read them; each home gets its own copy.
-    subprocess.run(["chmod", "-R", "a+rX", DIR], check=True)
+    subprocess.run(["chmod", "-R", "a+rX", DIR, ENTRIES], check=True)
 
 
 def ext_id(entry):
@@ -89,7 +120,7 @@ def seed(home):
     want = listed()
     if not want:
         return
-    image = load(os.path.join(DIR, "extensions.json"), [])
+    image = list(entries().values())
     dest = os.path.join(home, ".vscode", "extensions")
     os.makedirs(dest, exist_ok=True)
     index_path = os.path.join(dest, "extensions.json")

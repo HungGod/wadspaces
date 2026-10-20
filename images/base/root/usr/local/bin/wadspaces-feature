@@ -39,9 +39,13 @@ add_chown() {
     echo "$2" >> "/etc/wadspaces/chown.d/$1.list"
 }
 
-# github_latest_asset <owner/repo> <regex> -> prints the first matching asset URL
+# github_latest_asset <owner/repo> <regex> -> prints the first matching asset URL.
+# With a token (a build secret: RUN --mount=type=secret,id=github_token) it
+# isn't held to GitHub's 60 requests an hour for everyone on one address.
 github_latest_asset() {
-    curl -fsSL "https://api.github.com/repos/$1/releases?per_page=20" \
+    local auth=()
+    [[ -s /run/secrets/github_token ]] && auth=(-H "Authorization: Bearer $(cat /run/secrets/github_token)")
+    curl -fsSL "${auth[@]}" "https://api.github.com/repos/$1/releases?per_page=20" \
         | grep -oE "\"browser_download_url\": *\"[^\"]+\"" \
         | sed -E 's/.*"(https[^"]+)"$/\1/' \
         | grep -E "$2" | head -n1

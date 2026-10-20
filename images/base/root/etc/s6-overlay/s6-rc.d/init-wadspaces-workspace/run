@@ -102,9 +102,10 @@ asabc git config --global credential.https://github.com.username "x-access-token
 /usr/local/bin/wadspaces-signins /config "${STATE_DIR}"
 
 # -------------------------------------------------------- VS Code extensions
-# A customization's extensions are in the image; each home gets its own copy,
-# which the user can update (as abc, so they're abc's).
-if [[ -s "${CONF}/vscode-extensions.list" ]]; then
+# A customization's extensions are in the image (listed, or one entry each
+# since packages); each home gets its own copy, which the user can update (as
+# abc, so they're abc's).
+if [[ -s "${CONF}/vscode-extensions.list" ]] || compgen -G "/usr/share/wadspaces/vscode-extensions.d/*.json" >/dev/null; then
     mkdir -p /config/.vscode
     chown abc:abc /config/.vscode
     asabc /usr/local/bin/wadspaces-vscode-extensions --seed /config

@@ -1,0 +1,477 @@
+#!/usr/bin/python3
+"""Packages: what one install adds to the base, on its own.
+
+    wadspaces-pkg capture <id> --out <dir> [--needs a,b] [--probe <cmd>]
+                          [--allow <glob>]... [--lax] -- <command>...
+    wadspaces-pkg assemble
+
+capture (a package's build) notes every path on this filesystem, runs the
+command, and copies what it added into <dir>, with the folders above as they
+are, so a FROM scratch stage takes just that:
+
+    RUN wadspaces-pkg capture vscode --out /out -- wadspaces-feature vscode
+    FROM scratch
+    COPY --from=build /out/ /
+
+Files several installs share (dpkg's status, the users, the shells) aren't
+copied: what this install added to them is kept as fragments under
+/usr/share/wadspaces/pkg/<id>/, with the package's files and meta.json.
+Generated caches aren't copied either; assemble makes them again. Any other
+base file the command changed or deleted stops the build (a package never
+replaces the base's own files) unless an --allow glob names it; --lax only
+reports them.
+
+assemble (on a base once packages are copied onto it, and in a package's
+build after the packages it needs) merges every package's fragments into the
+live files, then runs the triggers the packages asked for (ldconfig, the
+icon, desktop, mime, schema and font caches). Running it again changes
+nothing.
+"""
+import fnmatch
+import hashlib
+import json
+import os
+import re
+import stat
+import subprocess
+import sys
+
+PKG_DIR = "/usr/share/wadspaces/pkg"
+ABI_FILE = "/usr/share/wadspaces/abi"
+
+# Never walked: other filesystems, scratch, homes and logs.
+SKIP = {
+    "/proc", "/sys", "/dev", "/run", "/tmp", "/var/tmp", "/config", "/root", "/home",
+    "/var/log", "/var/cache", "/var/lib/apt/lists", "/var/lib/dpkg/updates", "/var/lib/dpkg/triggers",
+}
+
+# Neither copied nor reported: locks, backups, the build's own mounts, and
+# caches assemble makes again.
+IGNORE = [
+    "/etc/ld.so.cache", "/etc/.pwd.lock", "/etc/hosts", "/etc/hostname", "/etc/resolv.conf",
+    "/etc/passwd-", "/etc/group-", "/etc/shadow-", "/etc/gshadow-", "/etc/subuid-", "/etc/subgid-",
+    "/var/lib/dpkg/lock*", "/var/lib/dpkg/*-old", "/var/lib/dpkg/available",
+    "/var/lib/apt/extended_states.*",
+    "/usr/share/icons/*/icon-theme.cache", "/usr/share/applications/mimeinfo.cache",
+    "/usr/share/glib-2.0/schemas/gschemas.compiled", "/usr/lib/*/gdk-pixbuf-2.0/*/loaders.cache",
+    "/usr/lib/*/gio/modules/giomodule.cache", "/usr/share/info/dir", "/usr/share/info/dir.old",
+    "/usr/share/wadspaces/vscode-extensions/extensions.json",
+]
+# update-mime-database writes everything under /usr/share/mime but packages/.
+MIME = "/usr/share/mime/"
+
+# Shared files kept as fragments: what this install added to them.
+STANZAS = {"/var/lib/dpkg/status": "status", "/var/lib/apt/extended_states": "extended_states"}
+LINES = {
+    "/var/lib/dpkg/arch": ("arch", None),
+    "/etc/passwd": ("passwd", ":"), "/etc/group": ("group", ":"),
+    "/etc/shadow": ("shadow", ":"), "/etc/gshadow": ("gshadow", ":"),
+    "/etc/subuid": ("subuid", ":"), "/etc/subgid": ("subgid", ":"),
+    "/etc/shells": ("shells", None), "/var/lib/dpkg/statoverride": ("statoverride", None),
+}
+# dpkg's diversions are records of three lines.
+DIVERSIONS = "/var/lib/dpkg/diversions"
+
+# Base files any package may change (the last one copied wins).
+ALLOW = ["/etc/alternatives/*", "/var/lib/dpkg/alternatives/*"]
+
+TRIGGERS = [
+    ("ldconfig", re.compile(r"^/(usr/)?(local/)?lib(32|64|x32)?/.*\.so(\.[0-9.]+)?$|^/etc/ld\.so\.conf\.d/")),
+    ("fonts", re.compile(r"^/usr/(local/)?share/fonts/")),
+    ("icons", re.compile(r"^/usr/share/icons/")),
+    ("desktop", re.compile(r"^/usr/share/applications/.*\.desktop$")),
+    ("mime", re.compile(r"^/usr/share/mime/packages/")),
+    ("schemas", re.compile(r"^/usr/share/glib-2\.0/schemas/")),
+    ("pixbuf", re.compile(r"^/usr/lib/[^/]+/gdk-pixbuf-2\.0/[^/]+/loaders/")),
+    ("gio", re.compile(r"^/usr/lib/[^/]+/gio/modules/")),
+]
+
+
+def log(msg):
+    print(f"[wadspaces-pkg] {msg}", flush=True)
+
+
+def matches(path, globs):
+    return any(fnmatch.fnmatchcase(path, g) for g in globs)
+
+
+def ignored(path):
+    return matches(path, IGNORE) or (path.startswith(MIME) and not path.startswith(MIME + "packages/"))
+
+
+def shared(path):
+    return path in STANZAS or path in LINES or path == DIVERSIONS
+
+
+def snapshot(skip):
+    """Every path on /'s filesystem: what lstat says about it, links not
+    followed, mount points and `skip` left out."""
+    root_dev = os.lstat("/").st_dev
+    seen = {}
+    todo = ["/"]
+    while todo:
+        top = todo.pop()
+        try:
+            entries = list(os.scandir(top))
+        except OSError:
+            continue
+        for e in entries:
+            p = e.path if top != "/" else "/" + e.name
+            if p in skip:
+                continue
+            try:
+                st = e.stat(follow_symlinks=False)
+            except OSError:
+                continue
+            kind = stat.S_IFMT(st.st_mode)
+            link = os.readlink(p) if kind == stat.S_IFLNK else ""
+            size = st.st_size if kind == stat.S_IFREG else 0
+            mtime = st.st_mtime_ns if kind != stat.S_IFDIR else 0
+            seen[p] = (kind, stat.S_IMODE(st.st_mode), st.st_uid, st.st_gid, size, mtime, link)
+            if kind == stat.S_IFDIR and st.st_dev == root_dev:
+                todo.append(p)
+    return seen
+
+
+def read(path):
+    try:
+        with open(path, encoding="utf-8", errors="surrogateescape") as f:
+            return f.read()
+    except OSError:
+        return ""
+
+
+def stanzas(text):
+    """dpkg-style records by (Package, Architecture), in order."""
+    out = {}
+    for block in re.split(r"\n\s*\n", text.strip("\n")):
+        if not block.strip():
+            continue
+        fields = dict(re.findall(r"^([A-Za-z0-9-]+):\s*(.*)$", block, re.M))
+        out[(fields.get("Package", ""), fields.get("Architecture", ""))] = block.strip("\n")
+    return out
+
+
+def lines_by(text, sep):
+    out = {}
+    for line in text.splitlines():
+        if line.strip():
+            out[line.split(sep, 1)[0] if sep else line] = line
+    return out
+
+
+def diversions(text):
+    rows = text.splitlines()
+    return {tuple(rows[i:i + 3]) for i in range(0, len(rows) - 2, 3)}
+
+
+def shared_before():
+    return {p: read(p) for p in [*STANZAS, *LINES, DIVERSIONS]}
+
+
+def fragments(before, frag_dir):
+    """What the install added to each shared file, written under
+    frag_dir; base records it changed, as problems."""
+    problems = []
+    os.makedirs(frag_dir, exist_ok=True)
+
+    def write(name, text):
+        if text:
+            with open(os.path.join(frag_dir, name), "w", encoding="utf-8", errors="surrogateescape") as f:
+                f.write(text)
+
+    for path, name in STANZAS.items():
+        old, new = stanzas(before[path]), stanzas(read(path))
+        added = []
+        for key, block in new.items():
+            if key not in old:
+                added.append(block)
+            elif old[key] != block:
+                if name == "status":
+                    problems.append(f"{path}: {key[0]}:{key[1]} changed (a base package was upgraded)")
+                else:
+                    added.append(block)
+        write(name, "\n\n".join(added) + "\n" if added else "")
+    for path, (name, sep) in LINES.items():
+        old, new = lines_by(before[path], sep), lines_by(read(path), sep)
+        added = [line for key, line in new.items() if key not in old]
+        changed = [key for key, line in new.items() if key in old and old[key] != line]
+        problems += [f"{path}: {key} changed" for key in changed if name not in ("shadow", "gshadow")]
+        write(name, "\n".join(added) + "\n" if added else "")
+    old, new = diversions(before[DIVERSIONS]), read(DIVERSIONS).splitlines()
+    added = [new[i:i + 3] for i in range(0, len(new) - 2, 3) if tuple(new[i:i + 3]) not in old]
+    write("diversions", "".join("\n".join(r) + "\n" for r in added))
+    return problems
+
+
+def content_sha(out):
+    """The package's files, owners and modes, without times: the same
+    install twice gives the same sha."""
+    h = hashlib.sha256()
+    for top, dirs, files in os.walk(out):
+        dirs.sort()
+        for name in sorted(dirs + files):
+            p = os.path.join(top, name)
+            rel = "/" + os.path.relpath(p, out)
+            if rel.endswith("/meta.json") and rel.startswith(PKG_DIR):
+                continue
+            st = os.lstat(p)
+            h.update(f"{rel}\0{st.st_mode:o}\0{st.st_uid}\0{st.st_gid}\0".encode("utf-8", "surrogateescape"))
+            if stat.S_ISLNK(st.st_mode):
+                h.update(os.readlink(p).encode("utf-8", "surrogateescape"))
+            elif stat.S_ISREG(st.st_mode):
+                with open(p, "rb") as f:
+                    for chunk in iter(lambda: f.read(1 << 20), b""):
+                        h.update(chunk)
+            h.update(b"\n")
+    return h.hexdigest()
+
+
+def copy(paths, out):
+    """paths (absolute, parents before children) from / into out, as they
+    are: owners, modes, setuid bits, capabilities and hardlinks kept."""
+    os.makedirs(out, exist_ok=True)
+    listing = "\0".join(p.lstrip("/") for p in paths).encode("utf-8", "surrogateescape")
+    # SELinux labels are the host's business, not the package's.
+    flags = ["--xattrs", "--xattrs-include=*", "--xattrs-exclude=security.selinux", "--acls", "--numeric-owner"]
+    pack = subprocess.Popen(
+        ["tar", "--create", "--file=-", "--directory=/", "--no-recursion", "--null", "--files-from=-", *flags],
+        stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+    )
+    unpack = subprocess.Popen(
+        ["tar", "--extract", "--file=-", f"--directory={out}", "--preserve-permissions", "--same-owner", *flags],
+        stdin=pack.stdout,
+    )
+    pack.stdout.close()
+    pack.stdin.write(listing)
+    pack.stdin.close()
+    if pack.wait() or unpack.wait():
+        sys.exit("wadspaces-pkg: copying the package's files failed")
+
+
+def capture(pkg, out, command, needs, probe, allow, lax):
+    if not re.match(r"^[a-z0-9][a-z0-9.+-]*$", pkg):
+        sys.exit(f"wadspaces-pkg: bad package id: {pkg}")
+    out = os.path.abspath(out)
+    skip = SKIP | {out}
+    log(f"{pkg}: noting the base")
+    before = snapshot(skip)
+    before_shared = shared_before()
+    log(f"{pkg}: running {' '.join(command)}")
+    status = subprocess.run(command).returncode
+    if status:
+        sys.exit(f"wadspaces-pkg: {' '.join(command)} failed ({status})")
+    after = snapshot(skip)
+
+    added, changed, deleted, dirs = [], [], [], []
+    for p, now in after.items():
+        if ignored(p) or shared(p):
+            continue
+        was = before.get(p)
+        if was is None:
+            added.append(p)
+        elif was != now:
+            if now[0] == stat.S_IFDIR and was[0] == stat.S_IFDIR:
+                dirs.append(p)
+            elif matches(p, ALLOW + allow):
+                added.append(p)
+            else:
+                changed.append(p)
+    for p in before:
+        if p not in after and not ignored(p) and not shared(p) and not matches(p, ALLOW + allow):
+            deleted.append(p)
+    frag_dir = os.path.join(out, PKG_DIR.lstrip("/"), pkg)
+    problems = fragments(before_shared, frag_dir)
+    problems += [f"changed: {p}" for p in sorted(changed)] + [f"deleted: {p}" for p in sorted(deleted)]
+    for p in sorted(dirs):
+        log(f"WARN: {pkg} changed the base folder {p}'s owner or mode (the base's is kept)")
+    if problems:
+        for line in problems[:200]:
+            log(("WARN: " if lax else "") + line)
+        if len(problems) > 200:
+            log(f"... and {len(problems) - 200} more")
+        if not lax:
+            sys.exit(f"wadspaces-pkg: {pkg} changed {len(problems)} of the base's files; a package only adds files")
+
+    # The folders above what's copied, as the base has them; never / or the
+    # merged-usr links (they aren't walked into: paths are real paths).
+    wanted = set(added)
+    for p in added:
+        parent = os.path.dirname(p)
+        while parent != "/" and parent not in wanted:
+            wanted.add(parent)
+            parent = os.path.dirname(parent)
+    paths = sorted(wanted)
+    copy(paths, out)
+
+    files = [p for p in paths if p in added and after[p][0] != stat.S_IFDIR]
+    version = ""
+    if probe:
+        run = subprocess.run(["sh", "-c", probe], capture_output=True, text=True)
+        said = (run.stdout or run.stderr).strip()
+        version = said.splitlines()[0][:80] if said else ""
+    triggers = sorted({name for name, rx in TRIGGERS for p in files if rx.search(p)})
+    with open(os.path.join(frag_dir, "files"), "w", encoding="utf-8", errors="surrogateescape") as f:
+        f.write("".join(p + "\n" for p in files))
+    meta = {
+        "id": pkg,
+        "version": version,
+        "needs": needs,
+        "abi": read(ABI_FILE).strip(),
+        "triggers": triggers,
+        "files": len(files),
+        "bytes": sum(after[p][4] for p in files),
+    }
+    meta["content"] = content_sha(out)
+    with open(os.path.join(frag_dir, "meta.json"), "w") as f:
+        json.dump(meta, f, indent=1)
+    log(f"{pkg}: {len(files)} files, {meta['bytes'] / 1e6:.1f} MB, content {meta['content'][:12]}"
+        + (f", version {version}" if version else ""))
+
+
+def newer(a, b):
+    """dpkg's own say on whether version a is newer than b."""
+    return subprocess.run(["dpkg", "--compare-versions", a, "gt", b]).returncode == 0
+
+
+def write_live(path, text):
+    tmp = path + ".wadspaces-pkg"
+    with open(tmp, "w", encoding="utf-8", errors="surrogateescape") as f:
+        f.write(text)
+    if os.path.exists(path):
+        st = os.stat(path)
+        os.chown(tmp, st.st_uid, st.st_gid)
+        os.chmod(tmp, stat.S_IMODE(st.st_mode))
+    os.replace(tmp, path)
+
+
+def assemble():
+    try:
+        pkgs = sorted(d for d in os.listdir(PKG_DIR) if os.path.isfile(os.path.join(PKG_DIR, d, "meta.json")))
+    except OSError:
+        pkgs = []
+    if not pkgs:
+        log("no packages")
+        return
+    triggers = set()
+    for path, name in STANZAS.items():
+        live = stanzas(read(path))
+        merged = 0
+        for pkg in pkgs:
+            for key, block in stanzas(read(os.path.join(PKG_DIR, pkg, name))).items():
+                have = live.get(key)
+                if have == block:
+                    continue
+                if have is not None and name == "status":
+                    mine = re.search(r"^Version:\s*(\S+)", block, re.M)
+                    theirs = re.search(r"^Version:\s*(\S+)", have, re.M)
+                    if mine and theirs and not newer(mine.group(1), theirs.group(1)):
+                        continue
+                    log(f"WARN: {pkg} has {key[0]} {mine.group(1) if mine else '?'} "
+                        f"over {theirs.group(1) if theirs else '?'}")
+                live[key] = block
+                merged += 1
+        if merged:
+            body = "\n\n".join(live[k] for k in sorted(live)) + "\n"
+            write_live(path, body)
+    for path, (name, sep) in LINES.items():
+        text = read(path)
+        live = lines_by(text, sep)
+        add = []
+        for pkg in pkgs:
+            for key, line in lines_by(read(os.path.join(PKG_DIR, pkg, name)), sep).items():
+                if key not in live:
+                    live[key] = line
+                    add.append(line)
+                elif sep and live[key] != line:
+                    log(f"WARN: {pkg} wants {path}'s {key} as it had it; the base's is kept")
+        if add:
+            write_live(path, text.rstrip("\n") + ("\n" if text.strip() else "") + "\n".join(add) + "\n")
+    rows = read(DIVERSIONS)
+    have = diversions(rows)
+    add = []
+    for pkg in pkgs:
+        new = read(os.path.join(PKG_DIR, pkg, "diversions")).splitlines()
+        for i in range(0, len(new) - 2, 3):
+            if tuple(new[i:i + 3]) not in have:
+                have.add(tuple(new[i:i + 3]))
+                add += new[i:i + 3]
+    if add:
+        write_live(DIVERSIONS, rows + "\n".join(add) + "\n")
+    for pkg in pkgs:
+        try:
+            with open(os.path.join(PKG_DIR, pkg, "meta.json")) as f:
+                triggers |= set(json.load(f).get("triggers", []))
+        except (OSError, ValueError):
+            log(f"WARN: {pkg}'s meta.json can't be read")
+    run_triggers(triggers)
+    log(f"assembled {len(pkgs)} packages: {', '.join(pkgs)}")
+
+
+def run_triggers(triggers):
+    def run(*cmd):
+        if any(os.access(os.path.join(d, cmd[0]), os.X_OK) for d in os.environ.get("PATH", "/usr/bin").split(":")):
+            subprocess.run(list(cmd), stdout=subprocess.DEVNULL)
+
+    run("ldconfig")
+    if "fonts" in triggers:
+        run("fc-cache", "-s")
+    if "icons" in triggers:
+        for theme in sorted(os.listdir("/usr/share/icons")):
+            if os.path.isfile(os.path.join("/usr/share/icons", theme, "index.theme")):
+                run("gtk-update-icon-cache", "-q", "-f", "-t", os.path.join("/usr/share/icons", theme))
+    if "desktop" in triggers:
+        run("update-desktop-database", "-q", "/usr/share/applications")
+    if "mime" in triggers:
+        run("update-mime-database", "/usr/share/mime")
+    if "schemas" in triggers:
+        run("glib-compile-schemas", "/usr/share/glib-2.0/schemas")
+    for name, sub in (("pixbuf", "gdk-pixbuf-2.0/gdk-pixbuf-query-loaders"), ("gio", "glib-2.0/gio-querymodules")):
+        if name in triggers:
+            for tool in sorted(p for p in (os.path.join("/usr/lib", d, sub) for d in os.listdir("/usr/lib"))
+                               if os.access(p, os.X_OK)):
+                if name == "pixbuf":
+                    subprocess.run([tool, "--update-cache"])
+                else:
+                    subprocess.run([tool, os.path.join(os.path.dirname(os.path.dirname(tool)), "gio", "modules")])
+
+
+def main():
+    args = sys.argv[1:]
+    if args == ["assemble"]:
+        assemble()
+        return 0
+    if len(args) >= 2 and args[0] == "capture" and "--" in args:
+        cut = args.index("--")
+        opts, command = args[2:cut], args[cut + 1:]
+        out, needs, probe, allow, lax = None, [], "", [], False
+        i = 0
+        while i < len(opts):
+            o = opts[i]
+            if o == "--lax":
+                lax = True
+                i += 1
+                continue
+            if i + 1 >= len(opts):
+                break
+            v = opts[i + 1]
+            if o == "--out":
+                out = v
+            elif o == "--needs":
+                needs = [n for n in v.split(",") if n]
+            elif o == "--probe":
+                probe = v
+            elif o == "--allow":
+                allow.append(v)
+            else:
+                break
+            i += 2
+        if i == len(opts) and out and command:
+            capture(args[1], out, command, needs, probe, allow, lax)
+            return 0
+    print(__doc__, file=sys.stderr)
+    return 2
+
+
+if __name__ == "__main__":
+    sys.exit(main())
