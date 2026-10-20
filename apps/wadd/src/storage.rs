@@ -288,8 +288,15 @@ impl Storage {
                 .filter_map(|a| a.labels.get(crate::builds::FROM_LABEL).and_then(Value::as_str))
                 .map(short)
                 .collect();
+            // podman's steps under an image (`podman images` hides them too):
+            // they share its layers, free nothing and go with it.
+            let steps: HashSet<String> = all.iter().map(|a| short(&a.parent)).filter(|p| !p.is_empty()).collect();
             let mut items = vec![];
-            for i in df.images.iter().filter(|i| !counted.contains(&short(&i.id))) {
+            for i in df
+                .images
+                .iter()
+                .filter(|i| !counted.contains(&short(&i.id)) && !(i.name.is_empty() && steps.contains(&short(&i.id))))
+            {
                 let info = all.iter().find(|a| short(&a.id) == short(&i.id));
                 let (label, detail, deletable) = classify(i, info, under.contains(&short(&i.id)));
                 items.push(OtherItem {
@@ -401,6 +408,23 @@ fn classify(
         return (
             format!("An older build of {layer}"),
             "Something here is still built on it: it goes when that's updated or deleted.".into(),
+            false,
+        );
+    }
+    // Version 4 wadspaces' parts (sets.rs). They inherit the base's labels.
+    let pkg = label(crate::packages::PKG_LABEL);
+    if !pkg.is_empty() {
+        return (
+            format!("The {pkg} package"),
+            "What version 4 wadspaces' images are put together from: it stays.".into(),
+            false,
+        );
+    }
+    let chain = label(crate::sets::CHAIN_LABEL);
+    if !chain.is_empty() {
+        return (
+            format!("Packages stacked: {}", wad_core::packages::pkgs_of_label(&chain).join(", ")),
+            "A step version 4 wadspaces' images are built from: the next build with these packages starts here.".into(),
             false,
         );
     }

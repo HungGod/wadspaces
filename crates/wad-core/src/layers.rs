@@ -772,7 +772,7 @@ pub fn extensions_dockerfile(c: &Value, t: &Value) -> String {
     lines.join("\n") + "\n"
 }
 
-fn wadbrowser_conf(template: &Value, setup: &Value) -> Option<String> {
+pub(crate) fn wadbrowser_conf(template: &Value, setup: &Value) -> Option<String> {
     let mode = if s(setup, "browserMode") == "focus" { "focus" } else { "full" };
     has_app(template, "wadbrowser").then(|| crate::generator::wadbrowser_conf(&json!({ "defaultBrowser": mode })))?
 }

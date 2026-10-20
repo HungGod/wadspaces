@@ -45,6 +45,8 @@ pub struct Machine {
     pub volume_bytes: HashMap<String, u64>,
     /// What only an image has (podman system df's UniqueSize), and all the images' layers together.
     pub image_unique: HashMap<String, u64>,
+    /// Image -> the one podman built it on (an untagged step, say).
+    pub image_parents: HashMap<String, String>,
     pub images_size: Option<u64>,
     pub build_fails: Option<String>,
     pub build_slow: bool,
@@ -302,6 +304,7 @@ impl Backend for Fake {
             created: 1_700_000_000.0,
             size: m.image_sizes.get(&image).copied().unwrap_or(2_000_000_000),
             labels: m.image_labels.get(&image).cloned().unwrap_or_default(),
+            parent: m.image_parents.get(&image).map(|p| id_of(p)).unwrap_or_default(),
             tags: vec![image],
         }))
     }

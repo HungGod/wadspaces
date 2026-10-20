@@ -97,6 +97,9 @@ pub struct ImageInfo {
     pub size: u64,
     pub labels: serde_json::Map<String, Value>,
     pub tags: Vec<String>,
+    /// The image it was built on, as podman recorded it: empty for one
+    /// that came whole (pulled, copied in).
+    pub parent: String,
 }
 
 /// A running container as `containers_labelled` sees it.
@@ -338,6 +341,7 @@ impl Podman {
                 .and_then(Value::as_array)
                 .map(|t| t.iter().filter_map(Value::as_str).map(String::from).collect())
                 .unwrap_or_default(),
+            parent: info.get("Parent").and_then(Value::as_str).unwrap_or_default().to_string(),
         }))
     }
 
@@ -420,6 +424,7 @@ impl Podman {
                     .and_then(Value::as_array)
                     .map(|t| t.iter().filter_map(Value::as_str).map(String::from).collect())
                     .unwrap_or_default(),
+                parent: i.get("ParentId").and_then(Value::as_str).unwrap_or_default().to_string(),
             })
             .collect())
     }
@@ -559,6 +564,7 @@ impl Podman {
                     .and_then(Value::as_array)
                     .map(|t| t.iter().filter_map(Value::as_str).map(String::from).collect())
                     .unwrap_or_default(),
+                parent: i.get("ParentId").and_then(Value::as_str).unwrap_or_default().to_string(),
             })
             .collect())
     }

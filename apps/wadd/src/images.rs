@@ -11,7 +11,8 @@
 //!   installed, or updated, as a workspace on its top layer's image
 //!   (wad-core's `workspace_for`): its name and wallpaper at run time, a
 //!   /config of its own, its sign-ins, and the github_token secret when the
-//!   machine has one. A stack (version 3), or a version 2 wadspace.
+//!   machine has one. A stack (version 3), or a version 2 wadspace; a
+//!   version 4 one installs on its set (sets.rs).
 //! - `PUT /v1/workspaces/{id}/wallpaper`: the wallpaper it's started with,
 //!   kept in its extra folder (mounted at /run/wadspaces-extra).
 
@@ -38,9 +39,30 @@ fn internal(e: impl std::fmt::Display) -> ApiError {
     ApiError::new(ErrorCode::Internal, e.to_string())
 }
 
-/// "template:<id>" / "custom:<id>" with a valid id.
+/// "template:<id>" / "custom:<id>" with a valid id, or a set's "set:<key>".
 pub fn layer_ok(layer: &str) -> bool {
-    matches!(layer.split_once(':'), Some(("template" | "custom", id)) if wad_core::spec::is_id(id))
+    match layer.split_once(':') {
+        Some(("template" | "custom", id)) => wad_core::spec::is_id(id),
+        Some(("set", key)) => key.len() == 12 && key.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b)),
+        _ => false,
+    }
+}
+
+/// The image a layer's name points at.
+pub fn layer_ref(layer: &str) -> String {
+    if layer.starts_with("set:") {
+        wad_core::v4::image_ref(layer, wad_core::spec::DEFAULT_BASE_IMAGE)
+    } else {
+        wad_core::layers::image_ref(layer)
+    }
+}
+
+/// The layer a workspace's image is ("template:<id>", "custom:<id>",
+/// "set:<key>"), if it's one of the Builder's.
+pub fn layer_of(image: &str) -> Option<String> {
+    let rest = image.strip_prefix("localhost/wadspaces-")?.strip_suffix(":latest")?;
+    let (kind, id) = rest.split_once('-')?;
+    matches!(kind, "template" | "custom" | "set").then(|| format!("{kind}:{id}")).filter(|l| layer_ok(l))
 }
 
 /// The layer images here.
@@ -50,11 +72,13 @@ pub async fn list(backend: &dyn Backend) -> Result<Vec<ImageRow>, ApiError> {
         .into_iter()
         .filter_map(|i| {
             let layer = i.labels.get(LAYER_LABEL).and_then(Value::as_str).filter(|l| layer_ok(l))?.to_string();
-            let image_ref = wad_core::layers::image_ref(&layer);
+            let image_ref = layer_ref(&layer);
+            let pkgs = i.labels.get(crate::sets::PKGS_LABEL).and_then(Value::as_str).unwrap_or_default();
             // Only the image the layer's name points at (not an older build).
             i.tags.iter().any(|t| t == &image_ref).then(|| ImageRow {
                 dockerfile_sha: i.labels.get(SHA_LABEL).and_then(Value::as_str).unwrap_or_default().into(),
                 from: i.labels.get(FROM_LABEL).and_then(Value::as_str).unwrap_or_default().into(),
+                pkgs: pkgs.split(',').filter(|p| !p.is_empty()).map(String::from).collect(),
                 layer,
                 image_ref,
                 id: i.id,
@@ -75,6 +99,7 @@ pub async fn list(backend: &dyn Backend) -> Result<Vec<ImageRow>, ApiError> {
             built_at: i.created,
             size_mb: (i.size as f64 / 1_000_000.0).round(),
             from: String::new(),
+            pkgs: vec![],
         });
     }
     Ok(rows)
@@ -85,7 +110,7 @@ pub async fn delete(registry: &Registry, builds: &Builds, backend: &dyn Backend,
     if !layer_ok(layer) {
         return Err(bad(format!("{layer:?} isn't a layer")));
     }
-    let image = wad_core::layers::image_ref(layer);
+    let image = layer_ref(layer);
     let users: Vec<String> = registry.workspaces().into_iter().filter(|w| w.image == image).map(|w| w.name).collect();
     if !users.is_empty() {
         return Err(ApiError::new(ErrorCode::Conflict, format!("{} run on it; delete them first", users.join(", "))));
@@ -119,8 +144,7 @@ fn from_of(i: &ImageInfo) -> &str {
 
 /// Whether it's the build its layer's name points at (else an older one).
 fn current(layer: &str, i: &ImageInfo) -> bool {
-    let image_ref = wad_core::layers::image_ref(layer);
-    i.tags.contains(&image_ref)
+    i.tags.contains(&layer_ref(layer))
 }
 
 /// Older builds of layers that nothing still needs: no image here is built
@@ -179,7 +203,7 @@ pub async fn delete_selected(
         return Err(ApiError::new(ErrorCode::Conflict, format!("{l} is building")));
     }
     for l in &pick.layers {
-        let image = wad_core::layers::image_ref(l);
+        let image = layer_ref(l);
         let on: Vec<&str> = installed
             .iter()
             .filter(|w| w.image == image && !pick.wadspaces.contains(&w.id))
@@ -241,7 +265,7 @@ pub async fn delete_selected(
                 Ok(false) => {}
                 // Something here is built on it: the name goes, the files stay with that.
                 Err(_) if current(l, i) => {
-                    backend.remove_image(&wad_core::layers::image_ref(l)).await.map_err(internal)?;
+                    backend.remove_image(&layer_ref(l)).await.map_err(internal)?;
                     freed.kept.push(l.clone());
                 }
                 Err(e) => tracing::info!("an old build of {l} stays ({}): {e}", i.id),
@@ -249,8 +273,19 @@ pub async fn delete_selected(
         }
     }
     // Other images: each on its own (podman refuses one something needs).
+    // Packages and the chains sets are built from stay (they're cleared
+    // up with the sets that use them).
     let sizes = backend.system_df().await.unwrap_or_default();
+    let all_images = backend.images_all().await.unwrap_or_default();
+    let short = |id: &str| id.trim_start_matches("sha256:").to_string();
     for id in &pick.images {
+        if all_images.iter().any(|i| short(&i.id) == short(id) && crate::sets::is_assembly_part(&i.labels)) {
+            freed.failed.push(format!(
+                "image {}: a package's, or a step sets are built from: it stays",
+                &id[..id.len().min(12)]
+            ));
+            continue;
+        }
         let bytes = sizes
             .images
             .iter()
@@ -320,11 +355,18 @@ pub async fn prune(backend: &dyn Backend) -> Result<Freed, ApiError> {
             Err(e) => tracing::info!("an old build stays for now ({}): {e}", i.id),
         }
     }
-    // Older bases (a stick update brought a newer one) nothing stands on any more.
-    for i in old_bases(backend).await {
+    // Older bases (a stick update brought a newer one) nothing stands on any
+    // more, and steps a build left on the base (they carry its labels). Each
+    // frees what only it had: a step's layers are its image's, so next to
+    // nothing.
+    let olds = old_bases(backend).await;
+    let df = if olds.is_empty() { Default::default() } else { backend.system_df().await.unwrap_or_default() };
+    let short = |id: &str| id.trim_start_matches("sha256:").to_string();
+    for i in olds {
+        let bytes = df.images.iter().find(|d| short(&d.id) == short(&i.id)).map_or(i.size, |d| d.unique);
         match backend.remove_image_id(&i.id).await {
             Ok(true) => {
-                freed.bytes += i.size;
+                freed.bytes += bytes;
                 freed.removed.push(i.id);
             }
             Ok(false) => {}
@@ -342,7 +384,8 @@ const STREAM_IMAGE: &str = "localhost/wadspaces-stream:trixie";
 /// sidecars a newer one replaced. A layer's image is never one: it inherits
 /// its base's build_version label, but it has its own layer label (counting
 /// it made the tidy-up after a build delete the very images it built, those
-/// no other image is built on).
+/// no other image is built on); nor is a chain, a set or a package
+/// (sets.rs's labels).
 async fn old_bases(backend: &dyn Backend) -> Vec<ImageInfo> {
     let base = wad_core::spec::DEFAULT_BASE_IMAGE;
     let Ok(all) = backend.images_all().await else { return vec![] };
@@ -354,7 +397,9 @@ async fn old_bases(backend: &dyn Backend) -> Vec<ImageInfo> {
             let is_base = version(i).contains("WadSpaces base");
             // An older stream sidecar (a newer one took its name).
             let old_stream = version(i).contains("WadSpaces stream") && !i.tags.iter().any(|t| t == STREAM_IMAGE);
-            let layer = i.labels.contains_key(LAYER_LABEL) || i.labels.contains_key(SHA_LABEL);
+            let layer = i.labels.contains_key(LAYER_LABEL)
+                || i.labels.contains_key(SHA_LABEL)
+                || crate::sets::is_assembly_part(&i.labels);
             ((is_base && !i.tags.iter().any(|t| t == base)) || old_stream) && !layer && !under.contains(&short(&i.id))
         })
         .collect()
@@ -365,7 +410,9 @@ async fn old_bases(backend: &dyn Backend) -> Vec<ImageInfo> {
 #[serde(rename_all = "camelCase")]
 pub struct Install {
     pub wadspace: Value,
-    /// Its template (the top of its chain).
+    /// Its template (the top of its chain); none for version 4, whose
+    /// templates are its own.
+    #[serde(default)]
     pub template: Value,
     /// Its Extensions layer, if it has one ("customization" from before
     /// the layer was called Extensions).
@@ -383,6 +430,7 @@ pub async fn workspace_of(backend: &dyn Backend, id: &str, req: &Install) -> Res
         return Err(bad(format!("{id:?}: the wadspace sent is another")));
     }
     let setup = match w.get("version").and_then(Value::as_u64) {
+        Some(4) => return Err(bad("a version 4 wadspace installs with its set (sets.rs)")),
         Some(3) => setup_v3(w, req)?,
         Some(2) => setup_v2(w, req)?,
         _ => return Err(bad("a wadspace from before the layers: WadSpaces moves it to them first")),

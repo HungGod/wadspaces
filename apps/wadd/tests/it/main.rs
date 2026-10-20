@@ -16,6 +16,7 @@ mod packages;
 mod proxy;
 mod registry;
 mod secrets;
+mod sets;
 mod signins;
 mod streams;
 mod tailnet;

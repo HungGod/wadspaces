@@ -78,6 +78,19 @@ pub struct AppState {
     pub tailnet: Arc<crate::tailnet::Tailnet>,
 }
 
+impl AppState {
+    /// What installing and building version 4 wadspaces needs.
+    pub fn here(&self) -> crate::sets::Here<'_> {
+        crate::sets::Here {
+            registry: &self.registry,
+            backend: self.registry_backend.as_ref(),
+            builds: &self.builds,
+            state_dir: &self.store.dir,
+            machine: Some(self.store.cloud()).filter(|l| l.linked).and_then(|l| l.machine_id),
+        }
+    }
+}
+
 /// An ApiError as an HTTP response.
 pub struct Failure(pub ApiError);
 
@@ -150,6 +163,8 @@ pub fn router(app: Arc<AppState>) -> Router {
                 .layer(axum::extract::DefaultBodyLimit::max(WALLPAPER_BODY)),
         )
         .route("/v1/wadspaces/{id}", axum::routing::put(wadspace_install))
+        .route("/v1/wadspaces/{id}/build", post(wadspace_build))
+        .route("/v1/machine/theme", axum::routing::put(machine_theme))
         .route("/v1/images", get(images))
         .route("/v1/packages", get(packages))
         .route("/v1/packages/fetch", post(packages_fetch).delete(packages_fetch_cancel))
@@ -946,7 +961,28 @@ async fn wadspace_install(
     Path(id): Path<String>,
     Json(req): Json<crate::images::Install>,
 ) -> Result<Json<WorkspaceSaved>, Failure> {
+    if wad_core::v4::is_v4(&req.wadspace) {
+        let i = crate::sets::install(&app.here(), &id, &req.wadspace, req.tz.as_deref()).await?;
+        return Ok(Json(i.saved));
+    }
     Ok(Json(crate::images::install(&app.registry, app.registry_backend.as_ref(), &id, &req).await?))
+}
+
+/// A version 4 wadspace's image (its set), built unless it's up to date.
+async fn wadspace_build(
+    State(app): State<Arc<AppState>>,
+    Path(id): Path<String>,
+) -> Result<Json<wad_proto::v1::SetBuild>, Failure> {
+    Ok(Json(crate::sets::build_installed(&app.here(), &id).await?))
+}
+
+/// The theme version 4 wadspaces take at their next start.
+async fn machine_theme(
+    State(app): State<Arc<AppState>>,
+    Json(t): Json<wad_proto::v1::MachineTheme>,
+) -> Result<StatusCode, Failure> {
+    crate::sets::set_theme(&app.here(), t.theme).await?;
+    Ok(StatusCode::NO_CONTENT)
 }
 
 /// The wallpaper a wadspace starts with, as a picture (the switcher shows it).

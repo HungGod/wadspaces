@@ -641,6 +641,10 @@ async fn everything_else_on_the_disk_is_named_and_what_can_go_goes() {
         m.image_unique.insert("localhost/wadspaces-kale-b:latest".into(), 900);
         m.images.insert("<none>@step".into());
         m.image_unique.insert("<none>@step".into(), 40);
+        // A step podman built that one on: it goes with it, so it isn't listed.
+        m.images.insert("<none>@under-kale".into());
+        m.image_ids.insert("<none>@under-kale".into(), format!("{:0>64}", "beef"));
+        m.image_parents.insert("localhost/wadspaces-kale-b:latest".into(), "<none>@under-kale".into());
         // All the layers: 3000 + 2000 + 600 ours, 940 theirs, 460 shared by older images.
         m.images_size = Some(7_000);
         m.volume_bytes.insert("wad-academy-config".into(), 700);
@@ -878,7 +882,10 @@ async fn what_a_build_makes_stays_after_the_tidy_up() {
         m.images.insert(old.into());
         let labels = json!({"build_version": "WadSpaces base version:- 20261001"});
         m.image_labels.insert(old.into(), labels.as_object().unwrap().clone());
+        m.image_unique.insert(old.into(), 1_400);
     });
     let f = images::prune(&e.fake).await.unwrap();
     assert_eq!(f.removed.len(), 1, "{:?}", f.removed);
+    // What it freed is what only it had (podman's system df), not its size.
+    assert_eq!(f.bytes, 1_400);
 }

@@ -228,7 +228,7 @@ impl Launches {
         let Some(builds) = self.builds.lock().unwrap().as_ref().and_then(Weak::upgrade) else { return };
         for id in ids {
             let Ok(ws) = self.registry.workspace(id) else { continue };
-            let layer = layer_of(&ws.image);
+            let layer = crate::images::layer_of(&ws.image);
             let Some(layer) = layer else { continue };
             for _ in 0..(3 * 3600) {
                 if !builds.building(&layer) {
@@ -657,6 +657,12 @@ impl Launches {
             let Some(labels) = self.backend.image_labels(&ws.image).await? else {
                 return Err(format!("{} isn't on this machine; build {} in WadSpaces first", ws.image, ws.name));
             };
+            // A version 4 wadspace's web apps and layout come in at start.
+            if !labels.contains_key(crate::sets::EXTRAS_LABEL)
+                && crate::sets::installed_doc(&self.state_dir, id).is_some()
+            {
+                return Err(format!("{} is on a base from before version 4 wadspaces: update the base", ws.name));
+            }
             let level = labels.get(PROJECTS_LABEL).and_then(Value::as_str).and_then(|v| v.parse::<u32>().ok());
             let needs = if ws.projects.iter().any(|p| p.kind == ProjectKind::Mount) {
                 MOUNTS_IN
@@ -750,15 +756,6 @@ enum Stage {
 pub struct Prepared {
     pub workspace: String,
     pub restart: bool,
-}
-
-/// The layer an image belongs to ("template:<id>" / "custom:<id>"), if it's one.
-fn layer_of(image: &str) -> Option<String> {
-    let rest = image.strip_prefix("localhost/wadspaces-")?.strip_suffix(":latest")?;
-    if let Some(id) = rest.strip_prefix("template-") {
-        return Some(format!("template:{id}"));
-    }
-    rest.strip_prefix("custom-").map(|id| format!("custom:{id}"))
 }
 
 fn bad(msg: impl Into<String>) -> ApiError {

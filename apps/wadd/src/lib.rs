@@ -31,6 +31,7 @@ pub mod registry;
 pub mod remote;
 pub mod screen;
 pub mod secrets;
+pub mod sets;
 pub mod signins;
 pub mod storage;
 pub mod streams;
@@ -293,6 +294,7 @@ impl Server {
         );
         let builds = builds::Builds::new(backend.clone(), bus.clone(), &d.state_dir, d.build_min_free_gb);
         let packages = packages::Packages::new(backend.clone(), bus.clone(), packages::Settings::new(config));
+        builds.set_packages(packages.clone());
         // Streams: each run of wadd is told apart by the self-test.
         let instance = streams::random_hex(8);
         let tunnel = Arc::new(tunnel::Tunnel::new(

@@ -9,7 +9,10 @@
 //! since been rebuilt. None of it adds a workspace: a wadspace installs on
 //! its layer's image (images.rs, with `merged`).
 //!
-//! One build runs at a time; bases are never downloaded (they reach a
+//! A version 4 wadspace's image is a set instead (sets.rs): its packages
+//! stacked on the base. Its build is a job here too.
+//!
+//! A few builds run at once; bases are never downloaded (they reach a
 //! machine on the update drive), and a build needs some free disk. Progress
 //! goes out as `build` events: the job, plus the log lines since the last
 //! event.
@@ -237,11 +240,18 @@ fn layer_context(step: &LayerStep, icons: &[(String, Vec<u8>)]) -> Result<Vec<u8
     Ok(context)
 }
 
+/// What a job builds.
+enum Work {
+    /// Layer images, in order.
+    Layers(Vec<LayerStep>),
+    Set(crate::sets::SetWork),
+}
+
 struct Job {
     build: Build,
     log: Lines,
-    /// The images to build, in order; taken when it starts.
-    work: Option<Vec<LayerStep>>,
+    /// What to build; taken when it starts.
+    work: Option<Work>,
     /// Which of how many images is building now (for the progress bar).
     group: u32,
     groups: u32,
@@ -263,6 +273,8 @@ pub struct Builds {
     /// One build at a time on each image: two builds that both need a
     /// template take turns on it (the second finds it built, and skips it).
     images_busy: Mutex<HashMap<String, Arc<tokio::sync::Mutex<()>>>>,
+    /// Where sets get their packages.
+    packages: Mutex<Option<Arc<crate::packages::Packages>>>,
 }
 
 /// How many builds run at once: their downloads and builds side by side.
@@ -293,7 +305,26 @@ impl Builds {
             last_publish: Mutex::default(),
             slots: tokio::sync::Semaphore::new(AT_ONCE),
             images_busy: Mutex::default(),
+            packages: Mutex::default(),
         })
+    }
+
+    /// Where set builds get their packages.
+    pub fn set_packages(&self, p: Arc<crate::packages::Packages>) {
+        *self.packages.lock().unwrap() = Some(p);
+    }
+
+    pub(crate) fn packages(&self) -> Option<Arc<crate::packages::Packages>> {
+        self.packages.lock().unwrap().clone()
+    }
+
+    pub(crate) fn backend(&self) -> &Arc<dyn Backend> {
+        &self.backend
+    }
+
+    /// Itself, for what outlives a call (a build's log lines).
+    pub(crate) fn me(&self) -> Option<Arc<Self>> {
+        self.me.upgrade()
     }
 
     /// Web apps' icons (and their cache), for builds and for WadSpaces Client.
@@ -311,16 +342,40 @@ impl Builds {
         if self.jobs.lock().unwrap().iter().any(busy) {
             return Err(ApiError::new(ErrorCode::Conflict, format!("{} is already building", last.name)));
         }
+        let (name, image, base) = (last.name.clone(), last.tag.clone(), steps[0].from.clone());
+        let groups = steps.len() as u32;
+        Ok(self.start_job(key, name, image, base, Work::Layers(steps), groups))
+    }
+
+    /// Builds a version 4 wadspace's set (sets.rs): `packages` (wad-core's
+    /// v4::packages_of) on `base`. A build of the same set already going on
+    /// is the one it answers.
+    pub fn create_set(&self, name: &str, packages: Vec<String>, base: &str) -> Result<Build, ApiError> {
+        if packages.is_empty() {
+            return Err(bad(format!("{name} has no packages: it runs on the base")));
+        }
+        let key = format!("set:{}", wad_core::v4::set_key(&packages));
+        if let Some(b) = self.list().into_iter().find(|b| b.ws_id == key && !b.status.finished()) {
+            return Ok(b);
+        }
+        let image = wad_core::v4::image_ref(&key, base);
+        // Its packages, chain steps and the set: groups move as it learns them.
+        let groups = packages.len() as u32 + 2;
+        let work = crate::sets::SetWork { key: key.clone(), packages, base: base.to_string() };
+        Ok(self.start_job(key, name.to_string(), image, base.to_string(), Work::Set(work), groups))
+    }
+
+    fn start_job(&self, key: String, name: String, image: String, base: String, work: Work, groups: u32) -> Build {
         let id = wad_store::projects::new_id()[..12].to_lowercase();
         let build = Build {
             id: id.clone(),
             ws_id: key.clone(),
-            name: last.name.clone(),
+            name,
             status: BuildStatus::Queued,
             progress: 0.0,
             error: None,
-            image: last.tag.clone(),
-            base_image: steps[0].from.clone(),
+            image,
+            base_image: base,
             created: now(),
             started: None,
             finished: None,
@@ -331,14 +386,13 @@ impl Builds {
             layer: Some(key),
         };
         let log = Lines::new(&self.log_dir, &id, MAX_LINES);
-        let groups = steps.len() as u32;
-        self.jobs.lock().unwrap().push(Job { build: build.clone(), log, work: Some(steps), group: 0, groups });
+        self.jobs.lock().unwrap().push(Job { build: build.clone(), log, work: Some(work), group: 0, groups });
         self.trim();
         self.publish(&id, true);
         let me = self.me.upgrade().expect("builds outlive their calls");
         let task_id = id.clone();
         self.tasks.lock().unwrap().insert(id, tokio::spawn(async move { me.run(task_id).await }));
-        Ok(build)
+        build
     }
 
     /// Whether a layer's image is building (or waiting to) now.
@@ -394,7 +448,7 @@ impl Builds {
         self.jobs.lock().unwrap().iter_mut().find(|j| j.build.id == id).map(|j| f(&mut j.build))
     }
 
-    fn line(&self, id: &str, text: &str) {
+    pub(crate) fn line(&self, id: &str, text: &str) {
         if let Some(j) = self.jobs.lock().unwrap().iter_mut().find(|j| j.build.id == id) {
             j.log.push(text);
             if let Some((n, of)) = step(text).filter(|(_, of)| *of > 0) {
@@ -470,6 +524,10 @@ impl Builds {
             && !f.removed.is_empty()
         {
             tracing::info!("after the builds: removed {} older images ({} MB)", f.removed.len(), f.bytes / 1_000_000);
+            // Steps a build left free next to nothing: not worth a line.
+            if f.bytes < 1_000_000 {
+                return;
+            }
             self.line(
                 &id,
                 &format!(
@@ -483,14 +541,26 @@ impl Builds {
         }
     }
 
+    /// Which of how many parts of the job it's on (each its share of the
+    /// bar), and how far into this one.
+    pub(crate) fn at(&self, id: &str, group: u32, groups: u32, part: f64) {
+        if let Some(j) = self.jobs.lock().unwrap().iter_mut().find(|j| j.build.id == id) {
+            j.group = group;
+            j.groups = groups.max(1);
+            let done = (f64::from(group) + part.clamp(0.0, 1.0)) / f64::from(j.groups);
+            j.build.progress = j.build.progress.max(done * 0.95);
+        }
+        self.publish(id, false);
+    }
+
     /// The lock for building `tag`.
-    fn image_lock(&self, tag: &str) -> Arc<tokio::sync::Mutex<()>> {
+    pub(crate) fn image_lock(&self, tag: &str) -> Arc<tokio::sync::Mutex<()>> {
         self.images_busy.lock().unwrap().entry(tag.to_string()).or_default().clone()
     }
 
     /// The build; the last image's tag when it's done.
     async fn go(&self, id: &str) -> Result<String, String> {
-        let steps = {
+        let work = {
             let mut jobs = self.jobs.lock().unwrap();
             let j = jobs.iter_mut().find(|j| j.build.id == id).ok_or("the build is gone")?;
             j.build.status = BuildStatus::Building;
@@ -503,7 +573,10 @@ impl Builds {
         {
             return Err(format!("only {free:.1} GB free; building needs at least {} GB", self.min_free_gb));
         }
-        self.go_layers(id, steps).await
+        match work {
+            Work::Layers(steps) => self.go_layers(id, steps).await,
+            Work::Set(work) => crate::sets::build(self, id, work).await,
+        }
     }
 
     /// A layer build: each image in turn (a template only when needed),

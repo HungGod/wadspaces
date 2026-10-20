@@ -394,6 +394,7 @@ mod tests {
             built_at: 0.0,
             size_mb: 0.0,
             from: String::new(),
+            pkgs: vec![],
         };
         images.insert("template:dev".into(), row("old"));
         assert_eq!(image_state("template:dev", &lib, &images), ImageState::Changed);

@@ -197,7 +197,7 @@ async fn without_a_sign_in_an_older_one_here_does_else_its_built() {
     assert_eq!(got[1].image, format!("localhost/wadspaces-pkg-vscode:{}", "0".repeat(12)));
     assert!(e.fake.0.lock().unwrap().pulls.is_empty());
     assert!(said.lines.iter().any(|l| l.contains("no GitHub sign-in")), "{:?}", said.lines);
-    assert!(said.lines.contains(&"» vscode: on this machine (an older one: a fetch gets the new one)".to_string()));
+    assert!(said.lines.contains(&"» vscode: on this machine (not CI's latest: a download gets that)".to_string()));
     let list = p.list(BASE).await.unwrap();
     let state = |id: &str| list.packages.iter().find(|r| r.id == id).unwrap().state;
     // Both are older than what CI published: electron-deps was built here.

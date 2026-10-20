@@ -9,7 +9,7 @@ use std::time::Duration;
 
 use futures_util::{StreamExt, stream};
 use tokio::time::Instant;
-use wad_icons::{Icon, Resolver, Source, cache::Cache, label_for, png, style};
+use wad_icons::{Icon, Resolver, Source, cache::Cache, decode, label_for, png, style};
 
 /// A build waits this long for all its icons together.
 const BUILD_BUDGET: Duration = Duration::from_secs(20);
@@ -63,6 +63,12 @@ impl Icons {
 
     /// A build's icons, by app id, within the build's budget.
     pub async fn for_build(&self, jobs: &[IconJob]) -> (Vec<(String, Vec<u8>)>, Made) {
+        self.themed(jobs, false).await
+    }
+
+    /// The same, for a theme: dark makes each card WadSpaces' colours
+    /// (wad-icons' style::dark); a picture the user chose stays as it is.
+    pub async fn themed(&self, jobs: &[IconJob], dark: bool) -> (Vec<(String, Vec<u8>)>, Made) {
         let deadline = Instant::now() + BUILD_BUDGET;
         let made: Vec<(String, Icon)> = stream::iter(jobs.iter().cloned())
             .map(|j| async move {
@@ -87,7 +93,12 @@ impl Icons {
                     Source::Custom => counts.custom += 1,
                     Source::Fallback => counts.fallback += 1,
                 }
-                (id, icon.png)
+                let card = dark && icon.source != Source::Custom;
+                let png = match decode::decode(&icon.png).filter(|_| card) {
+                    Some(img) => png(&style::dark(&img)),
+                    None => icon.png,
+                };
+                (id, png)
             })
             .collect();
         (icons, counts)

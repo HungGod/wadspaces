@@ -175,15 +175,13 @@ fn wadspace(app: &AppState, id: &str) -> Result<Workspace, Failure> {
     }
 }
 
-/// The layer an installed wadspace runs ("" for none of the Builder's).
+/// The layer an installed wadspace runs: one of the Builder's, "base" (a
+/// version 4 wadspace with no packages), or "" for none.
 fn layer_of(image: &str) -> String {
-    let name = image.strip_suffix(":latest").unwrap_or(image);
-    if let Some(id) = name.strip_prefix("localhost/wadspaces-custom-") {
-        format!("custom:{id}")
-    } else if let Some(id) = name.strip_prefix("localhost/wadspaces-template-") {
-        format!("template:{id}")
-    } else {
-        String::new()
+    match crate::images::layer_of(image) {
+        Some(l) => l,
+        None if image == wad_core::spec::DEFAULT_BASE_IMAGE => "base".into(),
+        None => String::new(),
     }
 }
 
@@ -249,6 +247,20 @@ async fn build(
     let docs = relay.stack_docs(&id).await?;
     let (w, lib) = (&docs.wadspace, &docs.lib);
     let name = w["customization"]["name"].as_str().unwrap_or(&id).to_string();
+    if wad_core::v4::is_v4(w) {
+        let (i, b) = crate::sets::install_and_build(&app.here(), &id, w, time_zone().as_deref()).await?;
+        if b.build.is_some() {
+            notice(&app, format!("{} is building {name}", c.name));
+        }
+        return Ok(Json(RemoteBuild {
+            workspace: i.saved.workspace.id,
+            layer: b.image_key,
+            build_id: b.build.map(|b| b.id),
+            built: b.built,
+            restart_required: i.saved.restart_required,
+            warnings: i.warnings,
+        }));
+    }
     if let Some(why) = wad_core::layers::not_ready(w, lib) {
         return Err(Failure(ApiError::new(ErrorCode::Conflict, format!("{name}: {why}"))));
     }

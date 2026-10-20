@@ -289,6 +289,29 @@ pub fn workspace_for(w: &Value, opts: &Value) -> Value {
     layers::workspace_value(s(w, "id"), own, image, signins, Some(layers::workspace_projects(own)), opts)
 }
 
+/// What wadd puts in its /run/wadspaces-extra when it's installed, for the
+/// base's init-wadspaces-workspace to take at start: its web apps
+/// (`[{id, name, url, iconUrl?}]`: their launchers; wadd makes the icons),
+/// the desktop's layout.json, and WadBrowser's wadbrowser.conf (null
+/// without WadBrowser). `{webapps, layout, wadbrowserConf}`.
+pub fn extras(w: &Value) -> Value {
+    let (template, setup) = as_template_setup(w);
+    json!({
+        "webapps": setup["webapps"],
+        "layout": layers::layout_json_for(&template, &setup),
+        "wadbrowserConf": layers::wadbrowser_conf(&template, &setup),
+    })
+}
+
+/// Its desktop's icons, as its image draws them (what the switcher shows):
+/// version 3's, from its apps, web apps and projects.
+pub fn desktop(w: &Value) -> Vec<Value> {
+    let (template, setup) = as_template_setup(w);
+    let projects: Vec<Value> =
+        js::arr(&w["customization"], "projects").iter().map(|p| json!({ "id": p["id"], "name": p["as"] })).collect();
+    layers::desktop_for(&template, &setup, &projects)
+}
+
 /// Whether its image is on a machine, from the machine's image list (GET
 /// /v1/images' rows, or a heartbeat's `images`): "never" (not built),
 /// "update" (built on a base since replaced: it runs, and a build brings it

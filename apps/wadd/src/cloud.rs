@@ -246,6 +246,17 @@ impl CloudRelay {
         self.state.lock().unwrap().linked()
     }
 
+    /// What installing and building version 4 wadspaces needs.
+    fn here(&self) -> crate::sets::Here<'_> {
+        crate::sets::Here {
+            registry: &self.parts.registry,
+            backend: self.parts.backend.as_ref(),
+            builds: &self.parts.builds,
+            state_dir: &self.settings.state_dir,
+            machine: self.ids().map(|(_, m)| m),
+        }
+    }
+
     fn ids(&self) -> Option<(String, String)> {
         let st = self.state.lock().unwrap();
         st.linked().then(|| (st.owner_uid.clone().unwrap_or_default(), st.machine_id.clone().unwrap_or_default()))
@@ -542,6 +553,27 @@ impl CloudRelay {
                 };
                 return Ok(json!({"ok": true, "pulled": pulled, "pushed": pushed, "repos": repos}));
             }
+            // A version 4 wadspace by its id: read from the account,
+            // installed here and its set built.
+            "build" if s(cmd, "layer").is_empty() => {
+                need_ws("build")?;
+                let docs = self.stack_docs(&ws).await.map_err(msg)?;
+                if !wad_core::v4::is_v4(&docs.wadspace) {
+                    return Err("only a version 4 wadspace builds by its id: send its layer".into());
+                }
+                let tz = s(cmd, "tz");
+                let (_, b) = crate::sets::install_and_build(
+                    &self.here(),
+                    &ws,
+                    &docs.wadspace,
+                    Some(&tz).filter(|t| !t.is_empty()).map(|t| t.as_str()),
+                )
+                .await
+                .map_err(msg)?;
+                return Ok(
+                    json!({"ok": true, "imageKey": b.image_key, "built": b.built, "buildId": b.build.map(|b| b.id)}),
+                );
+            }
             "build" => {
                 let req = self.layer_request(cmd).await?;
                 let b = p.builds.create_layer(&req).map_err(msg)?;
@@ -556,6 +588,13 @@ impl CloudRelay {
                     "tz": cmd.get("tz").cloned().filter(|t| !t.is_null()),
                 }))
                 .map_err(|e| e.to_string())?;
+                if wad_core::v4::is_v4(&req.wadspace) {
+                    let i =
+                        crate::sets::install(&self.here(), &id, &req.wadspace, req.tz.as_deref()).await.map_err(msg)?;
+                    return Ok(
+                        json!({"ok": true, "restartRequired": i.saved.restart_required, "warnings": i.warnings}),
+                    );
+                }
                 let saved = crate::images::install(&p.registry, p.backend.as_ref(), &id, &req).await.map_err(msg)?;
                 if let Some(w) = cmd.get("wallpaper").filter(|w| w.is_object()) {
                     let up: wad_proto::v1::WallpaperUpload =
@@ -676,6 +715,10 @@ impl CloudRelay {
         }
         if w.get("deletedAt").is_some_and(|d| !d.is_null()) {
             return Err(ApiError::new(ErrorCode::NotFound, "That wadspace is deleted."));
+        }
+        // Version 4 carries its own templates.
+        if wad_core::v4::is_v4(&w) {
+            return Ok(StackDocs { wadspace: w, lib: Value::Null });
         }
         let templates = self.template_chain(&s(&w, "template"), false).await.map_err(up)?;
         let eid = s(&w, "extensions");

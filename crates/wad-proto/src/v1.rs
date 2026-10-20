@@ -1316,7 +1316,8 @@ pub struct LayerBuildRequest {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ImageRow {
-    /// "template:<id>" or "custom:<id>".
+    /// "template:<id>", "custom:<id>", "set:<key>" (a version 4 wadspace's
+    /// packages), or "base".
     pub layer: String,
     #[serde(rename = "ref")]
     pub image_ref: String,
@@ -1328,8 +1329,42 @@ pub struct ImageRow {
     pub built_at: f64,
     pub size_mb: f64,
     /// The id of the image it was built FROM, as it was then (a template's
-    /// image rebuilt since makes its customizations "changed").
+    /// image rebuilt since makes its customizations "changed"); a set's, the
+    /// base it was built on.
     pub from: String,
+    /// A set's packages, as it stacks them: `<id>@<image id, 12>`.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub pkgs: Vec<String>,
+}
+
+/// POST /v1/wadspaces/{id}/build: a version 4 wadspace's image (its set),
+/// built now, or built already.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SetBuild {
+    /// "set:<key>", or "base" for a wadspace with no packages.
+    pub image_key: String,
+    pub built: bool,
+    /// The build making it (one already going on for the same set too).
+    #[serde(default)]
+    pub build: Option<Build>,
+}
+
+/// Light or dark: WadSpaces' theme on a machine.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Theme {
+    #[default]
+    Dark,
+    Light,
+}
+
+/// PUT /v1/machine/theme: the theme version 4 wadspaces take at their next
+/// start (their background's tone and their web apps' icons).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MachineTheme {
+    pub theme: Theme,
 }
 
 /// GET /v1/packages: the packages CI published for the base's ABI (its
@@ -1459,7 +1494,8 @@ pub struct Build {
     pub restart_required: bool,
     pub skipped: Vec<Skipped>,
     pub line_count: u64,
-    /// A layer's build ("template:<id>" or "custom:<id>"); none: a design's.
+    /// A layer's build ("template:<id>", "custom:<id>" or a set's
+    /// "set:<key>"); none: a design's.
     #[serde(default)]
     pub layer: Option<String>,
 }

@@ -176,6 +176,30 @@ fn it_installs_on_its_set_with_its_name_sign_ins_and_projects() {
 }
 
 #[test]
+fn what_it_brings_when_it_starts() {
+    let x = extras(&iq());
+    let ids: Vec<&str> = x["webapps"].as_array().unwrap().iter().map(|w| w["id"].as_str().unwrap()).collect();
+    assert_eq!(ids, ["github", "learnopengl"]);
+    let layout: Value = serde_json::from_str(x["layout"].as_str().unwrap()).unwrap();
+    let icons: Vec<(&str, Option<&str>)> = layout["icons"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|i| (i["app"].as_str().unwrap(), i["desktop"].as_str()))
+        .collect();
+    assert_eq!(icons[0], ("wadbrowser", Some("wadbrowser.desktop")));
+    assert!(icons.contains(&("webapp-github", Some("wadspaces-webapp-github.desktop"))), "{icons:?}");
+    assert_eq!(layout["icons"][1]["autostart"], true, "VS Code opens at start");
+    assert!(x["wadbrowserConf"].as_str().unwrap().contains("default = focus"));
+    // Without WadBrowser: no web apps, and the base's own wadbrowser.conf.
+    let art = with(iq(), |w| w["templates"] = json!([w["templates"][2].clone()]));
+    let x = extras(&art);
+    assert_eq!((x["webapps"].clone(), x["wadbrowserConf"].clone()), (json!([]), Value::Null));
+    let desktop: Vec<String> = desktop(&iq()).iter().map(|d| d["id"].as_str().unwrap().to_string()).collect();
+    assert!(desktop.contains(&"project:project-iq".to_string()), "{desktop:?}");
+}
+
+#[test]
 fn whether_its_built_comes_from_the_machines_images() {
     let key = image_key(&iq());
     let base = json!({"layer": "base", "id": "b2"});

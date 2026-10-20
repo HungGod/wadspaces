@@ -441,3 +441,40 @@ async fn the_builders_commands_build_install_and_launch() {
     }
     assert_eq!(e.view.session().unwrap().workspaces, ["academy", "terminal"]);
 }
+
+#[tokio::test]
+async fn a_version_4_wadspace_builds_by_its_id_on_its_own_machine() {
+    let e = linked().await;
+    let base = "localhost/wadspaces-base:trixie";
+    e.fake.with(|m| {
+        m.images.insert(base.into());
+        m.image_labels.insert(base.into(), json!({"io.wadspaces.extras": "1"}).as_object().unwrap().clone());
+        m.free_gb = 100.0;
+    });
+    // Web apps only: it runs on the base, so there's nothing to build.
+    let web = |id: &str, machine: &str| {
+        json!({"version": 4, "id": id, "owner": "u1", "machine": machine, "templates": [{"id": "w", "name": "Web", "apps": [
+            {"app": "wadbrowser", "extras": [{"id": "notes", "name": "Notes", "url": "http://127.0.0.1:9/"}]}]}],
+            "customization": {"name": "Web"}, "createdAt": "t", "updatedAt": "t"})
+    };
+    e.fb.put("wadspaces/web", web("web", "m1"));
+    e.fb.put("wadspaces/away", web("away", "m2"));
+    let cmds = "users/u1/machines/m1/commands";
+    e.fb.put(
+        &format!("{cmds}/b1"),
+        json!({"type": "build", "wsId": "web", "status": "pending", "createdAt": time(1000)}),
+    );
+    e.fb.put(
+        &format!("{cmds}/b2"),
+        json!({"type": "build", "wsId": "away", "status": "pending", "createdAt": time(2000)}),
+    );
+    e.relay.poll_once().await.unwrap();
+    let b1 = e.fb.doc(&format!("{cmds}/b1")).unwrap();
+    assert_eq!(b1["status"], "done", "{b1}");
+    assert_eq!((b1["result"]["imageKey"].as_str(), b1["result"]["built"].as_bool()), (Some("base"), Some(true)));
+    assert_eq!(e.reg.workspace("web").unwrap().image, base);
+    assert!(e.state.join("extra/web/webapps.json").is_file());
+    let b2 = e.fb.doc(&format!("{cmds}/b2")).unwrap();
+    assert_eq!(b2["status"], "error", "{b2}");
+    assert!(b2["result"]["error"].as_str().unwrap().contains("another machine"), "{b2}");
+}

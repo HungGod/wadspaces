@@ -143,6 +143,9 @@ pub struct Packages {
     index: tokio::sync::Mutex<IndexState>,
     /// One fetch or build of a package at a time.
     locks: Mutex<HashMap<String, Arc<tokio::sync::Mutex<()>>>>,
+    /// One package built here at a time, whichever (a build takes the
+    /// machine's memory and processors; downloads go side by side).
+    building_here: tokio::sync::Mutex<()>,
     fetch: Mutex<Option<PackageFetch>>,
     task: Mutex<Option<JoinHandle<()>>>,
 }
@@ -157,6 +160,7 @@ impl Packages {
             settings,
             index: tokio::sync::Mutex::default(),
             locks: Mutex::default(),
+            building_here: tokio::sync::Mutex::default(),
             fetch: Mutex::default(),
             task: Mutex::default(),
         })
@@ -384,7 +388,7 @@ impl Packages {
         if let Some(l) = here.first() {
             let g = use_local(l);
             self.name(&l.image_id, l, &g.image).await?;
-            let older = if entry.is_some() { " (an older one: a fetch gets the new one)" } else { "" };
+            let older = if entry.is_some() { " (not CI's latest: a download gets that)" } else { "" };
             watch.line(&format!("» {id}: on this machine{older}"));
             return Ok(g);
         }
@@ -459,6 +463,13 @@ impl Packages {
         got: &[Got],
         watch: &mut dyn Watch,
     ) -> Result<Got, ApiError> {
+        let _one = match self.building_here.try_lock() {
+            Ok(held) => held,
+            Err(_) => {
+                watch.line(&format!("» {id}: waiting for another package's build here"));
+                self.building_here.lock().await
+            }
+        };
         self.room_for(0).await.map_err(|e| ApiError::new(ErrorCode::Conflict, e))?;
         let needs: Vec<(String, String)> = pk::closure(&pk::needs(id))
             .into_iter()
