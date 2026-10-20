@@ -28,6 +28,7 @@ pub fn run(args: Args) -> std::process::ExitCode {
             return;
         }
         follow_wadd();
+        wad_gtk::theme::on_change(tell_wadd_theme);
         // Whether the machine can stream (the Stream buttons go by it).
         crate::stream::load_tunnel();
         crate::stream::load_streams();
@@ -141,7 +142,31 @@ fn follow_wadd() {
     glib::spawn_future_local(async move {
         let s = store();
         while let Ok(i) = rx.recv().await {
+            let was = s.read_now(|st| st.connected);
             s.apply(i);
+            // wadd up (again: it may have restarted): it hears the theme.
+            if !was && s.read_now(|st| st.connected) {
+                tell_wadd_theme(wad_gtk::theme::current());
+            }
+        }
+    });
+}
+
+/// The theme version 4 wadspaces take at their next start: wadd draws
+/// their backgrounds and web app icons in it.
+fn tell_wadd_theme(t: wad_gtk::Theme) {
+    let theme = match t {
+        wad_gtk::Theme::Dark => wad_proto::v1::Theme::Dark,
+        wad_gtk::Theme::Light => wad_proto::v1::Theme::Light,
+    };
+    let body = wad_proto::v1::MachineTheme { theme };
+    glib::spawn_future_local(async move {
+        let put = async move {
+            let w = wad_wadd_client::Wadd::here();
+            w.act(wad_wadd_client::Method::PUT, "/v1/machine/theme", Some(&body)).await.map_err(|e| e.to_string())
+        };
+        if let Err(e) = crate::rt::run(put).await {
+            tracing::debug!("the theme to wadd: {e}");
         }
     });
 }
@@ -192,11 +217,16 @@ fn snapshot(w: &gtk::ApplicationWindow, dir: std::path::PathBuf) {
             shot(&w, &dir.join(format!("launcher-{}.png", t.name())));
         }
         crate::modal::escape();
-        for (entry, name) in [("w:vanua-academy", "launcher-customize"), ("b:wadbrowser", "launcher-browser")] {
+        // (A version 4 one's picker draws a dozen textures, in each theme.)
+        for (entry, name, ms) in [
+            ("w:vanua-academy", "launcher-customize", 900),
+            ("w:intelligencequest", "launcher-customize-v4", 2500),
+            ("b:wadbrowser", "launcher-browser", 900),
+        ] {
             crate::launcher::customize(entry);
             for t in [wad_gtk::Theme::Dark, wad_gtk::Theme::Light] {
                 wad_gtk::theme::set(&display, t);
-                settle(900).await;
+                settle(ms).await;
                 shot(&w, &dir.join(format!("{name}-{}.png", t.name())));
             }
             crate::modal::escape();
@@ -223,14 +253,16 @@ fn snapshot(w: &gtk::ApplicationWindow, dir: std::path::PathBuf) {
         crate::pages::machines::pick("m-desk");
         settle(800).await;
         shot(&w, &dir.join("machines-other-dark.png"));
-        // A wadspace's details.
-        crate::details::open("vanua-academy");
-        for t in [wad_gtk::Theme::Dark, wad_gtk::Theme::Light] {
-            wad_gtk::theme::set(&display, t);
-            settle(900).await;
-            shot(&w, &dir.join(format!("details-{}.png", t.name())));
+        // A wadspace's details, version 3's and version 4's.
+        for (id, name) in [("vanua-academy", "details"), ("intelligencequest", "details-v4")] {
+            crate::details::open(id);
+            for t in [wad_gtk::Theme::Dark, wad_gtk::Theme::Light] {
+                wad_gtk::theme::set(&display, t);
+                settle(900).await;
+                shot(&w, &dir.join(format!("{name}-{}.png", t.name())));
+            }
+            crate::modal::escape();
         }
-        crate::modal::escape();
         wad_gtk::theme::set(&display, wad_gtk::Theme::Dark);
         crate::shell::go(crate::shell::Page::Builder);
         for t in [wad_gtk::Theme::Dark, wad_gtk::Theme::Light] {

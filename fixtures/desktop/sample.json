@@ -1,5 +1,5 @@
 {
-  "comment": "The native client's fake state (WADSPACES_FAKE=fixtures/desktop/sample.json): the web app's test sample (wadspaces-client's src/test/sample.ts), signed in, with Cosmic running here, linked as m-surface beside an offline Desk; \"wadd\" is the made-up wadd's answers by path (Machines' storage, files, history, diagnostics).",
+  "comment": "The native client's fake state (WADSPACES_FAKE=fixtures/desktop/sample.json): the web app's test sample (wadspaces-client's src/test/sample.ts), signed in, with Cosmic running here, linked as m-surface beside an offline Desk, and two version 4 wadspaces (IntelligenceQuest here, Desk Lab on the Desk); \"wadd\" is the made-up wadd's answers by path (Machines' storage, files, history, diagnostics).",
   "user": { "uid": "me", "githubId": "4242", "login": "me", "displayName": "Me", "photoUrl": null },
   "profile": { "username": "me", "displayName": "Me", "color": "#c6ff1f" },
   "lastSession": { "kind": "wadspace", "wadspaceIds": ["vanua-academy"], "machineId": "local", "at": "2026-10-15T01:00:00.000Z" },
@@ -37,6 +37,25 @@
       { "version": 3, "id": "old-site", "owner": "me", "order": 3, "template": "dev",
         "customization": { "name": "Old site", "description": "", "wallpaper": { "type": "gradient", "value": "linear-gradient(160deg, #17112a 0%, #0e0919 100%)" }, "projects": [], "secrets": { "bySlot": {} } },
         "createdAt": "2026-08-01T00:00:00.000Z", "updatedAt": "2026-10-12T09:00:00.000Z", "deletedAt": "2026-10-12T09:00:00.000Z" }
+    ],
+    "v4": [
+      { "version": 4, "id": "intelligencequest", "owner": "me", "machine": "m-surface", "order": 4,
+        "templates": [
+          { "id": "dev", "name": "Dev", "apps": [
+            { "app": "wadbrowser", "mode": "focus", "extras": [{ "id": "github", "name": "GitHub", "url": "https://github.com" }, { "id": "docs-rs", "name": "Docs.rs", "url": "https://docs.rs" }] },
+            { "app": "vscode", "extras": [{ "id": "anthropic.claude-code" }] }] },
+          { "id": "rust", "name": "C++ to Rust", "apps": [
+            { "app": "vscode", "extras": [{ "id": "rust-lang.rust-analyzer" }] },
+            { "app": "terminal", "extras": [{ "id": "cpp" }, { "id": "rust" }] }] },
+          { "id": "art", "name": "Game art", "apps": [{ "app": "libresprite" }, { "app": "tiled" }] }],
+        "customization": { "name": "IntelligenceQuest", "description": "Moving the game from C++ to Rust.", "wallpaper": { "type": "texture", "value": "stars" }, "autostart": ["app:vscode"],
+          "projects": [{ "id": "iq", "kind": "github", "repo": "HungGod/IntelligenceQuest", "as": "IntelligenceQuest" }],
+          "secrets": { "bySlot": { "ext:anthropic.claude-code": { "id": "vanua-claude", "name": "VanuaAcademy-claude", "kind": "vscode-claude-code" } }, "groups": [] } },
+        "createdAt": "2026-10-21T00:00:00.000Z", "updatedAt": "2026-10-21T00:00:00.000Z" },
+      { "version": 4, "id": "desk-lab", "owner": "me", "machine": "m-desk", "order": 5,
+        "templates": [{ "id": "lab", "name": "Lab", "apps": [{ "app": "obsidian" }] }],
+        "customization": { "name": "Desk Lab", "description": "Lives on the desk.", "wallpaper": { "type": "texture", "value": "marble" }, "projects": [], "secrets": { "bySlot": {}, "groups": [] } },
+        "createdAt": "2026-10-21T00:00:00.000Z", "updatedAt": "2026-10-21T00:00:00.000Z" }
     ],
     "machines": [
       { "id": "m-surface", "hostname": "surface", "name": "Surface", "daemonVersion": "0.1.0", "lastSeen": "2026-10-15T01:00:00.000Z", "workspaces": [] },
@@ -139,6 +158,8 @@
       ]
     },
     "/v1/images": [
+      { "layer": "set:9ee4c0aa0079", "ref": "localhost/wadspaces-set-9ee4c0aa0079:latest", "id": "img-iq-set", "dockerfileSha": "9ee4c0aa0079", "builtAt": 1792010000, "sizeMb": 4300, "from": "base",
+        "pkgs": ["cpp@1a2b3c4d5e6f", "rust@2b3c4d5e6f70", "electron-deps@3c4d5e6f7081", "vscode@4d5e6f708192", "tiled@5e6f708192a3", "libresprite@6f708192a3b4", "ext-anthropic.claude-code@708192a3b4c5", "ext-rust-lang.rust-analyzer@8192a3b4c5d6"] },
       { "layer": "template:writing", "ref": "localhost/wadspaces-template-writing:latest", "id": "img-writing", "dockerfileSha": "b3e41cc5b2ac9f1bb42a93a8966335b3d4c44aefe51d2d3c4dd51772cceced3a", "builtAt": 1789000000, "sizeMb": 1650, "from": "base" },
       { "layer": "template:dev", "ref": "localhost/wadspaces-template-dev:latest", "id": "img-dev", "dockerfileSha": "3c1be2509c24416cd786fc44b3ba2d8fbe3f61d0a3e353f8ed12141202f0fc0a", "builtAt": 1789000000, "sizeMb": 2400, "from": "base" },
       { "layer": "custom:vanua-academy-dev", "ref": "localhost/wadspaces-custom-vanua-academy-dev:latest", "id": "img-vanua-dev", "dockerfileSha": "99ff1a640bfcb94d747b63ee8c24a0c5da7404f89f8e9c3e912e14bd6cac0ee5", "builtAt": 1790000000, "sizeMb": 2650, "from": "img-dev" }

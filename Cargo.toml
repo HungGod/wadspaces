@@ -92,6 +92,10 @@ opt-level = 3
 opt-level = 3
 [profile.dev.package.resvg]
 opt-level = 3
+# Textures (wad-wallpaper's noise and isolines) too: the client draws a
+# dozen for its picker.
+[profile.dev.package.wad-wallpaper]
+opt-level = 3
 
 # WadBrowser and wadspaces-icon as they go into the workspace base image:
 # fast to start, small (images/build.sh).

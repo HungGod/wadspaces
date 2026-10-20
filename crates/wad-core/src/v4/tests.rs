@@ -220,3 +220,30 @@ fn what_the_board_shows() {
     assert_eq!(v["imageKey"], json!(image_key(&iq())));
     assert_eq!(v["wallpaper"]["value"], "stars");
 }
+
+#[test]
+fn version_3s_readers_read_it_too() {
+    use std::collections::HashMap;
+    let w = iq();
+    let lib = json!({"templates": [], "extensions": []});
+    // Its templates are the chain (the details page's "Built on").
+    let r = layers::resolve_stack(&lib, &w);
+    let names: Vec<&str> = js::arr(&r, "chain").iter().map(|t| s(t, "name")).collect();
+    assert_eq!(names, ["Dev", "C++ and Rust", "Game art"]);
+    assert_eq!(r["setup"]["browserMode"], "focus");
+    assert_eq!(layers::stack_image_key(&w), image_key(&w));
+    assert_eq!(layers::not_ready(&w, &lib), None);
+    let unnamed = with(iq(), |w| w["customization"]["name"] = json!(" "));
+    assert_eq!(layers::not_ready(&unnamed, &lib), Some("Its customization needs a name."));
+    assert_eq!(layers::workspace_for(&w, &r["template"], &r["setup"], &json!({})), workspace_for(&w, &json!({})));
+
+    let key = image_key(&w);
+    let row = |id: &str, from: &str| layers::LayerImage { id: id.into(), from: from.into(), sha: String::new() };
+    let mut images = HashMap::from([("base".to_string(), row("b2", ""))]);
+    assert_eq!(layers::image_state(&key, &lib, &images), layers::ImageState::Never);
+    images.insert(key.clone(), row("s1", "b1"));
+    assert_eq!(layers::image_state(&key, &lib, &images), layers::ImageState::Update);
+    images.insert(key.clone(), row("s2", "b2"));
+    assert_eq!(layers::image_state(&key, &lib, &images), layers::ImageState::Built);
+    assert_eq!(layers::image_state("base", &lib, &images), layers::ImageState::Built);
+}

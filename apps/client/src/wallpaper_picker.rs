@@ -1,6 +1,7 @@
 //! A wadspace's background (the web app's WallpaperPicker): one of the
 //! shaded gradients, or a picture from this machine (kept in the document,
-//! so made small: at most 1280 wide and 400 KB).
+//! so made small: at most 1280 wide and 400 KB). A version 4 wadspace's is
+//! one of the textures (no pictures).
 
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -17,12 +18,21 @@ const MAX_BYTES: usize = 400 * 1024;
 
 /// The picker for `value`; `on` hears each pick (`{type, value}`).
 pub fn picker(value: Value, on: impl Fn(Value) + 'static) -> gtk::Grid {
+    make(value, false, on)
+}
+
+/// The textures (in the app's theme), for a version 4 wadspace.
+pub fn texture_picker(value: Value, on: impl Fn(Value) + 'static) -> gtk::Grid {
+    make(value, true, on)
+}
+
+fn make(value: Value, textures: bool, on: impl Fn(Value) + 'static) -> gtk::Grid {
     let grid = gtk::Grid::new();
     grid.add_css_class("wallpapers");
     grid.set_column_homogeneous(true);
     grid.set_column_spacing(8);
     grid.set_row_spacing(8);
-    let me = Rc::new(Picker { grid: grid.clone(), value: RefCell::new(value), on: Box::new(on) });
+    let me = Rc::new(Picker { grid: grid.clone(), value: RefCell::new(value), textures, on: Box::new(on) });
     me.render();
     grid
 }
@@ -30,6 +40,7 @@ pub fn picker(value: Value, on: impl Fn(Value) + 'static) -> gtk::Grid {
 struct Picker {
     grid: gtk::Grid,
     value: RefCell<Value>,
+    textures: bool,
     on: Box<dyn Fn(Value)>,
 }
 
@@ -46,8 +57,10 @@ fn swatch(w: &Value, label: &str, on: bool) -> gtk::Button {
         .unwrap_or_else(|_| Wallpaper { kind: wad_wallpaper::Kind::Gradient, value: wad_wallpaper::BLANK.into() });
     let paint = wall.paint();
     t.set_wallpaper(&paint);
-    if let Paint::Image(src) = &paint {
-        images::wallpaper(src, images::later(&t, |t, tex| t.set_picture(Some(tex))));
+    match &paint {
+        Paint::Image(src) => images::wallpaper(src, images::later(&t, |t, tex| t.set_picture(Some(tex)))),
+        Paint::Texture(id) => images::textured(&t, id, 480),
+        Paint::Layers(_) => {}
     }
     let o = gtk::Overlay::new();
     o.set_child(Some(&t));
@@ -78,6 +91,16 @@ impl Picker {
             self.grid.attach(w, n % 3, n / 3, 1, 1);
             n += 1;
         };
+        if self.textures {
+            for (id, name) in wad_wallpaper::TEXTURES {
+                let w = json!({ "type": "texture", "value": id });
+                let b = swatch(&w, name, cur["type"] == "texture" && cur["value"] == *id);
+                let me = self.clone();
+                b.connect_clicked(move |_| me.pick(w.clone()));
+                place(b.upcast_ref());
+            }
+            return;
+        }
         for (name, value) in wad_wallpaper::PRESETS {
             let w = json!({ "type": "gradient", "value": value });
             let b = swatch(&w, name, cur["type"] == "gradient" && cur["value"] == *value);

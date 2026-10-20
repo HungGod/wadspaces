@@ -236,7 +236,7 @@ fn draw_streams(list: &gtk::Box, s: &AppState) {
 
 /// A wadspace's name, from the library (else the machine's).
 fn name_of(s: &AppState, id: &str) -> String {
-    s.wadspaces()
+    s.all_wadspaces()
         .into_iter()
         .find(|w| w["id"].as_str() == Some(id))
         .map(|w| s.wadspace_name(w))

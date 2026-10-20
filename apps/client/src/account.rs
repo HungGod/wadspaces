@@ -135,7 +135,7 @@ pub async fn save_wadspace(w: serde_json::Value) -> Result<(), String> {
     rt::run(async move { a.save_wadspace(&doc).await }).await.map_err(|e| e.to_string())?;
     store().update(|s| match s.library.as_mut() {
         Some(l) => {
-            put(&mut l.wadspaces, w);
+            put(l.wadspaces_for(&w), w);
             Topic::LIBRARY
         }
         None => Topic::NONE,
@@ -187,7 +187,10 @@ pub async fn delete_doc(collection: &'static str, id: String) -> Result<(), Stri
                     l.customizations.retain(|x| x["id"] != id.as_str());
                     &mut l.extensions
                 }
-                _ => &mut l.wadspaces,
+                _ => {
+                    l.v4.retain(|x| x["id"] != id.as_str());
+                    &mut l.wadspaces
+                }
             };
             list.retain(|x| x["id"] != id.as_str());
             Topic::LIBRARY
@@ -219,7 +222,7 @@ pub fn put_in_library(collection: &str, doc: serde_json::Value) {
             let list = match collection {
                 "templates" => &mut l.templates,
                 "extensions" => &mut l.extensions,
-                _ => &mut l.wadspaces,
+                _ => l.wadspaces_for(&doc),
             };
             put(list, doc);
             Topic::LIBRARY

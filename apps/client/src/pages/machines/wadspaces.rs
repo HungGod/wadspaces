@@ -56,7 +56,10 @@ fn not_here<'a>(s: &'a AppState, m: &Machine) -> Vec<&'a Value> {
     }
     s.wadspaces()
         .into_iter()
-        .filter(|w| w["template"].as_str().is_some_and(|t| !t.is_empty()) && w["customization"].is_object())
+        .filter(|w| {
+            (wad_core::v4::is_v4(w) || w["template"].as_str().is_some_and(|t| !t.is_empty()))
+                && w["customization"].is_object()
+        })
         .filter(|w| !m.containers.iter().any(|c| Some(c.id.as_str()) == w["id"].as_str()))
         .collect()
 }

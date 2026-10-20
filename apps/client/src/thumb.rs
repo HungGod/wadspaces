@@ -12,7 +12,8 @@ use crate::store::AppState;
 /// Drawn as on a screen this many times smaller, so icons read at card size.
 pub const ZOOM: f32 = 1.6;
 
-/// The desktop's icons: wad-core's desktop_for for the stack.
+/// The desktop's icons: wad-core's desktop_for for the stack (a version 4
+/// wadspace resolves to its own).
 pub fn desktop_items(st: &AppState, w: &Value) -> Vec<Value> {
     let Some(lib) = st.library.as_ref() else { return vec![] };
     let r = wad_core::layers::resolve_stack(&lib.lib(), w);
@@ -42,8 +43,10 @@ pub fn thumb(st: &AppState, w: &Value) -> DesktopThumb {
         .unwrap_or_else(|_| Wallpaper { kind: wad_wallpaper::Kind::Gradient, value: wad_wallpaper::BLANK.into() });
     let paint = wall.paint();
     t.set_wallpaper(&paint);
-    if let Paint::Image(src) = &paint {
-        images::wallpaper(src, images::later(&t, |t, tex| t.set_picture(Some(tex))));
+    match &paint {
+        Paint::Image(src) => images::wallpaper(src, images::later(&t, |t, tex| t.set_picture(Some(tex)))),
+        Paint::Texture(id) => images::textured(&t, id, 960),
+        Paint::Layers(_) => {}
     }
     let items = desktop_items(st, w);
     t.set_icons(

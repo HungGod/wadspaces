@@ -1,8 +1,9 @@
 //! Launching (the web app's data/local/layers.ts launch and data/layers.ts):
 //! each wadspace is installed as it is now (with its wallpaper drawn), its
 //! layer built first when it has to be, then wadd starts them all
-//! together, the first on screen. What was launched is kept for "Jump back
-//! in".
+//! together, the first on screen. A version 4 wadspace is installed as its
+//! document (wadd draws its background and web app icons) and its set
+//! built by its id. What was launched is kept for "Jump back in".
 
 use std::collections::HashMap;
 
@@ -92,8 +93,8 @@ fn time_zone() -> String {
         .unwrap_or_else(|| "Etc/UTC".into())
 }
 
-/// A wallpaper as the file the image shows: a gradient drawn to a PNG, a
-/// picture as a JPEG.
+/// A wallpaper as the file the image shows: a gradient (or a texture, in
+/// the app's theme) drawn to a PNG, a picture as a JPEG.
 pub fn wallpaper_upload(wall: &Value) -> Result<Value, String> {
     let kind = s(wall, "type");
     let value = s(wall, "value");
@@ -118,10 +119,14 @@ pub fn wallpaper_upload(wall: &Value) -> Result<Value, String> {
             json!({ "ext": "jpg", "data": base64::Engine::encode(&base64::engine::general_purpose::STANDARD, out.into_inner()) }),
         );
     }
+    let kind = if matches!(kind, "color" | "texture") { kind } else { "gradient" };
     let wall: wad_wallpaper::Wallpaper =
-        serde_json::from_value(json!({ "type": if kind == "color" { "color" } else { "gradient" }, "value": value }))
-            .map_err(|e| e.to_string())?;
-    let png = wad_wallpaper::draw_png(&wall).ok_or("The wallpaper couldn't be drawn.")?;
+        serde_json::from_value(json!({ "type": kind, "value": value })).map_err(|e| e.to_string())?;
+    let tone = match wad_gtk::theme::current() {
+        wad_gtk::Theme::Dark => wad_wallpaper::Tone::Dark,
+        wad_gtk::Theme::Light => wad_wallpaper::Tone::Light,
+    };
+    let png = wad_wallpaper::draw_png_toned(&wall, tone).ok_or("The wallpaper couldn't be drawn.")?;
     Ok(json!({ "ext": "png", "data": base64::Engine::encode(&base64::engine::general_purpose::STANDARD, png) }))
 }
 
@@ -215,11 +220,16 @@ fn run_overrides(
     Ok(json!({ "wallpaper": wallpaper_upload(wallpaper)?, "signins": signins }))
 }
 
-/// A wadspace installed here as it is now, with its wallpaper drawn.
+/// A wadspace installed here as it is now, with its wallpaper drawn (a
+/// version 4 one's wadd draws, in the machine's theme).
 async fn install(w: &Wadd, ws: &Value, lib: &Value, tz: &str) -> Result<(), String> {
     let id = s(ws, "id");
     if let Some(why) = not_ready(ws, lib) {
         return Err(format!("{}: {why}", s(&ws["customization"], "name")));
+    }
+    if wad_core::v4::is_v4(ws) {
+        let install = json!({ "wadspace": ws, "tz": tz });
+        return w.act(Method::PUT, &format!("/v1/wadspaces/{id}"), Some(&install)).await.map_err(|e| e.to_string());
     }
     let r = core::resolve_stack(lib, ws);
     let install = json!({ "wadspace": ws, "template": r["template"], "extensions": r.get("extensions").cloned().unwrap_or(Value::Null), "tz": tz });
@@ -232,7 +242,7 @@ async fn install(w: &Wadd, ws: &Value, lib: &Value, tz: &str) -> Result<(), Stri
 /// starts it on its sidecar).
 pub async fn install_here(id: String) -> Result<(), String> {
     let (lib, ws) = store().read_now(|st| {
-        let ws = st.library.as_ref().and_then(|l| l.wadspaces.iter().find(|x| s(x, "id") == id).cloned());
+        let ws = st.library.as_ref().and_then(|l| l.all_wadspaces().find(|x| s(x, "id") == id).cloned());
         (st.library.as_ref().map(|l| l.lib()), ws)
     });
     let lib = lib.ok_or("Your library isn't here yet.")?;
@@ -243,10 +253,10 @@ pub async fn install_here(id: String) -> Result<(), String> {
 
 /// Builds a wadspace here without starting it (the web app's buildStack):
 /// installed as it is now, its layer built unless that's up to date or
-/// already building.
+/// already building (a version 4 one's set: wadd decides).
 pub async fn build_here(id: String) -> Result<(), String> {
     let (lib, ws, building) = store().read_now(|st| {
-        let ws = st.library.as_ref().and_then(|l| l.wadspaces.iter().find(|x| s(x, "id") == id).cloned());
+        let ws = st.library.as_ref().and_then(|l| l.all_wadspaces().find(|x| s(x, "id") == id).cloned());
         let building: Vec<String> =
             st.builds.iter().filter(|(b, _)| !b.status.finished()).filter_map(|(b, _)| b.layer.clone()).collect();
         (st.library.as_ref().map(|l| l.lib()), ws, building)
@@ -257,6 +267,9 @@ pub async fn build_here(id: String) -> Result<(), String> {
     rt::run(async move {
         let w = Wadd::here();
         install(&w, &ws, &lib, &tz).await?;
+        if wad_core::v4::is_v4(&ws) {
+            return build_set(&w, &ws).await;
+        }
         let key = core::stack_image_key(&ws);
         if key.is_empty() || building.contains(&key) {
             return Ok(());
@@ -278,11 +291,20 @@ pub async fn build_here(id: String) -> Result<(), String> {
     .await
 }
 
+/// A version 4 wadspace's set built here (POST /v1/wadspaces/{id}/build:
+/// nothing when it's built already or building).
+async fn build_set(w: &Wadd, ws: &Value) -> Result<(), String> {
+    w.act(Method::POST, &format!("/v1/wadspaces/{}/build", s(ws, "id")), None::<&Value>)
+        .await
+        .map_err(|e| e.to_string())
+}
+
 /// Launches `items` (the first on screen), as a focus session of
 /// `focus_minutes` if given. The ids wadd started.
 pub async fn launch(items: Vec<RunItem>, focus_minutes: Option<u32>) -> Result<Vec<String>, String> {
     let (lib, wadspaces) = store().read_now(|s| {
-        (s.library.as_ref().map(|l| l.lib()), s.library.as_ref().map(|l| l.wadspaces.clone()).unwrap_or_default())
+        let all = s.library.as_ref().map(|l| l.all_wadspaces().cloned().collect::<Vec<_>>());
+        (s.library.as_ref().map(|l| l.lib()), all.unwrap_or_default())
     });
     let lib = lib.ok_or("Your library isn't here yet.")?;
     let mut ids: Vec<String> = vec![];
@@ -305,6 +327,13 @@ pub async fn launch(items: Vec<RunItem>, focus_minutes: Option<u32>) -> Result<V
             let Some(ws) = wadspaces.iter().find(|x| s(x, "id") == id) else { continue };
             install(&w, ws, &lib, &tz).await?;
             let key = core::stack_image_key(ws);
+            if wad_core::v4::is_v4(ws) {
+                // Its set on an older base still runs: an update, not a build.
+                if image_state(&key, &lib, &images) == ImageState::Never {
+                    build_set(&w, ws).await?;
+                }
+                continue;
+            }
             if !key.is_empty() && matches!(image_state(&key, &lib, &images), ImageState::Never | ImageState::Changed) {
                 w.act(Method::POST, "/v1/images/build", Some(&layer_request(&key, &lib)?))
                     .await
@@ -377,6 +406,9 @@ mod tests {
         let p = wallpaper_upload(&json!({"type": "image", "value": data})).unwrap();
         assert_eq!(p["ext"], "jpg");
         assert!(wallpaper_upload(&json!({"type": "image", "value": "/wallpapers/x.png"})).is_err());
+        // A texture (a version 4 run's): drawn, in the app's theme.
+        assert_eq!(wallpaper_upload(&json!({"type": "texture", "value": "stars"})).unwrap()["ext"], "png");
+        assert!(wallpaper_upload(&json!({"type": "texture", "value": "nope"})).is_err());
     }
 
     #[test]

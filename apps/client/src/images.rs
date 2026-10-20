@@ -11,10 +11,15 @@ use gtk::{gdk, glib, prelude::*};
 use crate::rt;
 
 type Waiting = Vec<Box<dyn FnOnce(gdk::Texture)>>;
+/// Thumbnails on a texture: each, its texture's id, how wide it's drawn.
+type Textured = Vec<(glib::WeakRef<wad_gtk::DesktopThumb>, String, u32)>;
 
 thread_local! {
     static READY: RefCell<HashMap<String, Option<gdk::Texture>>> = RefCell::default();
     static WAITING: RefCell<HashMap<String, Waiting>> = RefCell::default();
+    /// Thumbnails showing a texture, and which: drawn again in the other
+    /// tone when the theme changes (one listener for all of them).
+    static TEXTURED: RefCell<Option<Textured>> = const { RefCell::new(None) };
 }
 
 /// Straight RGBA as a texture.
@@ -133,6 +138,70 @@ fn wallpaper_at(value: &str, max: u32, on: impl FnOnce(gdk::Texture) + 'static) 
             img
         })
     });
+}
+
+/// The tone textures are drawn in: the app's theme (black for dark, white
+/// for light), as wadd draws them in the wadspaces.
+pub fn tone() -> wad_wallpaper::Tone {
+    match wad_gtk::theme::shown() {
+        wad_gtk::Theme::Dark => wad_wallpaper::Tone::Dark,
+        wad_gtk::Theme::Light => wad_wallpaper::Tone::Light,
+    }
+}
+
+/// A texture background (version 4's), drawn `wide` pixels wide (16:9) in
+/// a theme's tone.
+fn texture_wallpaper(id: &str, wide: u32, tone: wad_wallpaper::Tone, on: impl FnOnce(gdk::Texture) + 'static) {
+    let id = id.to_string();
+    get(format!("texture{wide} {id} {tone:?}"), on, async move {
+        // Opaque: its premultiplied pixels are straight ones.
+        let h = wide * 9 / 16;
+        image::RgbaImage::from_raw(wide, h, wad_wallpaper::texture::pixmap(&id, tone, wide, h)?.take())
+    });
+}
+
+/// A thumbnail on texture `id`, drawn `wide` pixels wide (960 for a card or
+/// the details' header, half that for a picker's swatch), in the theme's
+/// tone now and whenever it changes.
+pub fn textured(t: &wad_gtk::DesktopThumb, id: &str, wide: u32) {
+    textured_now(t, id, wide);
+    TEXTURED.with(|l| {
+        let mut l = l.borrow_mut();
+        let list = l.get_or_insert_with(|| {
+            wad_gtk::theme::on_change(|_| {
+                let live: Vec<_> = TEXTURED.with(|l| {
+                    let mut l = l.borrow_mut();
+                    let list = l.as_mut().expect("listed");
+                    list.retain(|(w, ..)| w.upgrade().is_some());
+                    list.iter().filter_map(|(w, id, wide)| Some((w.upgrade()?, id.clone(), *wide))).collect()
+                });
+                for (t, id, wide) in live {
+                    textured_now(&t, &id, wide);
+                }
+            });
+            vec![]
+        });
+        list.retain(|(w, ..)| w.upgrade().is_some());
+        list.push((t.downgrade(), id.to_string(), wide));
+    });
+}
+
+/// Its texture in the theme's tone now (and its icons' names in the ink
+/// that reads on it). One drawn for a theme since left comes too late:
+/// the next one's on its way.
+fn textured_now(t: &wad_gtk::DesktopThumb, id: &str, wide: u32) {
+    let asked = tone();
+    texture_wallpaper(
+        id,
+        wide,
+        asked,
+        later(t, move |t, tex| {
+            if tone() == asked {
+                t.set_picture(Some(tex));
+                t.set_dark_labels(asked == wad_wallpaper::Tone::Light);
+            }
+        }),
+    );
 }
 
 /// A widget that fills in when its picture arrives.

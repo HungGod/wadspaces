@@ -1,9 +1,9 @@
 //! The person's library from their account, as the native client shows it:
 //! the Builder's documents (templates, Extensions layers, saved WadBrowser
-//! setups, and their wadspaces), and their machines' heartbeats. Read as
-//! them (the rules decide), kept on disk for the next start (offline too).
-//! Documents stay JSON: wad-core's layers code reads them as the web app's
-//! wasm does.
+//! setups, and their wadspaces: version 3's and design B's version 4, kept
+//! apart), and their machines' heartbeats. Read as them (the rules decide),
+//! kept on disk for the next start (offline too). Documents stay JSON:
+//! wad-core's layers and v4 code reads them as the web app's wasm does.
 
 use std::path::PathBuf;
 
@@ -20,9 +20,21 @@ pub struct Library {
     /// Extensions layers from before they had that name (read as Extensions).
     pub customizations: Vec<Value>,
     pub browsers: Vec<Value>,
+    /// Version 3 wadspaces (the board's stacks: a template chain and an
+    /// Extensions layer).
     pub wadspaces: Vec<Value>,
+    /// Version 4 wadspaces (design B's Builder: each its own templates, on
+    /// one machine). The same collection; apart here so the old board never
+    /// sees them.
+    #[serde(default)]
+    pub v4: Vec<Value>,
     /// Each machine's last heartbeat (users/{uid}/machines).
     pub machines: Vec<Value>,
+}
+
+/// A version 4 wadspace's document (wad_core::v4::is_v4).
+pub fn is_v4(w: &Value) -> bool {
+    w.get("version").and_then(Value::as_u64) == Some(4)
 }
 
 impl Library {
@@ -32,6 +44,16 @@ impl Library {
         let mut ext = self.extensions.clone();
         ext.extend(self.customizations.iter().filter(|c| !self.extensions.iter().any(|e| e["id"] == c["id"])).cloned());
         json!({ "templates": self.templates, "extensions": ext, "browsers": self.browsers })
+    }
+
+    /// Every wadspace, version 3's then version 4's.
+    pub fn all_wadspaces(&self) -> impl Iterator<Item = &Value> {
+        self.wadspaces.iter().chain(&self.v4)
+    }
+
+    /// The list a wadspace's document belongs in, by its version.
+    pub fn wadspaces_for(&mut self, w: &Value) -> &mut Vec<Value> {
+        if is_v4(w) { &mut self.v4 } else { &mut self.wadspaces }
     }
 }
 
@@ -67,12 +89,14 @@ impl Account {
             async { fs.query_root(&tok, owned).await.map(|d| d.iter().map(plain).collect::<Vec<_>>()) },
         )
         .await;
+        let (v4, wadspaces): (Vec<Value>, Vec<Value>) = wadspaces?.into_iter().partition(is_v4);
         let lib = Library {
             templates: templates?,
             extensions: extensions?,
             customizations: customizations?,
             browsers: browsers?,
-            wadspaces: wadspaces?,
+            wadspaces,
+            v4,
             machines: machines?,
         };
         if let Some(p) = self.library_file() {

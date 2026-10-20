@@ -31,7 +31,7 @@ use crate::catalog::{self, App, Recipe};
 use crate::generator::q;
 use crate::js::{self, Obj};
 use crate::spec::{DEFAULT_BASE_IMAGE, FEATURES, is_id};
-use crate::{signins, url};
+use crate::{signins, url, v4};
 
 /// Where wadd puts a wadspace's wallpaper inside it (its extra folder).
 pub const WALLPAPER_DIR: &str = "/run/wadspaces-extra";
@@ -214,7 +214,15 @@ pub fn chain_ok(chain: &[Value]) -> Option<String> {
 /// extensions?}` (`template` the top of the chain), or null with no template
 /// (or one that's gone). `lib`: `{templates, extensions}`. An Extensions
 /// layer made on another template doesn't count (the stack needs fixing).
+/// A version 4 one is its own: its templates are the chain, and
+/// [`v4::as_template_setup`] its template and setup.
 pub fn resolve_stack(lib: &Value, w: &Value) -> Value {
+    if v4::is_v4(w) {
+        let (template, setup) = v4::as_template_setup(w);
+        let chain: Vec<Value> =
+            js::arr(w, "templates").iter().map(|t| json!({ "id": s(t, "id"), "name": s(t, "name") })).collect();
+        return json!({ "chain": chain, "template": template, "setup": setup });
+    }
     let chain = chain_of(lib, s(w, "template"));
     let Some(t) = chain.last().cloned() else { return Value::Null };
     let tid = s(&t, "id").to_string();
@@ -226,8 +234,11 @@ pub fn resolve_stack(lib: &Value, w: &Value) -> Value {
 }
 
 /// The image a version 3 wadspace runs: its Extensions layer's, else its
-/// template's ("" with neither).
+/// template's ("" with neither). A version 4 one's: its set's, or "base".
 pub fn stack_image_key(w: &Value) -> String {
+    if v4::is_v4(w) {
+        return v4::image_key(w);
+    }
     match (s(w, "extensions"), s(w, "template")) {
         ("", "") => String::new(),
         ("", t) => format!("template:{t}"),
@@ -259,9 +270,19 @@ pub enum ImageState {
 
 /// The state of the image for layer `key` ("template:<id>" or
 /// "custom:<id>"), given the machine's layer images by key ("base" for the
-/// base image). A layer the library doesn't have counts as built.
+/// base image). A layer the library doesn't have counts as built. A
+/// version 4 set ("set:<key>") is built, or an update when it's on an
+/// older base (as [`v4::state`]); "base" is built when it's here.
 pub fn image_state(key: &str, lib: &Value, images: &std::collections::HashMap<String, LayerImage>) -> ImageState {
     let Some(row) = images.get(key) else { return ImageState::Never };
+    if key == "base" || key.starts_with("set:") {
+        let base = images.get("base");
+        return if key != "base" && base.is_some_and(|b| b.id != row.from) {
+            ImageState::Update
+        } else {
+            ImageState::Built
+        };
+    }
     let under = |parent: Option<String>, sha: &str| -> ImageState {
         if row.sha != sha {
             return ImageState::Changed;
@@ -297,7 +318,12 @@ pub fn image_state(key: &str, lib: &Value, images: &std::collections::HashMap<St
 }
 
 /// Why a stack can't be installed or built yet (the web app's notReady).
+/// A version 4 wadspace needs only a name: it's ready with no apps (it runs
+/// on the base).
 pub fn not_ready(w: &Value, lib: &Value) -> Option<&'static str> {
+    if v4::is_v4(w) {
+        return s(&w["customization"], "name").trim().is_empty().then_some("Its customization needs a name.");
+    }
     if s(w, "template").is_empty() {
         return Some("It needs a template with apps.");
     }
@@ -932,8 +958,11 @@ pub(crate) fn signins_v3(w: &Value, template: &Value, setup: &Value) -> Vec<Valu
 /// Super+number (that follows what's running) and no start with the machine.
 /// `template` and `setup` are what it's built from (the top of its chain, and
 /// its Extensions' setup or the template's). `opts`: `{tz, secrets?: [podman
-/// secret names]}`.
+/// secret names]}`. A version 4 wadspace's is [`v4::workspace_for`].
 pub fn workspace_for(w: &Value, template: &Value, setup: &Value, opts: &Value) -> Value {
+    if v4::is_v4(w) {
+        return v4::workspace_for(w, opts);
+    }
     let id = s(w, "id");
     let v3 = w.get("version").and_then(Value::as_u64) == Some(3);
     // Version 3 keeps its own in its customization.

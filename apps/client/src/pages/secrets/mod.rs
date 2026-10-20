@@ -378,7 +378,7 @@ fn card(s: &AppState, x: &SignIn, users: &[KeyUser]) -> gtk::Widget {
         row.set_column_spacing(6);
         row.set_row_spacing(6);
         row.set_margin_top(12);
-        let live = s.wadspaces();
+        let live = s.all_wadspaces();
         let tag = |t: &str| {
             let b = badge(t, None, false);
             b.set_halign(gtk::Align::Start);
@@ -443,7 +443,7 @@ fn used_in(s: &AppState, users: &[KeyUser], running: &[String]) -> gtk::Widget {
     h.add_css_class("tiny-head");
     h.set_xalign(0.0);
     col.append(&h);
-    let live = s.wadspaces();
+    let live = s.all_wadspaces();
     for u in users {
         let row = gtk::Box::new(gtk::Orientation::Horizontal, 8);
         let on = running.iter().any(|r| *r == u.id || *r == format!("browser-{}", u.id));

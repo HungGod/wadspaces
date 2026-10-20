@@ -115,7 +115,7 @@ pub fn key_use(st: &AppState) -> HashMap<String, Vec<KeyUser>> {
         };
     let what = |items: &[KeyItem]| items.iter().map(|i| i.name.as_str()).collect::<Vec<_>>().join(", ");
     let mut add = |id: &str, u: KeyUser| out.entry(id.to_string()).or_default().push(u);
-    for w in st.wadspaces() {
+    for w in st.all_wadspaces() {
         if !w["customization"].is_object() {
             continue;
         }
@@ -217,7 +217,7 @@ pub async fn rename(id: String, name: String) -> Result<(), String> {
     send::<Value>(Method::PUT, format!("/v1/signins/{id}"), Some(json!({ "name": name }))).await?;
     load();
     let changed: Vec<Value> =
-        store().read_now(|s| s.wadspaces().into_iter().filter_map(|w| renamed(w, &id, &name)).collect());
+        store().read_now(|s| s.all_wadspaces().into_iter().filter_map(|w| renamed(w, &id, &name)).collect());
     for w in changed {
         crate::account::save_wadspace(w).await?;
     }
@@ -269,7 +269,7 @@ pub fn known(st: &AppState) -> Vec<(String, String, String)> {
             out.push((id.into(), s(k, "name").into(), s(k, "kind").into()));
         }
     };
-    for w in st.wadspaces() {
+    for w in st.all_wadspaces() {
         let sec = &w["customization"]["secrets"];
         sec["bySlot"].as_object().into_iter().flatten().for_each(|(_, k)| add(k));
         sec["groups"].as_array().into_iter().flatten().for_each(|g| add(&g["key"]));

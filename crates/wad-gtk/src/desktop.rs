@@ -94,6 +94,8 @@ mod imp {
         pub radius: Cell<f32>,
         /// Exactly this wide (16:9 tall), else as wide as it's given.
         pub width: Cell<Option<i32>>,
+        /// Icons' names in black (on a light texture), else white.
+        pub dark_labels: Cell<bool>,
     }
 
     impl Default for DesktopThumb {
@@ -106,6 +108,7 @@ mod imp {
                 zoom: Cell::new(1.6),
                 radius: Cell::new(0.0),
                 width: Cell::new(None),
+                dark_labels: Cell::new(false),
             }
         }
     }
@@ -176,11 +179,16 @@ mod imp {
                 None => paint_layers(snapshot, &self.layers.borrow(), vw, vh),
             }
             // The icons: a 48 px picture 5 px into its 96×104 cell, its name
-            // under it in white 12 px, on up to two lines.
+            // under it in white 12 px (black on a light texture), on up to
+            // two lines.
             let ctx = wid.pango_context();
             let mut font = pango::FontDescription::from_string("Sans 12px");
             font.set_absolute_size(12.0 * pango::SCALE as f64);
-            let white = gdk::RGBA::new(1.0, 1.0, 1.0, 1.0);
+            let ink = if self.dark_labels.get() {
+                gdk::RGBA::new(22.0 / 255.0, 22.0 / 255.0, 22.0 / 255.0, 1.0)
+            } else {
+                gdk::RGBA::new(1.0, 1.0, 1.0, 1.0)
+            };
             for (n, icon) in self.icons.borrow().iter().enumerate() {
                 let (x, y) = cell_at(n, vh);
                 if x > vw {
@@ -199,7 +207,7 @@ mod imp {
                 layout.set_height(-2);
                 snapshot.save();
                 snapshot.translate(&graphene::Point::new(x + 2.0, y + ICON + 11.0));
-                snapshot.append_layout(&layout, &white);
+                snapshot.append_layout(&layout, &ink);
                 snapshot.restore();
             }
             // The panel, and its Start button.
@@ -253,6 +261,13 @@ impl DesktopThumb {
 
     pub fn set_picture(&self, t: Option<gdk::Texture>) {
         *self.imp().picture.borrow_mut() = t;
+        self.queue_draw();
+    }
+
+    /// Icons' names in black, for a light texture (the wadspace's desktop
+    /// draws them so in the light theme).
+    pub fn set_dark_labels(&self, dark: bool) {
+        self.imp().dark_labels.set(dark);
         self.queue_draw();
     }
 

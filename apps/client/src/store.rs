@@ -123,13 +123,19 @@ impl AppState {
         }
     }
 
-    /// The wadspaces that aren't deleted (the Builder's stacks), in the
-    /// board's order.
+    /// The wadspaces this machine can start, not deleted, in the board's
+    /// order: version 3's (any machine takes them) and the version 4 ones
+    /// that live here.
     pub fn wadspaces(&self) -> Vec<&serde_json::Value> {
+        self.all_wadspaces().into_iter().filter(|w| self.lives_here(w)).collect()
+    }
+
+    /// Every wadspace that isn't deleted, on any machine, in the board's order.
+    pub fn all_wadspaces(&self) -> Vec<&serde_json::Value> {
         let mut ws: Vec<&serde_json::Value> = self
             .library
             .iter()
-            .flat_map(|l| l.wadspaces.iter())
+            .flat_map(|l| l.all_wadspaces())
             .filter(|w| w.get("deletedAt").is_none_or(|d| d.is_null()))
             .collect();
         ws.sort_by(|a, b| {
@@ -137,6 +143,17 @@ impl AppState {
             o(a).total_cmp(&o(b))
         });
         ws
+    }
+
+    /// Whether a wadspace runs on this machine: a version 4 one lives on
+    /// one machine (any, while this one isn't linked to the account: wadd
+    /// takes it then); version 3's go anywhere.
+    pub fn lives_here(&self, w: &serde_json::Value) -> bool {
+        if !wad_account::library::is_v4(w) {
+            return true;
+        }
+        let here = self.cloud.as_ref().filter(|c| c.linked).and_then(|c| c.machine_id.as_deref());
+        here.is_none_or(|m| w.get("machine").and_then(serde_json::Value::as_str) == Some(m))
     }
 
     /// A wadspace's name (the web app's wadspaceName).
@@ -328,5 +345,39 @@ impl Store {
                 }
             }
         });
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use serde_json::json;
+
+    use super::*;
+
+    #[test]
+    fn a_version_4_wadspace_shows_on_its_own_machine() {
+        let v4 = |id: &str, machine: &str, order: u32| json!({ "version": 4, "id": id, "machine": machine, "order": order, "templates": [], "customization": { "name": id } });
+        let lib = wad_account::Library {
+            wadspaces: vec![json!({ "version": 3, "id": "old", "order": 1, "template": "dev" })],
+            v4: vec![v4("here", "m-here", 2), v4("there", "m-there", 3)],
+            ..Default::default()
+        };
+        let mut s = AppState { library: Some(lib), ..Default::default() };
+        fn ids(ws: Vec<&serde_json::Value>) -> Vec<&str> {
+            ws.into_iter().map(|w| w["id"].as_str().unwrap_or("")).collect()
+        }
+        // Not linked yet: wadd takes any (as it does then).
+        assert_eq!(ids(s.wadspaces()), ["old", "here", "there"]);
+        s.cloud = Some(CloudLink {
+            linked: true,
+            machine_id: Some("m-here".into()),
+            owner_uid: Some("me".into()),
+            project_id: None,
+            linked_at: None,
+            last_heartbeat: None,
+            last_error: None,
+        });
+        assert_eq!(ids(s.wadspaces()), ["old", "here"]);
+        assert_eq!(ids(s.all_wadspaces()), ["old", "here", "there"]);
     }
 }

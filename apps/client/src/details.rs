@@ -22,7 +22,7 @@ fn s<'a>(v: &'a Value, k: &str) -> &'a str {
 
 /// Opens a wadspace's details.
 pub fn open(id: &str) {
-    let Some(w) = store().read_now(|st| st.wadspaces().into_iter().find(|w| s(w, "id") == id).cloned()) else {
+    let Some(w) = store().read_now(|st| st.all_wadspaces().into_iter().find(|w| s(w, "id") == id).cloned()) else {
         return;
     };
     let m = Modal::drawer(480);
@@ -182,8 +182,12 @@ fn actions(st: &AppState, w: &Value, m: &Modal) -> gtk::Widget {
     });
     grid.attach(&open, 0, 0, 1, 1);
     grid.attach(&customize, 1, 0, 1, 1);
-    grid.attach(&edit, 0, 1, 1, 1);
-    grid.attach(&copy, 1, 1, 1, 1);
+    // The board here is version 3's: a version 4 wadspace is edited and
+    // copied on design B's.
+    if !wad_core::v4::is_v4(w) {
+        grid.attach(&edit, 0, 1, 1, 1);
+        grid.attach(&copy, 1, 1, 1, 1);
+    }
     grid.upcast()
 }
 
@@ -367,7 +371,7 @@ fn run_row(r: &Run) -> gtk::Widget {
 
 /// "Delete X?" for a wadspace by its id (a row's menu).
 pub fn ask_delete(id: &str) {
-    if let Some(w) = store().read_now(|st| st.wadspaces().into_iter().find(|w| s(w, "id") == id).cloned()) {
+    if let Some(w) = store().read_now(|st| st.all_wadspaces().into_iter().find(|w| s(w, "id") == id).cloned()) {
         confirm_delete(&w, None);
     }
 }

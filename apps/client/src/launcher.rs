@@ -833,9 +833,14 @@ impl Flow {
         let bg = gtk::Box::new(gtk::Orientation::Vertical, 0);
         bg.append(&heading("Background", None));
         let wp = wallpaper.clone();
-        let pick = wallpaper_picker::picker(c["wallpaper"].clone(), move |v| {
+        let picked = move |v| {
             wp.replace(v);
-        });
+        };
+        let pick = if wad_core::v4::is_v4(&w) {
+            wallpaper_picker::texture_picker(c["wallpaper"].clone(), picked)
+        } else {
+            wallpaper_picker::picker(c["wallpaper"].clone(), picked)
+        };
         pick.set_size_request(560, -1);
         pick.set_halign(gtk::Align::Start);
         bg.append(&pick);
@@ -1461,7 +1466,8 @@ fn new_wadspace(
     c["secrets"]["bySlot"] = by_slot;
     // Every stack's id is taken, deleted ones too.
     let mut taken = wadspaces.to_vec();
-    if let Some(l) = store().read_now(|st| st.library.as_ref().map(|l| l.wadspaces.clone())) {
+    if let Some(l) = store().read_now(|st| st.library.as_ref().map(|l| l.all_wadspaces().cloned().collect::<Vec<_>>()))
+    {
         taken.extend(l);
     }
     let order = wadspaces.iter().filter_map(|x| x["order"].as_f64()).fold(0.0f64, f64::max) + 1.0;
@@ -1472,7 +1478,10 @@ fn new_wadspace(
         }
         o.insert("customization".into(), c);
         o.insert("id".into(), free_id(name, &taken).into());
-        o.insert("version".into(), 3.into());
+        // A version 4 one stays one (its own templates, on this machine).
+        if !wad_core::v4::is_v4(w) {
+            o.insert("version".into(), 3.into());
+        }
         o.insert("order".into(), order.into());
         o.insert("createdAt".into(), now.clone().into());
         o.insert("updatedAt".into(), now.into());
