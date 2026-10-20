@@ -27783,12 +27783,12 @@
   "out": [
    {
     "id": "stray:ext:openai.chatgpt",
-    "text": "A key is kept for Codex, but it isn't one of VS Code's extensions.",
+    "text": "A key is kept for openai.chatgpt, but it isn't one of VS Code's extensions.",
     "fixes": [
      {
       "kind": "removeKey",
       "slot": "ext:openai.chatgpt",
-      "label": "Remove the Codex key"
+      "label": "Remove the openai.chatgpt key"
      }
     ]
    }

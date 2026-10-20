@@ -4075,21 +4075,6 @@
      }
     },
     {
-     "id": "openai.chatgpt",
-     "name": "Codex",
-     "description": "OpenAI's coding agent",
-     "secret": {
-      "kind": "vscode-codex",
-      "id": "VSCode-Codex"
-     }
-    },
-    {
-     "id": "github.copilot-chat",
-     "name": "GitHub Copilot",
-     "description": "AI pair programmer (sign in inside each wadspace)",
-     "secret": null
-    },
-    {
      "id": "ms-python.python",
      "name": "Python",
      "description": "Linting, debugging and notebooks",
@@ -4207,8 +4192,7 @@
    "vscode",
    "obsidian",
    "steam",
-   "vscode-claude-code",
-   "vscode-codex"
+   "vscode-claude-code"
   ]
  },
  {
@@ -8605,13 +8589,6 @@
     "label": "Claude Code (VS Code)",
     "appId": "VSCode-ClaudeCode",
     "iconUrl": "/apps/vscode/icon.png"
-   },
-   {
-    "key": "ext:openai.chatgpt",
-    "kind": "vscode-codex",
-    "label": "Codex (VS Code)",
-    "appId": "VSCode-Codex",
-    "iconUrl": "/apps/vscode/icon.png"
    }
   ]
  },
@@ -12893,13 +12870,6 @@
     "kind": "vscode-claude-code",
     "label": "Claude Code (VS Code)",
     "appId": "VSCode-ClaudeCode",
-    "iconUrl": "/apps/vscode/icon.png"
-   },
-   {
-    "key": "ext:openai.chatgpt",
-    "kind": "vscode-codex",
-    "label": "Codex (VS Code)",
-    "appId": "VSCode-Codex",
     "iconUrl": "/apps/vscode/icon.png"
    }
   ]
@@ -28671,7 +28641,7 @@
   "args": [
    "ext:openai.chatgpt"
   ],
-  "out": "vscode-codex"
+  "out": null
  },
  {
   "fn": "kindOfSlotKey",

@@ -88,10 +88,10 @@ fn offers_a_slot_per_web_app_ai_extension_and_app_that_keeps_a_sign_in() {
     assert_eq!(keys(&slots, "key"), want);
     let w = slots_for(&writing(), &empty_setup("writing"));
     assert_eq!((keys(&w, "key"), keys(&w, "kind")), (vec!["app:obsidian".into()], vec!["obsidian".into()]));
-    // An extension that keeps nothing, or Copilot (signs in inside each wadspace), has no slot.
+    // An extension that keeps nothing has no slot.
     let mut plain = academy_dev();
     plain["webapps"] = json!([]);
-    plain["extensions"] = json!(["ms-python.python", "github.copilot-chat"]);
+    plain["extensions"] = json!(["ms-python.python", "esbenp.prettier-vscode"]);
     assert_eq!(keys(&slots_for(&dev(), &plain), "key"), ["app:vscode"]);
     let steam = json!({ "id": "games", "name": "Games", "apps": ["steam", "dolphin"] });
     assert_eq!(keys(&slots_for(&steam, &empty_setup("games")), "kind"), ["steam"]);
@@ -117,7 +117,7 @@ fn only_mounts_a_secret_where_its_kind_fits() {
     assert!(fits(&json!({ "kind": "web" }), &slot("web:github")));
     assert!(!fits(&json!({ "kind": "web" }), &slot("ext:anthropic.claude-code")));
     assert!(!fits(&json!({ "kind": "obsidian" }), &slot("web:github")));
-    assert_eq!(kind_of_slot_key("ext:openai.chatgpt").as_deref(), Some("vscode-codex"));
+    assert_eq!(kind_of_slot_key("ext:anthropic.claude-code").as_deref(), Some("vscode-claude-code"));
     assert_eq!(kind_of_slot_key("app:steam").as_deref(), Some("steam"));
     assert_eq!(kind_of_slot_key("web:x").as_deref(), Some("web"));
     assert_eq!(kind_of_slot_key("app:vscode").as_deref(), Some("vscode"));

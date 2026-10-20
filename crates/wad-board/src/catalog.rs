@@ -72,7 +72,6 @@ pub struct Extension {
 pub fn extension_icon(id: &str) -> Option<&'static str> {
     match id {
         "anthropic.claude-code" => Some("/icons/claude.png"),
-        "openai.chatgpt" => Some("/icons/codex.png"),
         _ => None,
     }
 }

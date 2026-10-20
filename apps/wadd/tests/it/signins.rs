@@ -204,24 +204,27 @@ async fn the_builders_kinds_unique_names_and_setups_that_use_one() {
     // A slot's kind makes one a wadspace names on a machine that hasn't it.
     let ws = Workspace {
         signins: vec![WorkspaceSignIn {
-            id: "codex-abc123".into(),
+            id: "claude-abc123".into(),
             app: "vscode".into(),
             web: false,
-            name: "Codex".into(),
-            kind: "vscode-codex".into(),
-            slot: "ext:openai.chatgpt".into(),
+            name: "Claude Code".into(),
+            kind: "vscode-claude-code".into(),
+            slot: "ext:anthropic.claude-code".into(),
         }],
         ..ws("w", "ghcr.io/o/x:1", Display::Host, None)
     };
     s.signins.prepare(&ws).unwrap();
-    let made = s.signins.get("codex-abc123").unwrap();
-    assert_eq!((made.app.as_str(), made.paths.clone()), ("vscode-codex", vec![".codex/".to_string()]));
-    // Two extensions of one app each keep their own (a slot each).
+    let made = s.signins.get("claude-abc123").unwrap();
+    assert_eq!(
+        (made.app.as_str(), made.paths.clone()),
+        ("vscode-claude-code", vec![".claude/".to_string(), ".claude.json".to_string()])
+    );
+    // An app and its extension each keep their own (a slot each).
     let two = serde_json::json!([{"id": "w", "name": "W", "image": "i", "display": "host", "signins": [
-        {"id": "a1", "app": "vscode", "kind": "vscode-codex", "slot": "ext:openai.chatgpt"},
+        {"id": "a1", "app": "vscode", "kind": "vscode", "slot": "app:vscode"},
         {"id": "a2", "app": "vscode", "kind": "vscode-claude-code", "slot": "ext:anthropic.claude-code"}]}]);
     assert_eq!(wad_store::workspaces::check_workspaces(two.as_array().unwrap().clone()).unwrap()[0].signins.len(), 2);
     let same = serde_json::json!([{"id": "w", "name": "W", "image": "i", "display": "host", "signins": [
-        {"id": "a1", "app": "vscode", "slot": "ext:openai.chatgpt"}, {"id": "a2", "app": "vscode", "slot": "ext:openai.chatgpt"}]}]);
+        {"id": "a1", "app": "vscode", "slot": "ext:anthropic.claude-code"}, {"id": "a2", "app": "vscode", "slot": "ext:anthropic.claude-code"}]}]);
     assert!(wad_store::workspaces::check_workspaces(same.as_array().unwrap().clone()).is_err());
 }

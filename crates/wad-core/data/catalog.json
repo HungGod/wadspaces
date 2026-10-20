@@ -410,21 +410,6 @@
       }
     },
     {
-      "id": "openai.chatgpt",
-      "name": "Codex",
-      "description": "OpenAI's coding agent",
-      "secret": {
-        "kind": "vscode-codex",
-        "id": "VSCode-Codex"
-      }
-    },
-    {
-      "id": "github.copilot-chat",
-      "name": "GitHub Copilot",
-      "description": "AI pair programmer (sign in inside each wadspace)",
-      "secret": null
-    },
-    {
       "id": "ms-python.python",
       "name": "Python",
       "description": "Linting, debugging and notebooks",

@@ -24,7 +24,6 @@ pub fn kind_label(kind: &str) -> String {
         "obsidian" => "Obsidian sign-in",
         "steam" => "Steam sign-in",
         "vscode-claude-code" => "Claude Code sign-in",
-        "vscode-codex" => "Codex sign-in",
         other => return other.to_string(),
     }
     .into()
@@ -37,7 +36,6 @@ pub fn kind_keeps(kind: &str) -> &'static str {
         "obsidian" => "Obsidian's account (Sync, Publish)",
         "steam" => "Steam's login and each account's settings",
         "vscode-claude-code" => "Claude Code's login and settings (~/.claude)",
-        "vscode-codex" => "Codex's login and settings (~/.codex)",
         _ => "",
     }
 }
@@ -47,7 +45,6 @@ pub fn kind_icon(kind: &str) -> Option<String> {
     match kind {
         "obsidian" | "steam" => catalog::app(kind).map(|a| a.icon),
         "vscode-claude-code" => Some("/icons/claude.png".into()),
-        "vscode-codex" => Some("/icons/codex.png".into()),
         _ => None,
     }
 }
@@ -56,7 +53,6 @@ pub fn kind_icon(kind: &str) -> Option<String> {
 fn extension_icon(id: &str) -> Option<&'static str> {
     match id {
         "anthropic.claude-code" => Some("/icons/claude.png"),
-        "openai.chatgpt" => Some("/icons/codex.png"),
         _ => None,
     }
 }
