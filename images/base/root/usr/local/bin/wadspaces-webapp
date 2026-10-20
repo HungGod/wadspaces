@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
-# Build-time: a launcher for a website as an app of its own.
+# A launcher for a website as an app of its own: at build time, or when a
+# version 4 wadspace starts (init-wadspaces-workspace, its web apps from wadd).
 #
 #   wadspaces-webapp "Claude" https://claude.ai
 #   wadspaces-webapp --id claude "Claude" https://claude.ai
 #   wadspaces-webapp --id spotify --chrome "Spotify" https://open.spotify.com
+#   wadspaces-webapp --id github --icon /run/wadspaces-extra/icons/github.png "GitHub" https://github.com
 #
 # Writes /usr/share/applications/wadspaces-webapp-<id>.desktop, which opens
 # the site in a WadBrowser window of its own (app_id wadspaces-webapp-<id>,
@@ -14,24 +16,27 @@
 # for the few sites WadBrowser (WebKitGTK) can't run: DRM players, video
 # calls. It opens a Chrome --app window instead (the chrome feature first).
 #
-# Nothing is fetched: the icon is the one WadSpaces Client made (the design's
-# root/ puts it at the path below, after this runs); until then, and in
-# images built by hand, a card with the site's name stands in for it.
+# Nothing is fetched: the icon is the one wadd made (--icon, when a wadspace
+# starts; or the design's root/ puts it at the path below, after this runs);
+# until then, and in images built by hand, a card with the site's name
+# stands in for it.
 #
 # The id defaults to a slug of the name; WadSpaces Client passes its catalog id,
 # and wadspaces-layout finds the launcher through /etc/wadspaces/apps.d/<id>.list.
 set -euo pipefail
 APP_ID=""
+ICON_SRC=""
 ENGINE=wadbrowser
 while [[ $# -gt 0 && "$1" == --* ]]; do
     case "$1" in
         --id) APP_ID="$2"; shift 2
               [[ "${APP_ID}" =~ ^[a-z0-9][a-z0-9-]*$ ]] || { echo "bad app id: ${APP_ID}" >&2; exit 2; } ;;
+        --icon) ICON_SRC="$2"; shift 2 ;;
         --chrome) ENGINE=chrome; shift ;;
         *) echo "unknown option: $1" >&2; exit 2 ;;
     esac
 done
-[[ $# -eq 2 ]] || { echo "usage: wadspaces-webapp [--id <id>] [--chrome] <name> <url>" >&2; exit 2; }
+[[ $# -eq 2 ]] || { echo "usage: wadspaces-webapp [--id <id>] [--icon <png>] [--chrome] <name> <url>" >&2; exit 2; }
 NAME="$1"; URL="$2"
 [[ "${URL}" =~ ^https?:// ]] || { echo "not a web address: ${URL}" >&2; exit 2; }
 [[ "${NAME}" != *$'\n'* ]] || { echo "the name has a line break in it" >&2; exit 2; }
@@ -42,7 +47,11 @@ ID="wadspaces-webapp-${SLUG}"
 ICON_DIR=/usr/share/icons/hicolor/512x512/apps
 ICON="${ICON_DIR}/${ID}.png"
 mkdir -p "${ICON_DIR}"
-[[ -f "${ICON}" ]] || wadspaces-icon fallback --url "${URL}" --out "${ICON}"
+if [[ -n "${ICON_SRC}" && -s "${ICON_SRC}" ]]; then
+    install -m 0644 "${ICON_SRC}" "${ICON}"
+elif [[ ! -f "${ICON}" ]]; then
+    wadspaces-icon fallback --url "${URL}" --out "${ICON}"
+fi
 
 # One Exec argument, quoted as the desktop entry spec says: inside double
 # quotes, " ` $ \ take a backslash, and a % is doubled.
@@ -74,6 +83,7 @@ StartupWMClass=${ID}
 EOF
 
 mkdir -p /etc/wadspaces/desktop-entries.d /etc/wadspaces/apps.d
-echo "${ID}.desktop" >> /etc/wadspaces/desktop-entries.d/webapps.list
+grep -qxF "${ID}.desktop" /etc/wadspaces/desktop-entries.d/webapps.list 2>/dev/null \
+    || echo "${ID}.desktop" >> /etc/wadspaces/desktop-entries.d/webapps.list
 [[ -n "${APP_ID}" ]] && echo "${ID}.desktop" > "/etc/wadspaces/apps.d/${APP_ID}.list"
 echo "webapp: ${NAME} -> ${URL} (${ENGINE})"

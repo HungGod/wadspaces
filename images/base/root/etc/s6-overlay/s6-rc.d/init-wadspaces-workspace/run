@@ -13,6 +13,8 @@
 #      (wadspaces-signins)
 #   4. copies VS Code extensions the image has into ~/.vscode/extensions,
 #      where they're missing (wadspaces-vscode-extensions)
+#   4b. takes what a version 4 wadspace brings when it starts: its web apps,
+#      desktop layout and WadBrowser's mode (/run/wadspaces-extra)
 #   5. seeds ~/Desktop with the launchers named in the desktop-entries lists
 #   6. hands the paths in the chown lists to abc
 #   7. rebuilds the labwc right-click menu from those launchers
@@ -110,6 +112,27 @@ if [[ -s "${CONF}/vscode-extensions.list" ]] || compgen -G "/usr/share/wadspaces
     chown abc:abc /config/.vscode
     asabc /usr/local/bin/wadspaces-vscode-extensions --seed /config
 fi
+
+# ------------------------------------------------------- start-time extras
+# A version 4 wadspace's web apps (with the icons wadd made), desktop layout
+# and WadBrowser's mode come with it when it starts, not in its image: wadd
+# writes them to /run/wadspaces-extra, so changing them never builds, and
+# wadspaces with the same apps share one image. An image with them inside
+# (version 3's layers, or one made by hand) has no such files and keeps its
+# own. The layout and the mode go where the rest of this reads them.
+EXTRA=/run/wadspaces-extra
+if [[ -f "${EXTRA}/webapps.json" ]]; then
+    while IFS= read -r -d '' WID && IFS= read -r -d '' WNAME && IFS= read -r -d '' WURL; do
+        /usr/local/bin/wadspaces-webapp --id "${WID}" --icon "${EXTRA}/icons/${WID}.png" "${WNAME}" "${WURL}" > /dev/null \
+            || log "WARN: web app ${WID} wasn't added"
+    done < <(python3 -I -c '
+import json, sys
+for w in json.load(open(sys.argv[1])):
+    sys.stdout.write("%s\0%s\0%s\0" % (w["id"], w["name"], w["url"]))' "${EXTRA}/webapps.json")
+    log "web apps from ${EXTRA}/webapps.json"
+fi
+[[ -f "${EXTRA}/wadbrowser.conf" ]] && cp "${EXTRA}/wadbrowser.conf" "${CONF}/wadbrowser.conf"
+[[ -f "${EXTRA}/layout.json" ]] && cp "${EXTRA}/layout.json" "${CONF}/layout.json"
 
 # ---------------------------------------------------------- WadBrowser
 # The base carries WadBrowser for every image (links open in it), but its

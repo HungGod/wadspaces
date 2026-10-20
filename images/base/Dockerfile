@@ -190,4 +190,9 @@ RUN mkdir -p /usr/share/wadspaces && echo "${WADSPACES_ABI}" > /usr/share/wadspa
 # built on a base that does: "2" clones and copies, "3" takes mounts too.
 LABEL io.wadspaces.projects="3"
 
+# A version 4 wadspace's web apps, layout and WadBrowser's mode arrive when
+# it starts (/run/wadspaces-extra, init-wadspaces-workspace), not in its
+# image: wadd builds version 4 wadspaces only on a base that says so.
+LABEL io.wadspaces.extras="1"
+
 VOLUME /config
