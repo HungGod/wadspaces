@@ -122,6 +122,7 @@ extern int hovered_app;
 cairo_surface_t* get_icon(const char *name, int size);
 void load_apps();
 void load_desktop_apps();
+void load_desktop_theme(void);
 void unload_apps();
 
 void update_menu_heights();

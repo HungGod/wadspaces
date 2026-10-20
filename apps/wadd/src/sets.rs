@@ -350,6 +350,8 @@ async fn write_extras(h: &Here<'_>, id: &str, w: &Value, theme: Theme) -> std::i
         put(&icons, &format!("{i}.png"), png)?;
     }
     // The background, in the theme's tone; none chosen: plain black or white.
+    // The desktop (selkies-desktop) names its icons in black on a light one.
+    put(&dir, "theme", if theme == Theme::Light { b"light" } else { b"dark" })?;
     let tone = if theme == Theme::Light { wad_wallpaper::Tone::Light } else { wad_wallpaper::Tone::Dark };
     let chosen = &w["customization"]["wallpaper"];
     let wp = match serde_json::from_value::<wad_wallpaper::Wallpaper>(chosen.clone()) {

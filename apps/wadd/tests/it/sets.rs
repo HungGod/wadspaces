@@ -263,8 +263,11 @@ async fn the_theme_draws_its_background_and_web_app_icons_again() {
     let read = |f: &str| std::fs::read(e.extra("iq", f)).unwrap();
     let (dark_wall, dark_icon) = (read("wallpaper.png"), read("icons/notes.png"));
     assert_eq!(sets::theme(&e.state), Theme::Dark);
+    assert_eq!(read("theme"), b"dark");
     sets::set_theme(&e.here(), Theme::Light).await.unwrap();
     assert_eq!(sets::theme(&e.state), Theme::Light);
+    // The desktop names its icons in black on it.
+    assert_eq!(read("theme"), b"light");
     assert_ne!(read("wallpaper.png"), dark_wall);
     assert_ne!(read("icons/notes.png"), dark_icon, "black on white, not acid on violet");
     // Installed again, it keeps the machine's theme.

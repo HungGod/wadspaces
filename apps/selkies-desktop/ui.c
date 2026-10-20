@@ -36,6 +36,20 @@ double app_scroll = 0;
 uint32_t last_click_time = 0;
 int last_clicked_desktop_index = -1;
 
+/* WadSpaces: the desktop's icon names (and the clicked one's highlight) in
+ * black on a light desktop, else white. A version 4 wadspace's desktop is
+ * light in WadSpaces' light theme: wadd writes "light" to
+ * /run/wadspaces-extra/theme, read once at start (it's taken at the next). */
+static double desktop_ink = 1.0;
+
+void load_desktop_theme(void) {
+    FILE *f = fopen("/run/wadspaces-extra/theme", "r");
+    if (!f) return;
+    char t[16] = {0};
+    if (fgets(t, sizeof(t), f) && strncmp(t, "light", 5) == 0) desktop_ink = 22.0 / 255.0;
+    fclose(f);
+}
+
 /**
  * @brief Calculates the geometry and scroll offsets for the application menus.
  */
@@ -258,7 +272,7 @@ void draw_bg() {
         double cell_y = row * DESKTOP_CELL_HEIGHT + 10;
 
         if (i == last_clicked_desktop_index) {
-            cairo_set_source_rgba(cr, 1.0, 1.0, 1.0, 0.2);
+            cairo_set_source_rgba(cr, desktop_ink, desktop_ink, desktop_ink, 0.2);
             rounded_rect(
                 cr, cell_x, cell_y, DESKTOP_CELL_WIDTH, DESKTOP_CELL_HEIGHT, 8.0);
             cairo_fill(cr);
@@ -280,7 +294,7 @@ void draw_bg() {
             cairo_paint(cr);
             cairo_restore(cr);
         }
-        cairo_set_source_rgba(cr, 1.0, 1.0, 1.0, 1.0);
+        cairo_set_source_rgba(cr, desktop_ink, desktop_ink, desktop_ink, 1.0);
 
         char line1[256] = {0};
         char line2[256] = {0};

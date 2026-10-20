@@ -48,6 +48,7 @@ int main() {
 
     load_apps();
     load_desktop_apps();
+    load_desktop_theme();
 
     if (!select_backend()) {
         fprintf(stderr, "selkies-desktop: no Wayland layer shell compositor "
