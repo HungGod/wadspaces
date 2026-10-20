@@ -1,0 +1,133 @@
+# Packages: each app, tool and VS Code extension the catalog offers, captured
+# on the base (wadspaces-pkg) and published as
+# ghcr.io/hunggod/wadspaces-pkg-<id>:<abi>, plus the index machines read
+# (index.json on the `packages` release). wad-core's packages.rs writes every
+# Containerfile (cargo xtask packages …); machines copy the packages onto
+# their base with COPY --link instead of installing anything.
+#
+# The base must be on ghcr first: images/build.sh --only base --push. A
+# package is pushed only when what it contains changed (its content label),
+# so the weekly run picks up new upstream releases and nothing else.
+name: packages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - images/base/root/usr/local/lib/wadspaces/features/**
+      - images/base/root/usr/local/bin/wadspaces-*
+      - crates/wad-core/data/catalog.json
+      - crates/wad-core/src/packages.rs
+      - crates/wad-core/src/spec.rs
+      - .github/workflows/packages.yml
+  schedule:
+    - cron: "17 4 * * 1"
+  workflow_dispatch:
+    inputs:
+      ids:
+        description: Packages to build, space-separated (what they need comes too); empty for all
+        required: false
+        default: ""
+      force:
+        description: Push even when a package's content is unchanged
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  packages: write
+
+concurrency:
+  group: packages
+  cancel-in-progress: false
+
+env:
+  REGISTRY: ghcr.io/hunggod
+  BASE: ghcr.io/hunggod/wadspaces-base:trixie
+
+jobs:
+  plan:
+    runs-on: ubuntu-24.04
+    outputs:
+      waves: ${{ steps.plan.outputs.waves }}
+      abi: ${{ steps.plan.outputs.abi }}
+      base: ${{ steps.plan.outputs.base }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build xtask
+        run: cargo build --quiet --release -p xtask
+      - id: plan
+        name: Plan
+        env:
+          IDS: ${{ inputs.ids }}
+        run: |
+          # The base's ABI: packages built for it fit every base with the same.
+          inspect=$(skopeo inspect --creds "${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}" "docker://$BASE")
+          abi=$(jq -r '.Labels["io.wadspaces.abi"] // empty' <<<"$inspect")
+          [ -n "$abi" ] || { echo "$BASE has no io.wadspaces.abi label: push a base built from this repo" >&2; exit 1; }
+          echo "abi=$abi" >>"$GITHUB_OUTPUT"
+          echo "base=$(jq -r .Digest <<<"$inspect")" >>"$GITHUB_OUTPUT"
+          # shellcheck disable=SC2086
+          echo "waves=$(target/release/xtask packages waves $IDS)" >>"$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: xtask
+          path: target/release/xtask
+
+  # Three waves: each wave's packages need only earlier waves' (vscode needs
+  # electron-deps; an extension needs vscode).
+  wave0:
+    needs: plan
+    if: ${{ fromJSON(needs.plan.outputs.waves)[0] != null }}
+    uses: ./.github/workflows/package.yml
+    with:
+      ids: ${{ toJSON(fromJSON(needs.plan.outputs.waves)[0]) }}
+      abi: ${{ needs.plan.outputs.abi }}
+      force: ${{ inputs.force == true }}
+    secrets: inherit
+  wave1:
+    needs: [plan, wave0]
+    if: ${{ !cancelled() && !failure() && fromJSON(needs.plan.outputs.waves)[1] != null }}
+    uses: ./.github/workflows/package.yml
+    with:
+      ids: ${{ toJSON(fromJSON(needs.plan.outputs.waves)[1]) }}
+      abi: ${{ needs.plan.outputs.abi }}
+      force: ${{ inputs.force == true }}
+    secrets: inherit
+  wave2:
+    needs: [plan, wave1]
+    if: ${{ !cancelled() && !failure() && fromJSON(needs.plan.outputs.waves)[2] != null }}
+    uses: ./.github/workflows/package.yml
+    with:
+      ids: ${{ toJSON(fromJSON(needs.plan.outputs.waves)[2]) }}
+      abi: ${{ needs.plan.outputs.abi }}
+      force: ${{ inputs.force == true }}
+    secrets: inherit
+
+  index:
+    needs: [plan, wave0, wave1, wave2]
+    if: ${{ !cancelled() && needs.plan.result == 'success' }}
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: xtask
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: result-*
+          path: results
+          merge-multiple: true
+      - name: Publish index.json
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          chmod +x xtask
+          gh release view packages >/dev/null 2>&1 ||
+            gh release create packages --title "Packages index" --notes "What machines read to find packages (index.json). Written by the packages workflow."
+          gh release download packages --pattern index.json --output old.json 2>/dev/null || echo '{}' >old.json
+          shopt -s nullglob
+          results=(results/*.json)
+          ./xtask packages index old.json "${{ needs.plan.outputs.abi }}" "${{ needs.plan.outputs.base }}" "${results[@]}" >index.json
+          gh release upload packages index.json --clobber
+          echo "${#results[@]} packages pushed; index.json updated" >>"$GITHUB_STEP_SUMMARY"

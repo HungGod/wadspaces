@@ -1,0 +1,94 @@
+# One wave of packages (called by packages.yml): each package captured on
+# the base, on the packages it needs (already on ghcr from earlier waves),
+# then labelled with what the capture found and pushed if it changed.
+name: package
+
+on:
+  workflow_call:
+    inputs:
+      ids:
+        description: The wave's package ids, as a JSON array
+        type: string
+        required: true
+      abi:
+        type: string
+        required: true
+      force:
+        type: boolean
+        default: false
+
+jobs:
+  package:
+    runs-on: ubuntu-24.04
+    # podman 5 (buildah ≥ 1.41) rather than the runner's 4.9.
+    container:
+      image: quay.io/podman/stable:latest
+      options: --privileged
+    defaults:
+      run:
+        shell: bash
+    strategy:
+      fail-fast: false
+      matrix:
+        id: ${{ fromJSON(inputs.ids) }}
+    env:
+      REGISTRY: ghcr.io/hunggod
+      BASE: ghcr.io/hunggod/wadspaces-base:trixie
+      ID: ${{ matrix.id }}
+      ABI: ${{ inputs.abi }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: xtask
+      - name: Tools
+        run: dnf -y -q install jq skopeo
+      - name: Sign in to ghcr
+        run: podman login ghcr.io -u "${{ github.actor }}" -p "${{ secrets.GITHUB_TOKEN }}"
+      - name: Capture
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          chmod +x xtask
+          args=()
+          for n in $(./xtask packages needs "$ID"); do
+            args+=(--need "$n=$REGISTRY/wadspaces-pkg-$n:$ABI")
+          done
+          ./xtask packages containerfile "$ID" --base "$BASE" --token "${args[@]}" >Containerfile
+          cat Containerfile
+          podman build --pull=newer --secret id=github_token,env=GH_TOKEN -t "localhost/pkg-$ID:capture" -f Containerfile .
+      - name: Label and push
+        env:
+          FORCE: ${{ inputs.force }}
+        run: |
+          ctr=$(podman create --entrypoint /none "localhost/pkg-$ID:capture")
+          podman cp "$ctr:/usr/share/wadspaces/pkg/$ID/meta.json" meta.json
+          podman rm "$ctr" >/dev/null
+          cat meta.json
+          version=$(jq -r '.version // ""' meta.json)
+          content=$(jq -r .content meta.json)
+          remote="$REGISTRY/wadspaces-pkg-$ID"
+          published=$(skopeo inspect --creds "${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}" "docker://$remote:$ABI" 2>/dev/null |
+            jq -r '.Labels["io.wadspaces.pkg.content"] // ""' || true)
+          if [ "$published" = "$content" ] && [ "$FORCE" != true ]; then
+            echo "$ID: unchanged ($content)" >>"$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          printf 'FROM localhost/pkg-%s:capture\nLABEL io.wadspaces.pkg.version=%s io.wadspaces.pkg.abi=%s io.wadspaces.pkg.content=%s\n' \
+            "$ID" "$(jq -Rn --arg v "$version" '$v')" "$(jq -Rn --arg v "$ABI" '$v')" "$content" |
+            podman build -t "$remote:$ABI" -f - .
+          # A tag per version too, so a machine can stay on one.
+          tag="$ABI-$(printf '%s' "$version" | tr -c 'A-Za-z0-9._-' '-' | cut -c1-80 | sed 's/-*$//')"
+          podman tag "$remote:$ABI" "$remote:$tag"
+          podman push --digestfile digest "$remote:$ABI"
+          podman push "$remote:$tag"
+          jq -n --arg id "$ID" --arg digest "$(cat digest)" --arg imageId "$(podman image inspect -f '{{.Id}}' "$remote:$ABI")" \
+            --arg version "$version" --argjson size "$(podman image inspect -f '{{.Size}}' "$remote:$ABI")" \
+            --argjson needs "$(jq .needs meta.json)" --arg content "$content" --arg built "$(date -u +%FT%TZ)" \
+            '{id: $id, digest: $digest, imageId: $imageId, version: $version, size: $size, needs: $needs, content: $content, built: $built}' \
+            >"result-$ID.json"
+          echo "$ID: pushed $version" >>"$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: result-${{ matrix.id }}
+          path: result-${{ matrix.id }}.json
+          if-no-files-found: ignore
