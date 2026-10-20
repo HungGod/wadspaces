@@ -502,6 +502,11 @@
       "id": "go",
       "name": "Go",
       "description": "Debian's golang"
+    },
+    {
+      "id": "android",
+      "name": "Android",
+      "description": "The newest Java and Gradle, adb and the Android SDK's command-line tools, without Android Studio"
     }
   ]
 }

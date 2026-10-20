@@ -184,6 +184,7 @@ fn probe(id: &str, src: &Source) -> Option<String> {
             "nodejs" => "node --version".into(),
             "python" => "python3 --version".into(),
             "go" => "go version".into(),
+            "android" => "cat /usr/local/android-sdk/wadspaces-versions".into(),
             "claude-code" => "claude --version".into(),
             "firebase" => "firebase --version".into(),
             "git" => "git --version".into(),
