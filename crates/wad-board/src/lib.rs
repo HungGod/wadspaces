@@ -6,6 +6,7 @@
 //! parts); fixtures/board/goldens.json (what those returned) keeps them the
 //! same.
 
+pub mod b;
 pub mod board;
 pub mod catalog;
 pub mod model;
@@ -111,6 +112,20 @@ pub fn call(name: &str, args: &[Value]) -> Result<Value, String> {
             Ok((stack, replaced)) => json!({ "ok": true, "stack": to(stack), "replaced": to(replaced) }),
             Err(why) => json!({ "ok": false, "why": why }),
         },
+        // Design B's board (b.rs): edits in turn, and what it derives.
+        "bRun" => b::run(args.first().unwrap_or(&Value::Null))?,
+        "bGroups" => {
+            let board: b::Board = arg(args, 0)?;
+            to(board.groups_of(&arg::<String>(args, 1)?))
+        }
+        "bSlots" => {
+            let board: b::Board = arg(args, 0)?;
+            to(board.slots_of(&arg::<String>(args, 1)?))
+        }
+        "bNewKey" => {
+            let board: b::Board = arg(args, 0)?;
+            board.new_key(&arg::<String>(args, 1)?, &arg::<String>(args, 2)?)
+        }
         other => return Err(format!("no board function {other}")),
     })
 }
