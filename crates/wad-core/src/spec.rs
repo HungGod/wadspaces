@@ -33,6 +33,17 @@ pub const FEATURES: &[&str] = &[
     "dolphin",
 ];
 
+/// The features each feature's script needs first (its `need` lines): a
+/// package carries only its own files, so these come along as packages.
+pub const FEATURE_NEEDS: &[(&str, &[&str])] = &[
+    ("chrome", &["electron-deps"]),
+    ("claude-code", &["nodejs"]),
+    ("firebase", &["nodejs"]),
+    ("obsidian", &["electron-deps"]),
+    ("rust", &["cpp"]),
+    ("vscode", &["electron-deps"]),
+];
+
 pub const DEFAULT_BASE_IMAGE: &str = "localhost/wadspaces-base:trixie";
 /// The streamed desktop's base, which specs from before the layers name.
 pub const SELKIES_BASE_IMAGE: &str = "localhost/wadspaces-selkies:trixie";

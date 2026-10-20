@@ -13,6 +13,14 @@
 //!   images/examples/), written to `<dir>/template` and
 //!   `<dir>/customization`; one line per layer on stdout:
 //!   `<key> <image ref> <FROM> <sha>`. images/build.sh --example uses it.
+//! - `packages waves [<id>…]`: packages CI builds (the catalog's, by
+//!   default), with what they need, as JSON waves: each wave needs only
+//!   earlier ones.
+//! - `packages needs <id>`: what a package needs under it, one per line.
+//! - `packages containerfile <id> [--base <ref>] [--need <id>=<ref>]…
+//!   [--token]`: the Containerfile that captures it (wad-core's packages).
+//! - `packages index <old index.json> <abi> <base digest> <result.json>…`:
+//!   the index with these results in (CI's last step).
 //!
 //! Its tests check repo files no other crate owns (the base image's start-up
 //! banner).
@@ -104,6 +112,55 @@ fn layer(docs: &str, dir: &str) -> Result<(), String> {
     Ok(())
 }
 
+/// The package tasks (see the module's docs).
+fn packages(args: &[String]) -> Result<(), String> {
+    use wad_core::packages as p;
+    const USAGE: &str = "usage: cargo xtask packages waves [<id>…] | needs <id> | \
+                         containerfile <id> [--base <ref>] [--need <id>=<ref>]… [--token] | \
+                         index <old index.json> <abi> <base digest> <result.json>…";
+    match args {
+        [cmd, ids @ ..] if cmd == "waves" => {
+            let ids = if ids.is_empty() { p::all() } else { ids.to_vec() };
+            println!("{}", serde_json::to_string(&p::waves(&ids)).map_err(|e| e.to_string())?);
+            Ok(())
+        }
+        [cmd, id] if cmd == "needs" => {
+            p::closure(&p::needs(id)).iter().for_each(|n| println!("{n}"));
+            Ok(())
+        }
+        [cmd, id, rest @ ..] if cmd == "containerfile" => {
+            let (mut base, mut needs, mut token) = (wad_core::spec::DEFAULT_BASE_IMAGE.to_string(), Vec::new(), false);
+            let mut it = rest.iter();
+            while let Some(a) = it.next() {
+                match a.as_str() {
+                    "--base" => base = it.next().ok_or(USAGE)?.clone(),
+                    "--need" => {
+                        let (n, r) = it.next().and_then(|v| v.split_once('=')).ok_or(USAGE)?;
+                        needs.push((n.to_string(), r.to_string()));
+                    }
+                    "--token" => token = true,
+                    _ => return Err(USAGE.into()),
+                }
+            }
+            print!("{}", p::package_containerfile(id, &base, &needs, token)?);
+            Ok(())
+        }
+        [cmd, old, abi, base, results @ ..] if cmd == "index" => {
+            let read = |f: &str| -> Result<serde_json::Value, String> {
+                let text = std::fs::read_to_string(f).map_err(|e| format!("{f}: {e}"))?;
+                serde_json::from_str(&text).map_err(|e| format!("{f}: {e}"))
+            };
+            // No index yet (the first run): start from nothing.
+            let old = read(old).unwrap_or(serde_json::Value::Null);
+            let results = results.iter().map(|f| read(f)).collect::<Result<Vec<_>, _>>()?;
+            let index = p::merge_index(&old, abi, base, &results);
+            println!("{}", serde_json::to_string_pretty(&index).map_err(|e| e.to_string())?);
+            Ok(())
+        }
+        _ => Err(USAGE.into()),
+    }
+}
+
 fn main() -> ExitCode {
     let task = std::env::args().nth(1).unwrap_or_default();
     let result = match task.as_str() {
@@ -121,7 +178,8 @@ fn main() -> ExitCode {
                 _ => Err("usage: cargo xtask layer <layers.json> <dir>".into()),
             }
         }
-        _ => Err("usage: cargo xtask <ci|wasm|jscheck|layer>".into()),
+        "packages" => packages(&std::env::args().skip(2).collect::<Vec<_>>()),
+        _ => Err("usage: cargo xtask <ci|wasm|jscheck|layer|packages>".into()),
     };
     match result {
         Ok(()) => ExitCode::SUCCESS,

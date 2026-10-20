@@ -14,6 +14,7 @@ pub mod catalog;
 pub mod generator;
 pub mod js;
 pub mod layers;
+pub mod packages;
 pub mod projects;
 pub mod signins;
 pub mod spec;
