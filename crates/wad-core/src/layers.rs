@@ -1025,8 +1025,9 @@ pub(crate) fn workspace_value(
 }
 
 /// A stack's projects as wadd takes them: `[{id, kind, mount, repo?, ref?,
-/// setup?, from?}]`. A GitHub one is cloned by the wadspace; a copy is
-/// copied in once (`from`: where its files are, for a machine that hasn't
+/// setup?, from?, mounted?}]`. A GitHub one is cloned by the wadspace (or,
+/// `mounted`, on the machine by wadd, and mounted in); a copy is copied in
+/// once (`from`: where its files are, for a machine that hasn't
 /// copied them yet); a mount is the machine's folder or file at `from`,
 /// mounted read-write. Anything else is left out.
 pub(crate) fn workspace_projects(custom: &Value) -> Vec<Value> {
@@ -1044,6 +1045,9 @@ pub(crate) fn workspace_projects(custom: &Value) -> Vec<Value> {
                 }
                 if !s(p, "setup").is_empty() {
                     e.insert("setup".into(), s(p, "setup").into());
+                }
+                if p["mounted"] == Value::Bool(true) {
+                    e.insert("mounted".into(), true.into());
                 }
             }
             k @ ("copy" | "mount") => {

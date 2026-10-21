@@ -254,8 +254,9 @@ impl Kind {
 }
 
 /// How a project gets into a wadspace, at ~/Desktop/<mount>. A GitHub one
-/// or a copy lives inside the wadspace (its /config); a mount is the
-/// machine's own folder, there only on that machine.
+/// or a copy lives inside the wadspace (its /config), unless the GitHub one
+/// is `mounted`; a mount is the machine's own folder, there only on that
+/// machine.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum ProjectKind {
@@ -315,6 +316,19 @@ pub struct WorkspaceProject {
     /// folder or file.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub from: Option<CopyFrom>,
+    /// A GitHub project cloned on the machine instead (wadd clones it into
+    /// ~/GitHub/<owner>/<name>, the machine's user's, when it isn't there)
+    /// and mounted read-write like a mount: one clone, which the machine and
+    /// every wadspace mounting it share.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub mounted: bool,
+}
+
+impl WorkspaceProject {
+    /// A folder on the machine, mounted in: a mount, or a mounted GitHub project.
+    pub fn is_mounted(&self) -> bool {
+        self.kind == ProjectKind::Mount || (self.kind == ProjectKind::Github && self.mounted)
+    }
 }
 
 /// POST /v1/copies: files on this machine to copy into wadspaces. One

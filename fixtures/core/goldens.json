@@ -35855,5 +35855,228 @@
     "extras": []
    }
   ]
+ },
+ {
+  "fn": "v4WorkspaceFor",
+  "args": [
+   {
+    "version": 4,
+    "id": "iq",
+    "owner": "u1",
+    "machine": "surface",
+    "order": 1,
+    "templates": [
+     {
+      "id": "dev",
+      "name": "Dev",
+      "apps": [
+       {
+        "app": "wadbrowser",
+        "mode": "focus",
+        "extras": [
+         {
+          "id": "github",
+          "name": "GitHub",
+          "url": "https://github.com"
+         }
+        ]
+       },
+       {
+        "app": "vscode",
+        "extras": [
+         {
+          "id": "anthropic.claude-code"
+         }
+        ]
+       }
+      ]
+     },
+     {
+      "id": "lang",
+      "name": "C++ and Rust",
+      "apps": [
+       {
+        "app": "vscode",
+        "extras": [
+         {
+          "id": "ms-vscode.cpptools"
+         },
+         {
+          "id": "rust-lang.rust-analyzer"
+         },
+         {
+          "id": "anthropic.claude-code"
+         }
+        ]
+       },
+       {
+        "app": "terminal",
+        "extras": [
+         {
+          "id": "cpp"
+         },
+         {
+          "id": "rust"
+         }
+        ]
+       },
+       {
+        "app": "wadbrowser",
+        "extras": [
+         {
+          "id": "learnopengl",
+          "name": "LearnOpenGL",
+          "url": "https://learnopengl.com",
+          "iconUrl": "/i.png"
+         }
+        ]
+       }
+      ]
+     },
+     {
+      "id": "art",
+      "name": "Game art",
+      "apps": [
+       {
+        "app": "libresprite"
+       },
+       {
+        "app": "tiled"
+       }
+      ]
+     }
+    ],
+    "customization": {
+     "name": "IntelligenceQuest",
+     "description": "A game.",
+     "wallpaper": {
+      "type": "texture",
+      "value": "stars"
+     },
+     "autostart": [
+      "app:vscode"
+     ],
+     "projects": [
+      {
+       "id": "project-iq",
+       "kind": "github",
+       "repo": "HungGod/IntelligenceQuest",
+       "as": "IntelligenceQuest"
+      },
+      {
+       "id": "project-book",
+       "kind": "github",
+       "repo": "HungGod/Book",
+       "as": "Book",
+       "mounted": true
+      }
+     ],
+     "secrets": {
+      "bySlot": {
+       "ext:anthropic.claude-code": {
+        "id": "iq-claude",
+        "name": "IQ Claude",
+        "kind": "vscode-claude-code"
+       }
+      },
+      "groups": [
+       {
+        "id": "g1",
+        "members": [
+         "browser",
+         "web:github"
+        ],
+        "key": {
+         "id": "hunggod",
+         "name": "hunggod",
+         "kind": "web"
+        }
+       }
+      ]
+     }
+    }
+   },
+   {
+    "tz": "Pacific/Fiji",
+    "secrets": [
+     "github_token"
+    ]
+   }
+  ],
+  "out": {
+   "id": "iq",
+   "name": "IntelligenceQuest",
+   "image": "localhost/wadspaces-set-9c4fd8be97ba:latest",
+   "display": "host",
+   "enabled": true,
+   "env": {
+    "PUID": "1000",
+    "PGID": "1000",
+    "TZ": "Pacific/Fiji",
+    "TITLE": "IntelligenceQuest",
+    "WALLPAPER": "/run/wadspaces-extra/wallpaper.png",
+    "WALLPAPER_MODE": "fill"
+   },
+   "secrets": [
+    "github_token"
+   ],
+   "volumes": [
+    "wad-iq-config:/config:z"
+   ],
+   "devices": [
+    "/dev/dri"
+   ],
+   "shm_size": "1g",
+   "signins": [
+    {
+     "id": "iq-claude",
+     "app": "vscode",
+     "name": "IQ Claude",
+     "kind": "vscode-claude-code",
+     "slot": "ext:anthropic.claude-code"
+    },
+    {
+     "id": "hunggod",
+     "app": "@browser",
+     "web": true,
+     "name": "hunggod",
+     "kind": "web",
+     "slot": "app:wadbrowser"
+    },
+    {
+     "id": "hunggod",
+     "app": "github",
+     "web": true,
+     "name": "hunggod",
+     "kind": "web",
+     "slot": "web:github"
+    },
+    {
+     "id": "hunggod",
+     "app": "learnopengl",
+     "web": true,
+     "name": "hunggod",
+     "kind": "web",
+     "slot": "web:learnopengl"
+    }
+   ],
+   "projects": [
+    {
+     "id": "project-iq",
+     "kind": "github",
+     "mount": "IntelligenceQuest",
+     "repo": "HungGod/IntelligenceQuest"
+    },
+    {
+     "id": "project-book",
+     "kind": "github",
+     "mount": "Book",
+     "repo": "HungGod/Book",
+     "mounted": true
+    }
+   ],
+   "hotkey": null,
+   "autostart": false
+  }
  }
 ]

@@ -120,8 +120,16 @@ fn size_of(bytes: u64) -> String {
     }
 }
 
+/// A GitHub project cloned on its machine and mounted, not cloned inside.
+fn mounted_repo(m: &Value) -> bool {
+    s(m, "kind") == "github" && m["mounted"] == true
+}
+
 /// What a project is, in words.
 pub fn project_text(m: &Value) -> String {
+    if mounted_repo(m) {
+        return format!("{} cloned on its machine in ~/GitHub, mounted · changes save there", s(m, "repo"));
+    }
     if s(m, "kind") == "github" {
         return format!("cloned from {}", s(m, "repo"));
     }
@@ -169,16 +177,23 @@ fn add_mount(host: &Rc<dyn Host>, m: Value) {
     host.set_projects(list);
 }
 
-fn cloned(projects: &[Value], repo: &str) -> bool {
-    projects.iter().any(|m| s(m, "kind") == "github" && s(m, "repo").eq_ignore_ascii_case(repo))
+/// The project a repo is, if it's in.
+fn repo_in<'a>(projects: &'a [Value], repo: &str) -> Option<&'a Value> {
+    projects.iter().find(|m| s(m, "kind") == "github" && s(m, "repo").eq_ignore_ascii_case(repo))
 }
 
-fn clone_repo(host: &Rc<dyn Host>, repo: &str) {
-    if cloned(&host.projects(), repo) {
+/// A repo in: cloned inside the wadspace, or (`mounted`) cloned on its
+/// machine, in ~/GitHub, and mounted.
+fn clone_repo(host: &Rc<dyn Host>, repo: &str, mounted: bool) {
+    if repo_in(&host.projects(), repo).is_some() {
         return;
     }
     let as_ = repo.rsplit('/').next().unwrap_or(repo);
-    add_mount(host, json!({ "id": uid("project"), "kind": "github", "repo": repo, "as": as_ }));
+    let mut m = json!({ "id": uid("project"), "kind": "github", "repo": repo, "as": as_ });
+    if mounted {
+        m["mounted"] = true.into();
+    }
+    add_mount(host, m);
 }
 
 /// The machine's repositories, read the first time projects are shown.
@@ -203,7 +218,8 @@ pub fn fill(host: &Rc<dyn Host>, p: &Rc<Projects>, b: &gtk::Box) {
     let mounts = host.projects();
     let n = note(
         "Cloned or copied into the wadspace: the files live inside it, at ~/Desktop. A mounted folder stays \
-         on this machine: changes save here, and the wadspace has it only here.",
+         on this machine: changes save here, and the wadspace has it only here. A mounted repo is cloned on \
+         the wadspace's machine, in ~/GitHub: its wadspaces there share that clone.",
     );
     n.add_css_class("proj-note");
     b.append(&n);
@@ -295,6 +311,7 @@ pub fn fill(host: &Rc<dyn Host>, p: &Rc<Projects>, b: &gtk::Box) {
             let chip = ui::button(s(&m, "as"), Some(project_icon(&m)), Variant::Ghost, Size::Sm);
             chip.add_css_class("sug");
             chip.set_tooltip_text(Some(&match s(&m, "kind") {
+                "github" if mounted_repo(&m) => format!("Mount {} here too", s(&m, "repo")),
                 "github" => format!("Clone {}", s(&m, "repo")),
                 "mount" => format!("Mount {} here too", s(&m, "as")),
                 _ => format!("Copy {} in too", s(&m, "as")),
@@ -310,8 +327,11 @@ pub fn fill(host: &Rc<dyn Host>, p: &Rc<Projects>, b: &gtk::Box) {
     }
 }
 
-fn repo_row(host: &Rc<dyn Host>, projects: &[Value], r: &Repo) -> gtk::Button {
-    let on = cloned(projects, &r.full_name);
+/// A repository: Clone it into the wadspace (the row), or Mount it (cloned
+/// on its machine); Cloned or Mounted once it's in.
+fn repo_row(host: &Rc<dyn Host>, projects: &[Value], r: &Repo) -> gtk::Box {
+    let had = repo_in(projects, &r.full_name);
+    let on = had.is_some();
     let b = gtk::Button::new();
     b.add_css_class("gh-proj");
     if on {
@@ -333,15 +353,41 @@ fn repo_row(host: &Rc<dyn Host>, projects: &[Value], r: &Repo) -> gtk::Button {
     meta.set_hexpand(true);
     meta.set_xalign(1.0);
     row.append(&meta);
-    let act = gtk::Label::new(Some(if on { "Cloned" } else { "Clone" }));
+    let act = gtk::Label::new(Some(match had {
+        Some(m) if mounted_repo(m) => "Mounted",
+        Some(_) => "Cloned",
+        None => "Clone",
+    }));
     act.add_css_class("gh-act");
     row.append(&act);
     b.set_child(Some(&row));
-    b.set_tooltip_text(Some(if r.description.is_empty() { &r.full_name } else { &r.description }));
+    b.set_hexpand(true);
+    b.set_tooltip_text(Some(&format!(
+        "{}{}\nClone it into the wadspace: its files live there",
+        r.full_name,
+        if r.description.is_empty() { String::new() } else { format!(": {}", r.description) }
+    )));
     b.set_sensitive(!on);
     let (w, repo) = (Rc::downgrade(host), r.full_name.clone());
-    b.connect_clicked(move |_| with(&w, |h| clone_repo(h, &repo)));
-    b
+    b.connect_clicked(move |_| with(&w, |h| clone_repo(h, &repo, false)));
+    let line = gtk::Box::new(gtk::Orientation::Horizontal, 5);
+    line.append(&b);
+    if !on {
+        let m = gtk::Button::new();
+        m.add_css_class("gh-proj");
+        let l = gtk::Label::new(Some("Mount"));
+        l.add_css_class("gh-act");
+        m.set_child(Some(&l));
+        m.set_tooltip_text(Some(&format!(
+            "Clone it on the wadspace's machine, in ~/GitHub/{}, and mount it: changes save there, and its \
+             wadspaces there share that clone",
+            r.full_name
+        )));
+        let (w, repo) = (Rc::downgrade(host), r.full_name.clone());
+        m.connect_clicked(move |_| with(&w, |h| clone_repo(h, &repo, true)));
+        line.append(&m);
+    }
+    line
 }
 
 /// "2026-10-14T…" as the date, the way this machine writes dates.
@@ -416,7 +462,7 @@ fn new_project(host: &Rc<dyn Host>, p: &Rc<Projects>) -> gtk::Widget {
                     Ok(repo) => {
                         p.creating.replace(None);
                         p.problem.borrow_mut().clear();
-                        clone_repo(h, &repo);
+                        clone_repo(h, &repo, false);
                     }
                     Err(why) => {
                         p.problem.replace(why);
@@ -718,6 +764,10 @@ mod tests {
         assert_eq!(free_as("My Notes!", &[]), "My-Notes");
         assert_eq!(free_as("???", &[]), "Project");
         assert_eq!(project_text(&json!({ "kind": "github", "repo": "me/site" })), "cloned from me/site");
+        assert_eq!(
+            project_text(&json!({ "kind": "github", "repo": "me/site", "mounted": true })),
+            "me/site cloned on its machine in ~/GitHub, mounted · changes save there"
+        );
         assert_eq!(
             project_text(&json!({ "kind": "copy", "files": 3, "bytes": 2_500_000, "source": {} })),
             "copied from this machine · 3 files, 2.5 MB"

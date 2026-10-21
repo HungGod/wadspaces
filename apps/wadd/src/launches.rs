@@ -444,9 +444,13 @@ impl Launches {
     }
 
     /// What a project needs made here before its wadspace starts, if
-    /// anything: a copy's files, or a GitHub project's clone from when wadd
-    /// kept them here.
+    /// anything: a copy's files, a GitHub project's clone from when wadd
+    /// kept them here, or a mounted GitHub project's clone on this machine.
     fn to_stage(&self, p: &WorkspaceProject) -> Option<Stage> {
+        if p.kind == ProjectKind::Github && p.mounted {
+            let dir = self.copies.clone_dir(&p.repo)?;
+            return (!dir.join(".git").is_dir()).then_some(Stage::Host(dir));
+        }
         if self.copies.ready(&p.id) {
             return None;
         }
@@ -615,6 +619,11 @@ impl Launches {
             format!(" with {}", ws.projects.iter().map(|p| p.mount.as_str()).collect::<Vec<_>>().join(", "))
         };
         self.line(id, &format!("» launching {}{with}", ws.name));
+        for p in ws.projects.iter().filter(|p| p.kind == ProjectKind::Github && p.mounted) {
+            if let Some(dir) = self.copies.clone_dir(&p.repo).filter(|d| d.join(".git").is_dir()) {
+                self.line(id, &format!("{}: mounted from {}; changes save to this machine", p.mount, dir.display()));
+            }
+        }
         for p in ws.projects.iter().filter(|p| p.kind == ProjectKind::Mount) {
             let Some(from) = &p.from else { continue };
             let line = match (&from.drive, from.paths.first()) {
@@ -664,7 +673,7 @@ impl Launches {
                 return Err(format!("{} is on a base from before version 4 wadspaces: update the base", ws.name));
             }
             let level = labels.get(PROJECTS_LABEL).and_then(Value::as_str).and_then(|v| v.parse::<u32>().ok());
-            let needs = if ws.projects.iter().any(|p| p.kind == ProjectKind::Mount) {
+            let needs = if ws.projects.iter().any(|p| p.is_mounted()) {
                 MOUNTS_IN
             } else if ws.projects.is_empty() {
                 0
@@ -702,6 +711,9 @@ impl Launches {
                     format!("{mount}: the clone kept on this machine ({}) moves into the wadspace", clone.display())
                 })
             }
+            Stage::Host(dir) => self.clone_here(id, p, &dir).await.map(|_| {
+                format!("{mount}: cloned on this machine into {}, and mounted; changes save there", dir.display())
+            }),
         };
         match r {
             Ok(line) => {
@@ -750,6 +762,29 @@ enum Stage {
     From(wad_proto::v1::CopyFrom),
     /// A GitHub project's clone wadd kept here.
     Clone(PathBuf),
+    /// A mounted GitHub project's clone, to make on this machine.
+    Host(PathBuf),
+}
+
+impl Launches {
+    /// A mounted GitHub project's clone made on this machine, as its user
+    /// (with the account's GitHub token), the folders above it theirs too.
+    async fn clone_here(&self, id: &str, p: &WorkspaceProject, dir: &Path) -> Result<(), String> {
+        self.part(id, &p.id, Some(PartState::Working), None, Some("cloning on this machine"));
+        let uid = self.copies.uid();
+        let parent = dir.parent().ok_or("it has nowhere to go")?;
+        for d in parent.ancestors().collect::<Vec<_>>().into_iter().rev().filter(|d| !d.exists()) {
+            crate::projects::make_owned_dir(d, uid);
+        }
+        let token = self.backend.github_token().await;
+        let url = format!("https://github.com/{}.git", p.repo);
+        let mut on_line = |_: &str, f: Option<f64>| {
+            if let Some(f) = f {
+                self.part(id, &p.id, Some(PartState::Working), Some(f), Some("cloning on this machine"));
+            }
+        };
+        self.projects.git.clone_repo(&url, p.git_ref.as_deref(), dir, token.as_deref(), &mut on_line, uid).await
+    }
 }
 
 /// A launch item made ready: the workspace it launches.

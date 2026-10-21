@@ -42,10 +42,11 @@ fn internal(e: impl std::fmt::Display) -> ApiError {
     ApiError::new(ErrorCode::Internal, e.to_string())
 }
 
-/// A workspace's projects that are here: every one but a mount that wasn't
-/// found on this machine (what its projects.json lists).
+/// A workspace's projects that are here: every one but a mount (or a
+/// mounted GitHub project) that wasn't found on this machine (what its
+/// projects.json lists).
 pub fn projects_here(ws: &Workspace, mounts: &Mounts) -> Vec<WorkspaceProject> {
-    ws.projects.iter().filter(|p| p.kind != ProjectKind::Mount || mounts.contains_key(&p.id)).cloned().collect()
+    ws.projects.iter().filter(|p| !p.is_mounted() || mounts.contains_key(&p.id)).cloned().collect()
 }
 
 pub struct Copies {
@@ -55,6 +56,9 @@ pub struct Copies {
     machine: MachineRef,
     drives: Arc<Drives>,
     registry: Arc<Registry>,
+    /// The home of the machine's user (`uid`): mounted GitHub projects are
+    /// cloned in its GitHub folder.
+    home: Option<PathBuf>,
 }
 
 impl Copies {
@@ -66,7 +70,25 @@ impl Copies {
         drives: Arc<Drives>,
         registry: Arc<Registry>,
     ) -> Self {
-        Self { dir: state_dir.join("copies"), roots, uid, machine, drives, registry }
+        let home = nix::unistd::User::from_uid(uid.into()).ok().flatten().map(|u| u.dir);
+        Self { dir: state_dir.join("copies"), roots, uid, machine, drives, registry, home }
+    }
+
+    /// With `home` as the machine's user's home (tests).
+    pub fn with_home(self, home: PathBuf) -> Self {
+        Self { home: Some(home), ..self }
+    }
+
+    /// Where a mounted GitHub project's clone is on this machine:
+    /// ~/GitHub/<owner>/<name>, the machine's user's.
+    pub fn clone_dir(&self, repo: &str) -> Option<PathBuf> {
+        let (owner, name) = repo.split_once('/')?;
+        Some(self.home.as_ref()?.join("GitHub").join(owner).join(name))
+    }
+
+    /// The machine's user, who owns what's cloned on the machine.
+    pub fn uid(&self) -> u32 {
+        self.uid
     }
 
     /// `<state_dir>/copies/<id>`: what a wadspace sees at /run/wadspaces-copies/<id>.
@@ -82,7 +104,7 @@ impl Copies {
     /// Before a container starts: a folder (empty until there's a copy) for
     /// each of its projects, which its unit mounts (a mount has none).
     pub fn prepare(&self, ws: &Workspace) -> Result<(), String> {
-        for p in ws.projects.iter().filter(|p| p.kind != ProjectKind::Mount) {
+        for p in ws.projects.iter().filter(|p| !p.is_mounted()) {
             let path = self.path(&p.id);
             if !path.exists() {
                 std::fs::create_dir_all(&path).map_err(|e| format!("{}: {e}", path.display()))?;
@@ -95,18 +117,27 @@ impl Copies {
     /// drive mounted first), or a path on this machine inside the folder
     /// roots. One from another machine is left out; one that should be here
     /// but isn't stops the start, so the wadspace never gets an empty folder
-    /// in its place.
+    /// in its place. A mounted GitHub project is its clone here, when there
+    /// is one (the launch makes it; without it the wadspace starts without).
     pub async fn find_mounts(&self, ws: &Workspace) -> Result<Mounts, String> {
         let mut found = Mounts::new();
-        for p in ws.projects.iter().filter(|p| p.kind == ProjectKind::Mount) {
+        for p in ws.projects.iter().filter(|p| p.is_mounted()) {
             let Some(path) = self.mount_of(p).await? else { continue };
             found.insert(p.id.clone(), path.to_string_lossy().into_owned());
         }
         Ok(found)
     }
 
-    /// Where one mount is here (None: on another machine).
+    /// Where one mount is here (None: on another machine, or a mounted
+    /// GitHub project not cloned here).
     async fn mount_of(&self, p: &WorkspaceProject) -> Result<Option<PathBuf>, String> {
+        if p.kind == ProjectKind::Github {
+            let dir = self.clone_dir(&p.repo).filter(|d| d.join(".git").is_dir());
+            return dir
+                .map(|d| wad_store::folders::resolve_folder(&d.to_string_lossy(), &self.roots, true).map(PathBuf::from))
+                .transpose()
+                .map_err(|e| format!("{}: {e}", p.mount));
+        }
         let as_ = &p.mount;
         let from = p.from.as_ref().ok_or_else(|| format!("{as_} says nothing about what it mounts"))?;
         let first = from.paths.first().map(String::as_str).unwrap_or("");

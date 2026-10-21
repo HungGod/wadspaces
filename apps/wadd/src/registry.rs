@@ -17,7 +17,7 @@ use std::time::Duration;
 use serde_json::{Value, json};
 use tokio::task::JoinHandle;
 use tokio::time::Instant;
-use wad_proto::v1::{Display, Event, Kind, Phase, ProjectKind, Workspace, WorkspaceState};
+use wad_proto::v1::{Display, Event, Kind, Phase, Workspace, WorkspaceState};
 use wad_proto::{ApiError, ErrorCode};
 use wad_store::runs::RunLog;
 
@@ -146,7 +146,7 @@ pub fn wadd_spec(
         .projects
         .iter()
         .map(|p| match p.kind {
-            ProjectKind::Mount => json!({"id": p.id, "kind": "mount", "mount": p.mount, "path": mounts.get(&p.id)}),
+            _ if p.is_mounted() => json!({"id": p.id, "kind": "mount", "mount": p.mount, "path": mounts.get(&p.id)}),
             _ => json!({"id": p.id, "mount": p.mount}),
         })
         .collect();
@@ -444,7 +444,7 @@ impl Registry {
     async fn find_mounts(&self, ws: &Workspace) -> Result<(), String> {
         let hook = self.on_mounts.lock().unwrap().clone();
         let found = match hook {
-            Some(f) if ws.projects.iter().any(|p| p.kind == ProjectKind::Mount) => f(ws.clone()).await?,
+            Some(f) if ws.projects.iter().any(|p| p.is_mounted()) => f(ws.clone()).await?,
             _ => Mounts::new(),
         };
         let changed = {

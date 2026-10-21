@@ -580,7 +580,8 @@ pub fn purge_dir(projects_dir: &Path, pid: &str) -> Result<bool> {
 /// <state_dir>/extra/<ws>/projects.json: what the image's wadspaces-projects
 /// reads at /run/wadspaces-extra (version 2): each project's kind and folder,
 /// a GitHub one's repo, branch and setup (with its hash: a changed setup
-/// runs again). Nothing is mounted; the wadspace clones and copies them in.
+/// runs again). The wadspace clones and copies them in; a mount (and a
+/// mounted GitHub project, listed as one) is already there.
 pub fn write_manifest(
     state_dir: &Path,
     ws: &str,
@@ -593,8 +594,9 @@ pub fn write_manifest(
     let list: Vec<Value> = projects
         .iter()
         .map(|p| {
-            let mut e = json!({"id": p.id, "kind": p.kind, "mount": p.mount, "name": p.mount});
-            if p.kind == wad_proto::v1::ProjectKind::Github {
+            let kind = if p.is_mounted() { wad_proto::v1::ProjectKind::Mount } else { p.kind };
+            let mut e = json!({"id": p.id, "kind": kind, "mount": p.mount, "name": p.mount});
+            if kind == wad_proto::v1::ProjectKind::Github {
                 e["repo"] = p.repo.clone().into();
                 if let Some(r) = &p.git_ref {
                     e["ref"] = r.clone().into();

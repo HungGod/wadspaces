@@ -176,6 +176,11 @@ async fn builder_b(w: &gtk::ApplicationWindow, dir: &std::path::Path) {
         shot(w, &dir.join(format!("builder-b-custom-{}.png", t.name())));
     }
     wad_gtk::theme::set(&display, wad_gtk::Theme::Dark);
+    // Its projects: GitHub's repositories to clone in, or mount.
+    settle(600).await;
+    sim::scroll_side_to_end();
+    settle(600).await;
+    shot(w, &dir.join("builder-b-projects-dark.png"));
     b::close();
     settle(600).await;
     sim::reveal_new_template(iq);

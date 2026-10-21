@@ -267,6 +267,11 @@ impl Preview {
                 let m = s.folders().and_then(|f| f.mounts.iter().find(|m| m["id"] == id).cloned()).unwrap_or_default();
                 let as_ = m["as"].as_str().unwrap_or_default();
                 let text = match m["kind"].as_str() {
+                    Some("github") if m["mounted"] == true => format!(
+                        "~/Desktop/{as_}: {} cloned on its machine (~/GitHub), mounted. Changes save there, \
+                         in the clone its wadspaces share.",
+                        m["repo"].as_str().unwrap_or_default()
+                    ),
                     Some("github") => format!(
                         "~/Desktop/{as_}: cloned from {}. The files live in this wadspace.",
                         m["repo"].as_str().unwrap_or_default()

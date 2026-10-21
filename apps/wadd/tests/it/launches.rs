@@ -32,20 +32,25 @@ const IMAGE: &str = "localhost/wadspaces-a:latest";
 const STICK: &str = "5E3F-1A2B";
 
 /// wadd clones nothing now; the project service still wants a git.
+/// wadd clones only a mounted GitHub project, on the machine: a clone here
+/// is its folder with a .git and the repo's address in it.
 struct NoGit;
 
 #[async_trait]
 impl ProjectGit for NoGit {
     async fn clone_repo(
         &self,
-        _: &str,
+        url: &str,
         _: Option<&str>,
-        _: &Path,
+        dest: &Path,
         _: Option<&str>,
-        _: &mut (dyn for<'s> FnMut(&'s str, Option<f64>) + Send),
+        on_line: &mut (dyn for<'s> FnMut(&'s str, Option<f64>) + Send),
         _: u32,
     ) -> Result<(), String> {
-        panic!("wadd doesn't clone projects")
+        on_line("Receiving objects: 50%", Some(0.5));
+        std::fs::create_dir_all(dest.join(".git")).unwrap();
+        std::fs::write(dest.join(".git/url"), url).unwrap();
+        Ok(())
     }
     async fn update(&self, _: &Path, _: Option<&str>, _: u32) -> Update {
         panic!("wadd doesn't fetch projects")
@@ -82,6 +87,7 @@ fn github(id: &str, mount: &str) -> WorkspaceProject {
         git_ref: Some("main".into()),
         setup: "npm install".into(),
         from: None,
+        mounted: false,
     }
 }
 
@@ -94,7 +100,13 @@ fn copy(id: &str, mount: &str, from: Option<CopyFrom>) -> WorkspaceProject {
         git_ref: None,
         setup: String::new(),
         from,
+        mounted: false,
     }
+}
+
+/// A GitHub project cloned on the machine and mounted.
+fn github_mounted(id: &str, mount: &str) -> WorkspaceProject {
+    WorkspaceProject { mounted: true, setup: String::new(), ..github(id, mount) }
 }
 
 fn mount(id: &str, as_: &str, from: CopyFrom) -> WorkspaceProject {
@@ -154,7 +166,10 @@ async fn env() -> Env {
     let host = FakeHost::new(Some(&tmp.join("stick").to_string_lossy()));
     let drives = Arc::new(Drives::new(1000, Arc::new(host.clone()), true));
     let machine: wadd::projects::MachineRef = Arc::new(|| ("local".to_string(), "Surface".to_string()));
-    let copies = Arc::new(Copies::new(&state, vec![home.clone()], 1000, machine.clone(), drives.clone(), reg.clone()));
+    let copies = Arc::new(
+        Copies::new(&state, vec![home.clone()], 1000, machine.clone(), drives.clone(), reg.clone())
+            .with_home(home.clone()),
+    );
     {
         let found = copies.clone();
         reg.on_mounts(move |ws| {
@@ -423,6 +438,48 @@ async fn a_mount_is_the_machines_own_folder_read_write() {
         .map(|p| (p["mount"].as_str().unwrap(), p["kind"].as_str().unwrap()))
         .collect();
     assert_eq!(listed, [("Writing", "github"), ("Notes", "mount"), ("Books", "mount")]);
+}
+
+#[tokio::test]
+async fn a_mounted_github_project_is_cloned_on_the_machine_and_mounted() {
+    let e = env().await;
+    mounts_in(&e);
+    let clone = e.home().join("GitHub/o/vault");
+    with_projects(&e, vec![github_mounted("vault", "Writing"), github("book", "Book")]).await;
+    let l = launch(&e, "a", false).await;
+    assert_eq!(l.launch.status, LaunchStatus::Done, "{l:?}");
+    assert_eq!(std::fs::read_to_string(clone.join(".git/url")).unwrap(), "https://github.com/o/vault.git");
+    let want = format!("Writing: cloned on this machine into {}, and mounted; changes save there", clone.display());
+    assert!(l.lines.contains(&want), "{want} in {:?}", l.lines);
+    let u = unit(&e, "wad-a.container");
+    assert!(u.contains(&format!("Volume={}:/config/Desktop/Writing:rw\n", clone.display())), "{u}");
+    assert!(u.contains("SecurityLabelDisable=true"), "{u}");
+    assert!(!u.contains("copies/vault") && u.contains("copies/book"), "only the other is cloned inside: {u}");
+    assert!(!e.tmp.join("state/copies/vault").exists(), "a mounted one has no copies folder");
+    let manifest: Value =
+        serde_json::from_slice(&std::fs::read(e.tmp.join("state/extra/a/projects.json")).unwrap()).unwrap();
+    let listed: Vec<(&str, &str)> = manifest["projects"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|p| (p["mount"].as_str().unwrap(), p["kind"].as_str().unwrap()))
+        .collect();
+    assert_eq!(listed, [("Writing", "mount"), ("Book", "github")], "the wadspace doesn't clone it");
+    // Next time it's there: mounted, not cloned again.
+    std::fs::write(clone.join("draft.md"), "work").unwrap();
+    let l = launch(&e, "a", true).await;
+    assert_eq!(l.launch.status, LaunchStatus::Done, "{l:?}");
+    let want = format!("Writing: mounted from {}; changes save to this machine", clone.display());
+    assert!(l.lines.contains(&want), "{want} in {:?}", l.lines);
+    assert!(clone.join("draft.md").exists());
+}
+
+#[tokio::test]
+async fn a_mounted_github_project_needs_a_base_that_takes_mounts() {
+    let e = env().await;
+    with_projects(&e, vec![github_mounted("vault", "Writing")]).await;
+    let l = launch(&e, "a", false).await;
+    assert_eq!((l.launch.status, l.launch.error.as_deref()), (LaunchStatus::Error, Some(OLD_BASE)));
 }
 
 #[tokio::test]

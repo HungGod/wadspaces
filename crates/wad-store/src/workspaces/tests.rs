@@ -74,6 +74,10 @@ fn refusals_say_where() {
         ),
         (vec![a(json!({"projects": [{"id": "p", "kind": "mount", "mount": "M"}]}))], "M mounts one folder or file"),
         (
+            vec![a(json!({"projects": [{"id": "p", "kind": "copy", "mount": "M", "mounted": true}]}))],
+            "only a GitHub project is cloned on the machine and mounted",
+        ),
+        (
             vec![a(
                 json!({"projects": [{"id": "p", "kind": "mount", "mount": "M", "from": {"paths": ["/var/home/a", "/var/home/b"]}}]}),
             )],
@@ -115,6 +119,9 @@ fn refusals_say_where() {
     let ok = check_workspaces(vec![m(json!({"machineId": "m1", "paths": ["/var/home/wad/Thesis"]}))]).unwrap();
     assert_eq!(ok[0].projects[0].kind, wad_proto::v1::ProjectKind::Mount);
     assert!(check_workspaces(vec![m(json!({"drive": {"uuid": "1234-ABCD"}, "paths": ["2026"]}))]).is_ok());
+    // A GitHub project cloned on the machine and mounted.
+    let g = a(json!({"projects": [{"id": "p", "kind": "github", "mount": "M", "repo": "o/m", "mounted": true}]}));
+    assert!(check_workspaces(vec![g]).unwrap()[0].projects[0].is_mounted());
     // Two may name the same hotkey: Super+N follows what runs.
     assert!(check_workspaces(vec![a(json!({"hotkey": 1})), a(json!({"id": "b", "hotkey": 1}))]).is_ok());
 }

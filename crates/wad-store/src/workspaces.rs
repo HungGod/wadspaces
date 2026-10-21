@@ -238,6 +238,9 @@ fn check_projects(v: Option<&Value>, where_: &str) -> Result<Vec<WorkspaceProjec
             err(format!("{where_}: a project is {{id, kind, mount, repo?, ref?, setup?, from?}} ({e})"))
         })?;
         let (id, mount) = (&parsed.id, &parsed.mount);
+        if parsed.mounted && parsed.kind != ProjectKind::Github {
+            return Err(err(format!("{where_}: only a GitHub project is cloned on the machine and mounted")));
+        }
         if !wad_core::projects::is_project_id(id) {
             return Err(err(format!("{where_}: project id '{id}' must match ^[A-Za-z0-9_-]{{1,64}}$")));
         }
