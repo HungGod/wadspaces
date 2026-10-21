@@ -22,7 +22,6 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value, json};
 use wad_core::{catalog, layers, spec, v4};
 
-use crate::board::copy_name;
 use crate::catalog::{self as cat, BrowserItem, KeyApp};
 use crate::model::KeyGroup;
 
@@ -396,6 +395,34 @@ pub struct Board {
 
 fn s<'a>(v: &'a Value, k: &str) -> &'a str {
     v.get(k).and_then(Value::as_str).unwrap_or("")
+}
+
+/// A copy's name: the original's with " - n", n counting the copies.
+pub fn copy_name(name: &str, taken: &[String]) -> String {
+    let base = strip_counter(name);
+    if base.trim().is_empty() {
+        return name.to_string();
+    }
+    let prefix = format!("{base} - ");
+    let n = taken
+        .iter()
+        .filter_map(|t| t.strip_prefix(&prefix))
+        .filter(|rest| !rest.is_empty() && rest.chars().all(|c| c.is_ascii_digit()))
+        .filter_map(|rest| rest.parse::<u64>().ok())
+        .max()
+        .unwrap_or(0);
+    format!("{base} - {}", n + 1)
+}
+
+/// `name` without a " - <digits>" end.
+fn strip_counter(name: &str) -> &str {
+    if let Some(i) = name.rfind(" - ") {
+        let rest = &name[i + 3..];
+        if !rest.is_empty() && rest.chars().all(|c| c.is_ascii_digit()) {
+            return &name[..i];
+        }
+    }
+    name
 }
 
 /// `base`, or base-2, base-3… if that's taken.
