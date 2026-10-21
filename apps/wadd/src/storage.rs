@@ -1,12 +1,14 @@
 //! What WadSpaces takes on this machine's disk (GET /v1/storage): the base
-//! image, each layer's image and its own share of it (what it adds to the
-//! image under it: layers are shared, so that's what one costs), each
-//! wadspace's home (its /config volume), and the files copied in for
-//! wadspaces; with the disk's size and what's free. And everything else on
-//! the disk, part by part: the system, the copy a stick update left, every
-//! other image (older bases, images from before layers, build steps), what
-//! older images share, running containers' changes, volumes no wadspace has,
-//! logs, wadd's own files, people's files, and what's left over. Counting
+//! image, each set's image and what it adds to the base, the packages kept
+//! (each with the sets stacked from it), what the tidy-up after builds
+//! would remove (tidy.rs), all of WadSpaces' images together (each layer
+//! once), each wadspace's home (its /config volume), and the files copied
+//! in for wadspaces; with the disk's size and what's free. And everything
+//! else on the disk, part by part: the system, the copy a stick update
+//! left, every other image (older bases, images from before sets, build
+//! steps), what older images share, running containers' changes, volumes
+//! no wadspace has, logs, wadd's own files, people's files, and what's
+//! left over. Counting
 //! files takes a while, so wadd keeps the last report and hands it out at
 //! once: it measures again in the background when that's over a minute old
 //! (or after something was deleted), one measure at a time, and says so
@@ -22,7 +24,8 @@ use std::os::unix::fs::MetadataExt;
 
 use serde_json::Value;
 use wad_proto::v1::{
-    CopyBytes, DiagDisk, Event, HomeBytes, ImageBytes, LayerBytes, OtherItem, OtherPart, Storage as Report,
+    CopyBytes, DiagDisk, Event, HomeBytes, ImageBytes, LayerBytes, OtherItem, OtherPart, PackageBytes,
+    Storage as Report,
 };
 
 use crate::backend::{Backend, ImageInfo};
@@ -158,18 +161,39 @@ impl Storage {
                 own_bytes: bytes.saturating_sub(under),
             });
         }
-        let mut leftovers = Vec::new();
-        for (layer, i) in crate::images::leftovers(backend.as_ref()).await.unwrap_or_default() {
-            let from = i.labels.get(crate::builds::FROM_LABEL).and_then(|v| v.as_str()).unwrap_or_default().to_string();
-            let under = size_of(&from).await.map(|(_, b)| b).unwrap_or(0);
-            leftovers.push(LayerBytes {
-                layer,
-                id: i.id,
-                from,
-                bytes: i.size,
-                own_bytes: i.size.saturating_sub(under),
-            });
+        // What the tidy-up would remove, and what it keeps.
+        let plan = crate::tidy::plan(&all, &crate::tidy::Wanted::here(&self.0.registry, &self.0.state));
+        let leftovers: Vec<LayerBytes> = plan
+            .unused
+            .iter()
+            .map(|u| LayerBytes {
+                layer: u.part.label(),
+                id: u.image.id.clone(),
+                from: u.image.parent.clone(),
+                bytes: u.image.size,
+                own_bytes: u.bytes,
+            })
+            .collect();
+        let packages = kept_packages(&all, &plan);
+        // WadSpaces' images: the base and what it's built from, what the
+        // tidy-up keeps or would remove, and every package, chain and set.
+        let short = |id: &str| id.trim_start_matches("sha256:").to_string();
+        let mut ours: HashSet<String> = plan.keep.clone();
+        ours.extend(plan.unused.iter().map(|u| short(&u.image.id)));
+        ours.extend(all.iter().filter(|i| crate::tidy::part_of(i).is_some()).map(|i| short(&i.id)));
+        let parents = crate::tidy::parents(&all);
+        let mut at = all.iter().find(|i| i.tags.iter().any(|t| t == base_ref)).map(|i| short(&i.id));
+        while let Some(id) = at {
+            if !ours.insert(id.clone()) {
+                break;
+            }
+            at = parents.get(&id).cloned();
         }
+        let images_bytes = all
+            .iter()
+            .filter(|i| ours.contains(&short(&i.id)))
+            .map(|i| crate::tidy::own_bytes(&all, &parents, i))
+            .sum();
         let df = backend.system_df().await.ok();
         let vols: Vec<(String, u64)> =
             df.as_ref().map(|d| d.volumes.iter().map(|v| (v.name.clone(), v.size)).collect()).unwrap_or_default();
@@ -191,13 +215,15 @@ impl Storage {
             base,
             layers,
             leftovers,
+            packages,
+            images_bytes,
             homes,
             copies: folders.copies.clone(),
             other: vec![],
             measured_at: now(),
             measuring: false,
         };
-        r.other = self.other(&r, df.as_ref(), &all, &folders);
+        r.other = self.other(&r, df.as_ref(), &all, &ours, &folders);
         r
     }
 
@@ -244,7 +270,14 @@ impl Storage {
     }
 
     /// Everything else, part by part.
-    fn other(&self, r: &Report, df: Option<&crate::backend::Df>, all: &[ImageInfo], f: &Folders) -> Vec<OtherPart> {
+    fn other(
+        &self,
+        r: &Report,
+        df: Option<&crate::backend::Df>,
+        all: &[ImageInfo],
+        ours: &HashSet<String>,
+        f: &Folders,
+    ) -> Vec<OtherPart> {
         let mut parts = vec![];
         let part = |key: &str, label: &str, detail: &str, bytes: u64| OtherPart {
             key: key.into(),
@@ -276,12 +309,8 @@ impl Storage {
                 )
             });
         }
-        // Images: what the layers above don't count, image by image.
+        // Images: what WadSpaces' own don't count, image by image.
         if let Some(df) = df {
-            let mut counted: HashSet<String> = r.layers.iter().chain(&r.leftovers).map(|l| short(&l.id)).collect();
-            if let Some(b) = &r.base {
-                counted.insert(short(&b.id));
-            }
             // What images here are built on: none of those can go.
             let under: HashSet<String> = all
                 .iter()
@@ -295,7 +324,7 @@ impl Storage {
             for i in df
                 .images
                 .iter()
-                .filter(|i| !counted.contains(&short(&i.id)) && !(i.name.is_empty() && steps.contains(&short(&i.id))))
+                .filter(|i| !ours.contains(&short(&i.id)) && !(i.name.is_empty() && steps.contains(&short(&i.id))))
             {
                 let info = all.iter().find(|a| short(&a.id) == short(&i.id));
                 let (label, detail, deletable) = classify(i, info, under.contains(&short(&i.id)));
@@ -312,9 +341,7 @@ impl Storage {
             if !items.is_empty() {
                 parts.push(OtherPart { items, ..part("images", "Other images", "Images the wadspaces' sets don't count: older bases, images from before sets, steps builds left.", others) });
             }
-            let ours = r.base.as_ref().map(|b| b.bytes).unwrap_or(0)
-                + r.layers.iter().chain(&r.leftovers).map(|l| l.own_bytes).sum::<u64>();
-            let shared = df.images_size.saturating_sub(ours + others);
+            let shared = df.images_size.saturating_sub(r.images_bytes + others);
             if shared > 0 {
                 parts.push(part("shared", "Shared by older images", "Image layers older images still hold in common, such as an older base that sets built before the last base update still stand on. Update those wadspaces and it goes.", shared));
             }
@@ -396,34 +423,57 @@ impl Storage {
     }
 }
 
-/// What an image the layers don't count is, and whether it can go.
+/// The packages the tidy-up keeps, biggest first, each with the sets (the
+/// tagged ones) stacked from it.
+fn kept_packages(all: &[ImageInfo], plan: &crate::tidy::Plan) -> Vec<PackageBytes> {
+    let label = |i: &ImageInfo, k: &str| i.labels.get(k).and_then(Value::as_str).unwrap_or_default().to_string();
+    let sets: Vec<(String, String)> = all
+        .iter()
+        .filter(|i| !i.tags.is_empty())
+        .map(|i| (label(i, crate::builds::LAYER_LABEL), label(i, crate::sets::PKGS_LABEL)))
+        .filter(|(l, _)| l.starts_with("set:"))
+        .collect();
+    let mut seen = HashSet::new();
+    let mut out: Vec<PackageBytes> = all
+        .iter()
+        .filter(|i| plan.keep.contains(i.id.trim_start_matches("sha256:")))
+        .filter_map(|i| match crate::tidy::part_of(i)? {
+            crate::tidy::Part::Package(id) => {
+                // Its name here (local_ref): an image listed by another name too counts once.
+                let tag =
+                    i.tags.iter().find(|t| t.starts_with(&format!("localhost/{}", wad_core::packages::PREFIX)))?;
+                let version = tag.rsplit_once(':')?.1.to_string();
+                if !seen.insert(format!("{id}@{version}")) {
+                    return None;
+                }
+                let entry = format!("{id}@{version}");
+                let mut used: Vec<String> =
+                    sets.iter().filter(|(_, p)| p.split(',').any(|e| e == entry)).map(|(k, _)| k.clone()).collect();
+                used.sort();
+                used.dedup();
+                Some(PackageBytes {
+                    name: wad_core::packages::name(&id),
+                    id,
+                    version,
+                    // Built from scratch: every layer of it is its own.
+                    bytes: i.size,
+                    sets: used,
+                })
+            }
+            _ => None,
+        })
+        .collect();
+    out.sort_by(|a, b| b.bytes.cmp(&a.bytes).then_with(|| a.id.cmp(&b.id)));
+    out
+}
+
+/// What an image WadSpaces' own don't count is, and whether it can go.
 fn classify(
     i: &crate::backend::DfImage,
     info: Option<&crate::backend::ImageInfo>,
     built_on: bool,
 ) -> (String, String, bool) {
     let label = |k: &str| info.and_then(|x| x.labels.get(k)).and_then(Value::as_str).unwrap_or_default().to_string();
-    let layer = label(crate::builds::LAYER_LABEL);
-    if !layer.is_empty() {
-        return (
-            format!("An older build of {layer}"),
-            "Something here is still built on it: it goes when that's updated or deleted.".into(),
-            false,
-        );
-    }
-    // Version 4 wadspaces' parts (sets.rs). They inherit the base's labels.
-    let pkg = label(crate::packages::PKG_LABEL);
-    if !pkg.is_empty() {
-        return (format!("The {pkg} package"), "What wadspaces' sets are put together from: it stays.".into(), false);
-    }
-    let chain = label(crate::sets::CHAIN_LABEL);
-    if !chain.is_empty() {
-        return (
-            format!("Packages stacked: {}", wad_core::packages::pkgs_of_label(&chain).join(", ")),
-            "A step wadspaces' sets are built from: the next build with these packages starts here.".into(),
-            false,
-        );
-    }
     if label("build_version").contains("WadSpaces base") || i.name.starts_with("localhost/wadspaces-base") {
         return if built_on {
             (

@@ -242,6 +242,7 @@ impl Backend for Fake {
             m.image_labels.insert(tag.into(), all);
             let n = m.builds.len();
             m.image_ids.insert(tag.into(), format!("{n:0>64}"));
+            m.image_parents.insert(tag.into(), base.into());
         });
         Ok(())
     }
@@ -355,13 +356,23 @@ impl Backend for Fake {
         let mut m = self.0.lock().unwrap();
         let id_of =
             |m: &Machine, name: &str| m.image_ids.get(name).cloned().unwrap_or_else(|| format!("{:x<64}", name.len()));
-        let Some(name) = m.images.iter().find(|n| id_of(&m, n) == id).cloned() else { return Ok(false) };
-        if m.image_labels.iter().any(|(n, l)| {
-            *n != name && m.images.contains(n) && l.get("io.wadspaces.from").and_then(|v| v.as_str()) == Some(id)
-        }) {
+        // Every name it has goes with it (podman's rmi by id).
+        let names: Vec<String> = m.images.iter().filter(|n| id_of(&m, n) == id).cloned().collect();
+        if names.is_empty() {
+            return Ok(false);
+        }
+        let child =
+            m.image_labels.iter().any(|(n, l)| {
+                !names.contains(n)
+                    && m.images.contains(n)
+                    && l.get("io.wadspaces.from").and_then(|v| v.as_str()) == Some(id)
+            }) || m.image_parents.iter().any(|(n, p)| !names.contains(n) && m.images.contains(n) && names.contains(p));
+        if child {
             return Err(format!("image {id} has dependent child images"));
         }
-        m.images.remove(&name);
+        for n in names {
+            m.images.remove(&n);
+        }
         Ok(true)
     }
     async fn system_df(&self) -> Result<wadd::backend::Df, String> {

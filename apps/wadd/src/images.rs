@@ -134,15 +134,6 @@ fn current(layer: &str, i: &ImageInfo) -> bool {
     i.tags.contains(&layer_ref(layer))
 }
 
-/// Older builds of layers that nothing still needs: no image here is built
-/// on them. (A container still running on one keeps it: removing it fails,
-/// and it's left for next time.)
-pub async fn leftovers(backend: &dyn Backend) -> Result<Vec<(String, ImageInfo)>, ApiError> {
-    let all = layer_images(backend).await?;
-    let under: std::collections::HashSet<String> = all.iter().map(|(_, i)| from_of(i).to_string()).collect();
-    Ok(all.into_iter().filter(|(l, i)| !current(l, i) && !under.contains(&i.id)).collect())
-}
-
 /// What an image adds to the one it was built on, in bytes.
 async fn own_bytes(backend: &dyn Backend, i: &ImageInfo) -> u64 {
     let under = match backend.image_info(from_of(i)).await {
@@ -327,21 +318,15 @@ pub async fn delete_selected(
     Ok(freed)
 }
 
-/// Older builds nothing needs, removed (POST /v1/storage/prune). One a
-/// container still runs on stays (for next time).
-pub async fn prune(backend: &dyn Backend) -> Result<Freed, ApiError> {
-    let mut freed = Freed::default();
-    for (_, i) in leftovers(backend).await? {
-        let bytes = own_bytes(backend, &i).await;
-        match backend.remove_image_id(&i.id).await {
-            Ok(true) => {
-                freed.bytes += bytes;
-                freed.removed.push(i.id);
-            }
-            Ok(false) => {}
-            Err(e) => tracing::info!("an old build stays for now ({}): {e}", i.id),
-        }
-    }
+/// Images nothing here needs, removed (POST /v1/storage/prune, and after
+/// the builds): the tidy-up's (tidy.rs), when `wanted` says what's needed
+/// (None while builds run), and older bases. One a container still runs on
+/// stays (for next time).
+pub async fn prune(backend: &dyn Backend, wanted: Option<&crate::tidy::Wanted>) -> Result<Freed, ApiError> {
+    let mut freed = match wanted {
+        Some(w) => crate::tidy::run(backend, w).await,
+        None => Freed::default(),
+    };
     // Older bases (a stick update brought a newer one) nothing stands on any
     // more, and steps a build left on the base (they carry its labels). Each
     // frees what only it had: a step's layers are its image's, so next to

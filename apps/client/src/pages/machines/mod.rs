@@ -283,6 +283,8 @@ thread_local! {
     static PAGE: RefCell<std::rc::Weak<Page>> = const { RefCell::new(std::rc::Weak::new()) };
 }
 
+pub use storage::show_packages;
+
 /// Picks a machine (snapshots).
 pub fn pick(id: &str) {
     let Some(p) = PAGE.with(|p| p.borrow().upgrade()) else { return };

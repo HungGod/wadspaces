@@ -130,6 +130,9 @@ pub struct Builds {
     images_busy: Mutex<HashMap<String, Arc<tokio::sync::Mutex<()>>>>,
     /// Where sets get their packages.
     packages: Mutex<Option<Arc<crate::packages::Packages>>>,
+    /// What runs here: the tidy-up after builds keeps what it needs.
+    registry: Mutex<Option<Arc<crate::registry::Registry>>>,
+    state_dir: PathBuf,
 }
 
 /// How many builds run at once: their downloads and builds side by side.
@@ -153,6 +156,7 @@ impl Builds {
             bus,
             icons,
             log_dir: state_dir.join("builds"),
+            state_dir: state_dir.into(),
             min_free_gb,
             jobs: Mutex::default(),
             tasks: Mutex::default(),
@@ -161,7 +165,23 @@ impl Builds {
             slots: tokio::sync::Semaphore::new(AT_ONCE),
             images_busy: Mutex::default(),
             packages: Mutex::default(),
+            registry: Mutex::default(),
         })
+    }
+
+    /// What runs here, for the tidy-up after builds (none: it only removes
+    /// older bases).
+    pub fn set_registry(&self, r: Arc<crate::registry::Registry>) {
+        *self.registry.lock().unwrap() = Some(r);
+    }
+
+    /// What the tidy-up keeps, unless a build or a download is going on.
+    pub fn wanted(&self) -> Option<crate::tidy::Wanted> {
+        if crate::tidy::busy(self) {
+            return None;
+        }
+        let r = self.registry.lock().unwrap().clone()?;
+        Some(crate::tidy::Wanted::here(&r, &self.state_dir))
     }
 
     /// Where set builds get their packages.
@@ -356,11 +376,10 @@ impl Builds {
         self.with(&id, |b| b.finished = Some(now()));
         self.tasks.lock().unwrap().remove(&id);
         self.publish(&id, true);
-        // The last build out tidies up: older images nothing needs any more
-        // (a layer's earlier build, an older base no template stands on).
-        let busy = self.jobs.lock().unwrap().iter().any(|j| !j.build.status.finished());
-        if !busy
-            && let Ok(f) = crate::images::prune(self.backend.as_ref()).await
+        // The last build out tidies up: images nothing here needs any more
+        // (sets nothing runs on, their steps and packages, older bases).
+        if !crate::tidy::busy(&self)
+            && let Ok(f) = crate::images::prune(self.backend.as_ref(), self.wanted().as_ref()).await
             && !f.removed.is_empty()
         {
             tracing::info!("after the builds: removed {} older images ({} MB)", f.removed.len(), f.bytes / 1_000_000);

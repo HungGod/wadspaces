@@ -187,7 +187,8 @@ fn actions(st: &AppState, w: &Value, m: &Modal) -> gtk::Widget {
     grid.upcast()
 }
 
-/// Its templates (top first), and how its image stands.
+/// Its templates (top first), the packages its image adds to the base,
+/// and how its image stands.
 fn built_on(st: &AppState, w: &Value) -> gtk::Widget {
     let sec = section("Built on");
     let card = gtk::Box::new(gtk::Orientation::Horizontal, 12);
@@ -205,6 +206,15 @@ fn built_on(st: &AppState, w: &Value) -> gtk::Widget {
     l.set_xalign(0.0);
     l.set_ellipsize(gtk::pango::EllipsizeMode::End);
     texts.append(&l);
+    let pkgs: Vec<String> = wad_core::v4::packages_of(w).iter().map(|p| wad_core::packages::name(p)).collect();
+    let adds = if pkgs.is_empty() {
+        "Its image is the base: it adds nothing to it".to_string()
+    } else {
+        format!("Its image adds {}", pkgs.join(", "))
+    };
+    let adds_l = ui::wrapping(&adds);
+    adds_l.add_css_class("small-muted");
+    texts.append(&adds_l);
     let state_row = gtk::Box::new(gtk::Orientation::Horizontal, 6);
     texts.append(&state_row);
     card.append(&texts);
@@ -228,11 +238,17 @@ fn built_on(st: &AppState, w: &Value) -> gtk::Widget {
     let key = wad_core::layers::stack_image_key(w);
     if !key.is_empty() {
         let building = st.builds.iter().any(|(b, _)| !b.status.finished() && b.layer.as_deref() == Some(key.as_str()));
-        let (rw, bw) = (state_row.downgrade(), build.downgrade());
+        let (rw, bw, aw) = (state_row.downgrade(), build.downgrade(), adds_l.downgrade());
         glib::spawn_future_local(async move {
             let rows = get::<Vec<ImageRow>>("/v1/images".into()).await.unwrap_or_default();
             let images: HashMap<String, ImageRow> = rows.into_iter().map(|r| (r.layer.clone(), r)).collect();
             let (Some(row), Some(build)) = (rw.upgrade(), bw.upgrade()) else { return };
+            // Built: how big it is, the base and all.
+            if let (Some(a), Some(i)) = (aw.upgrade(), images.get(&key))
+                && i.size_mb > 0.0
+            {
+                a.set_text(&format!("{adds} · {} in all", ui::bytes((i.size_mb * 1_000_000.0) as u64)));
+            }
             let state = launch::image_state(&key, &images);
             let text = if building {
                 "Building".to_string()

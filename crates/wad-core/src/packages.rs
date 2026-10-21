@@ -31,7 +31,8 @@ use crate::spec::{FEATURE_NEEDS, FEATURES};
 
 /// Where CI publishes packages: `<REGISTRY>/wadspaces-pkg-<id>:<abi>`.
 pub const REGISTRY: &str = "ghcr.io/hunggod";
-const PREFIX: &str = "wadspaces-pkg-";
+/// A package image's name, before its id (local_ref, remote_ref).
+pub const PREFIX: &str = "wadspaces-pkg-";
 /// Chain images: `<CHAIN>:<sha12 of the base and packages>`.
 pub const CHAIN: &str = "localhost/wadspaces-chain";
 
@@ -80,6 +81,25 @@ pub fn source(id: &str) -> Option<Source> {
     }
     let ext = id.strip_prefix("ext-")?;
     is_extension_id(ext).then(|| Source::Extension(ext.into()))
+}
+
+/// What a package is called: its app's, tool's or VS Code extension's name
+/// in the catalog, else its id.
+pub fn name(id: &str) -> String {
+    let c = catalog::catalog();
+    let named = |k: &str, want: &dyn Fn(&str) -> bool| -> Option<String> {
+        c[k].as_array()?.iter().find(|x| x["id"].as_str().is_some_and(want))?["name"].as_str().map(String::from)
+    };
+    if let Some(ext) = id.strip_prefix("ext-") {
+        return named("extensions", &|x| x.to_lowercase() == ext).unwrap_or_else(|| ext.to_string());
+    }
+    named("apps", &|x| of_app(x).as_deref() == Some(id)).or_else(|| named("tools", &|x| x == id)).unwrap_or_else(|| {
+        match id {
+            "electron-deps" => "Electron's libraries".into(),
+            "git" => "Git".into(),
+            _ => id.to_string(),
+        }
+    })
 }
 
 /// The packages `id` needs under it.

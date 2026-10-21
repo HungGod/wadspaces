@@ -196,3 +196,13 @@ fn the_index_keeps_other_abis_and_takes_new_packages() {
     assert!(in_index(&fresh, "trixie.1", "rust").is_some());
     assert!(in_index(&fresh, "trixie.2", "rust").is_none());
 }
+
+#[test]
+fn packages_are_called_by_their_apps_tools_and_extensions_names() {
+    assert_eq!(name("vscode"), "VS Code");
+    assert_eq!(name("rust"), "Rust");
+    assert_eq!(name("ext-rust-lang.rust-analyzer"), "rust-analyzer");
+    assert_eq!(name("ext-someone.unknown"), "someone.unknown");
+    assert_eq!(name("electron-deps"), "Electron's libraries");
+    assert_eq!(name("nothing-known"), "nothing-known");
+}

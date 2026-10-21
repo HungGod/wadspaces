@@ -37,6 +37,7 @@ pub mod storage;
 pub mod streams;
 pub mod systemd;
 pub mod tailnet;
+pub mod tidy;
 pub mod tunnel;
 pub mod view;
 
@@ -295,6 +296,7 @@ impl Server {
         let builds = builds::Builds::new(backend.clone(), bus.clone(), &d.state_dir, d.build_min_free_gb);
         let packages = packages::Packages::new(backend.clone(), bus.clone(), packages::Settings::new(config));
         builds.set_packages(packages.clone());
+        builds.set_registry(registry.clone());
         // Streams: each run of wadd is told apart by the self-test.
         let instance = streams::random_hex(8);
         let tunnel = Arc::new(tunnel::Tunnel::new(

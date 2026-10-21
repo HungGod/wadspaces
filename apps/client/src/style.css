@@ -1159,6 +1159,8 @@ wad-shares.disk-bar {
 .share.customization, .swatch.customization { background: var(--layer-customization); }
 .share.extensions, .swatch.extensions { background: var(--layer-extensions); }
 .share.else, .swatch.else { background: var(--faint); }
+/* Packages: the apps' files the sets were stacked from (kept to restack). */
+.share.packages, .swatch.packages { background: color-mix(in srgb, var(--layer-template) 45%, var(--surface-3)); }
 .swatch { min-width: 10px; min-height: 10px; border-radius: 2px; }
 .swatch.free { background: var(--surface-3); box-shadow: inset 0 0 0 1px var(--line); }
 flowbox.legend > flowboxchild { padding: 0; }

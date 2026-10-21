@@ -11,14 +11,17 @@
 #               kept between runs). Then stacked as chain images and put
 #               together.
 #   2 no-tiled  Tiled taken out (in the middle): what's above it is stacked
-#               again, nothing below.
+#               again, nothing below. The tidy-up after the build takes the
+#               set Tiled was in and Tiled's package (no wadspace here needs
+#               it: the next run builds it again).
 #   3 twin      a second wadspace with the same packages: nothing builds.
 #
 # Then: the set's labels and what's inside it, the extra folder wadd wrote
 # (web apps and their icons, layout, WadBrowser's mode, the background), a
 # container of the set started with it (the base's init takes the web apps
 # and the layout, as at a real start), and the tidy-up and the disk page
-# leaving packages and chains alone. report.tsv has the times.
+# leaving what the wadspaces run on and the packages they need, with
+# nothing left over. report.tsv has the times.
 #
 #   apps/wadd/dev/try-sets.sh
 #   GITHUB_TOKEN=<reads hunggod's packages> apps/wadd/dev/try-sets.sh
@@ -198,6 +201,12 @@ echo "== 2 no-tiled"
 step no-tiled try-iq "Tiled taken out of the middle" IntelligenceQuest 0 "$full"
 set_ref=$(api http://wadd/v1/workspaces/try-iq | python3 -I -c 'import json, sys; print(json.load(sys.stdin)["image"])')
 [ "$set_ref" != "$iq_key" ] || fail "taking Tiled out didn't change the set"
+# The tidy-up runs as the last build ends.
+for _ in $(seq 60); do "${P[@]}" image exists "$iq_key" || break; sleep 1; done
+! "${P[@]}" image exists "$iq_key" || fail "the set Tiled was in is still here"
+[ "$("${P[@]}" images --format '{{.Repository}}' | grep -c '^localhost/wadspaces-pkg-tiled$')" = 0 ] ||
+  fail "Tiled's package is still here"
+echo "  the tidy-up took the set Tiled was in, and Tiled's package"
 echo "== 3 twin"
 step twin try-twin "the same packages: nothing to build" Twin 0 "$full"
 [ "$(api http://wadd/v1/workspaces/try-twin | python3 -I -c 'import json, sys; print(json.load(sys.stdin)["image"])')" = "$set_ref" ] ||
@@ -246,11 +255,14 @@ api -X POST http://wadd/v1/storage/prune | python3 -I -c 'import json, sys; f = 
 api 'http://wadd/v1/storage?fresh=true' | python3 -I -c '
 import json, sys
 r = json.load(sys.stdin)
+if r["leftovers"]: sys.exit("left over: %s" % [l["layer"] for l in r["leftovers"]])
+for p in r["packages"]:
+    print("  package %-22s %7.0f MB  for %d set(s)" % (p["name"], p["bytes"] / 1e6, len(p["sets"])))
 for p in r["other"]:
     for i in p.get("items", []):
-        if i["label"].startswith(("The ", "Packages stacked")):
-            if i["deletable"]: sys.exit("offered for deletion: " + i["label"])
-            print("  %-60s kept" % i["label"][:60])'
+        if "wadspaces-" in i["label"] or i["label"].startswith(("The ", "Packages stacked")):
+            sys.exit("a WadSpaces image under other images: " + i["label"])
+print("  WadSpaces images %.2f GB (each layer once); nothing left over" % (r["imagesBytes"] / 1e9))'
 
 echo "== disk"
 "${P[@]}" system df | sed 's/^/  /'

@@ -546,6 +546,11 @@ impl Packages {
         Ok(job)
     }
 
+    /// Whether a fetch is going on.
+    pub fn fetching(&self) -> bool {
+        self.fetch.lock().unwrap().as_ref().is_some_and(|j| !j.status.finished())
+    }
+
     /// DELETE /v1/packages/fetch: stops it (what's downloaded so far stays).
     pub fn cancel_fetch(&self) -> bool {
         let Some(task) = self.task.lock().unwrap().take() else { return false };

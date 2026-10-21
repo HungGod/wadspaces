@@ -1685,14 +1685,26 @@ pub struct DiagDisk {
 pub struct Storage {
     /// The disk the images are on.
     pub disk: DiagDisk,
-    /// The base every template builds on; None if it isn't here.
+    /// The base every wadspace runs on; None if it isn't here.
     pub base: Option<ImageBytes>,
-    /// Each layer's image: all of it, and its own share (what it adds to the
-    /// image it's built on).
+    /// Each set's image: all of it, and its own share (what it adds to the
+    /// base).
     pub layers: Vec<LayerBytes>,
-    /// Older builds of layers, kept by nothing that still needs them
-    /// (`layer` is the layer they were; `id` the image).
+    /// What the tidy-up after builds removes: images nothing here needs any
+    /// more (`layer`: "set:<key>" for a set no workspace here runs on or an
+    /// older build of one, "package:<id>", "chain", "step", or the old
+    /// Builder's "template:<id>" and "custom:<id>"), each with what only it
+    /// takes (`ownBytes`).
     pub leftovers: Vec<LayerBytes>,
+    /// The packages kept here (each one the wadspaces installed here need,
+    /// its newest copy): what changes to them restack from, without a
+    /// download.
+    #[serde(default)]
+    pub packages: Vec<PackageBytes>,
+    /// What WadSpaces' images take together (the base, the sets and what
+    /// they're stacked from, the packages, the leftovers), each layer once.
+    #[serde(default)]
+    pub images_bytes: u64,
     /// Each wadspace's home (its /config volume).
     pub homes: Vec<HomeBytes>,
     /// Files copied in for wadspaces (POST /v1/copies).
@@ -1767,6 +1779,20 @@ pub struct LayerBytes {
     pub from: String,
     pub bytes: u64,
     pub own_bytes: u64,
+}
+
+/// A package kept on this machine.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PackageBytes {
+    /// Its id (wad_core::packages), and what it's called.
+    pub id: String,
+    pub name: String,
+    /// Its tag here (the start of its image id).
+    pub version: String,
+    pub bytes: u64,
+    /// The sets here stacked from it ("set:<key>").
+    pub sets: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

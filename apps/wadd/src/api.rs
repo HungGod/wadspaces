@@ -933,15 +933,25 @@ async fn storage_delete(
     Json(pick): Json<wad_proto::v1::StorageDelete>,
 ) -> Result<Json<wad_proto::v1::Freed>, Failure> {
     let backend = app.registry_backend.as_ref();
-    let freed =
+    let mut freed =
         crate::images::delete_selected(&app.registry, &app.builds, &app.copies, backend, &app.store.dir, &pick).await?;
+    // What only those needed goes with them (a set nothing runs on now).
+    if let Some(wanted) = app.builds.wanted() {
+        let more = crate::tidy::run(backend, &wanted).await;
+        freed.bytes += more.bytes;
+        freed.removed.extend(more.removed);
+    }
     app.storage.forget();
     Ok(Json(freed))
 }
 
-/// Older builds of layers that nothing needs, removed.
+/// Images nothing here needs, removed (the tidy-up after builds, now).
 async fn storage_prune(State(app): State<Arc<AppState>>) -> Result<Json<wad_proto::v1::Freed>, Failure> {
-    let freed = crate::images::prune(app.registry_backend.as_ref()).await?;
+    let wanted = app.builds.wanted();
+    let mut freed = crate::images::prune(app.registry_backend.as_ref(), wanted.as_ref()).await?;
+    if wanted.is_none() {
+        freed.failed.push("Builds are running: what they leave goes when they're done.".into());
+    }
     app.storage.forget();
     Ok(Json(freed))
 }

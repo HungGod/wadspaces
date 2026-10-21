@@ -8,8 +8,11 @@
 //!
 //! Sets and wadspaces (with their files) are picked in the tree and deleted
 //! from the disk, just what's picked: a set a wadspace that stays runs on
-//! can't go. Older builds nothing needs go on their own line. wadd hands
-//! out its last count at once and counts again in the background; its
+//! can't go. What's left over (sets nothing runs on, packages no wadspace
+//! here needs, the old Builder's images) goes after the next build, or on
+//! its own line now. The packages kept (what changes restack from, without
+//! a download) are listed with the wadspaces they're for. wadd hands out
+//! its last count at once and counts again in the background; its
 //! `storage` event says when a new one is ready.
 
 use std::cell::{Cell, RefCell};
@@ -19,7 +22,7 @@ use std::rc::Rc;
 use gtk::{glib, prelude::*};
 use serde_json::Value;
 use wad_gtk::Icon;
-use wad_proto::v1::{Freed, ImageRow, Storage, StorageDelete};
+use wad_proto::v1::{Freed, ImageRow, LayerBytes, Storage, StorageDelete};
 use wad_wadd_client::Method;
 
 use super::tree::{NODE_W, Placed, Shares, Tree};
@@ -345,6 +348,61 @@ pub fn picks<'a>(nodes: &'a [Node], st: &Storage, picked: &HashSet<String>) -> P
 }
 
 /// What a delete or prune freed, as a toast: (title, body, failed).
+/// What's left over, said in a line (none: nothing is).
+pub fn leftover_text(left: &[LayerBytes]) -> Option<String> {
+    if left.is_empty() {
+        return None;
+    }
+    let n = |p: &str| left.iter().filter(|l| l.layer.starts_with(p)).count();
+    let plural = |n: usize, one: &str, many: &str| format!("{n} {}", if n == 1 { one } else { many });
+    let (sets, pkgs, old) = (n("set:"), n("package:"), n("template:") + n("custom:"));
+    let mut what = vec![];
+    if sets > 0 {
+        what.push(plural(sets, "set no wadspace here runs on", "sets no wadspace here runs on"));
+    }
+    if pkgs > 0 {
+        what.push(plural(pkgs, "package no wadspace here needs", "packages no wadspace here needs"));
+    }
+    if old > 0 {
+        what.push("the old Builder's images".into());
+    }
+    if what.is_empty() {
+        what.push("steps builds left".into());
+    }
+    let what = match what.len() {
+        1 => what.remove(0),
+        _ => {
+            let last = what.pop().unwrap_or_default();
+            format!("{} and {last}", what.join(", "))
+        }
+    };
+    let total: u64 = left.iter().map(|l| l.own_bytes).sum();
+    Some(format!("Left over: {what}, {}. It goes after the next build, or now.", bytes(total)))
+}
+
+/// The packages kept, each with what it's for: (name, detail, bytes).
+/// `wadspaces`: (wadspace, its name), each on its set.
+pub fn package_rows(st: &Storage, wadspaces: &[(&Value, String)]) -> Vec<(String, String, u64)> {
+    st.packages
+        .iter()
+        .map(|p| {
+            let mut names: Vec<&str> = wadspaces
+                .iter()
+                .filter(|(w, _)| p.sets.contains(&wad_core::v4::image_key(w)))
+                .map(|(_, n)| n.as_str())
+                .collect();
+            names.sort();
+            names.dedup();
+            let detail = if names.is_empty() {
+                format!("{} · kept for a wadspace whose image isn't built yet", p.version)
+            } else {
+                format!("{} · in {}", p.version, names.join(", "))
+            };
+            (p.name.clone(), detail, p.bytes)
+        })
+        .collect()
+}
+
 pub fn freed_text(f: &Freed) -> (String, String, bool) {
     let plural = |n: usize, one: &'static str, many: &'static str| if n == 1 { one } else { many };
     let mut what = vec![];
@@ -376,6 +434,18 @@ pub fn freed_text(f: &Freed) -> (String, String, bool) {
 
 // ------------------------------------------------------------------ view
 
+thread_local! {
+    static VIEW: RefCell<std::rc::Weak<View>> = const { RefCell::new(std::rc::Weak::new()) };
+}
+
+/// The packages' card opened (snapshots).
+pub fn show_packages() {
+    if let Some(v) = VIEW.with(|w| w.borrow().upgrade()) {
+        v.packages_open.set(true);
+        v.render();
+    }
+}
+
 struct View {
     storage: RefCell<Option<Storage>>,
     images: RefCell<HashMap<String, ImageRow>>,
@@ -383,6 +453,7 @@ struct View {
     busy: Cell<bool>,
     picked: RefCell<HashSet<String>>,
     report_open: Cell<bool>,
+    packages_open: Cell<bool>,
     /// The layers building now (their notes say so).
     building: RefCell<Vec<String>>,
     body: gtk::Box,
@@ -409,10 +480,12 @@ pub fn view() -> gtk::Widget {
         busy: Cell::new(false),
         picked: RefCell::default(),
         report_open: Cell::new(false),
+        packages_open: Cell::new(false),
         building: RefCell::default(),
         body: p.body.clone(),
         refresh: refresh.clone(),
     });
+    VIEW.with(|w| w.replace(Rc::downgrade(&v)));
     let vv = v.clone();
     refresh.connect_clicked(move |_| vv.clone().load(true));
     // A new count from wadd (and the first look).
@@ -522,6 +595,9 @@ impl View {
             self.body.append(&w);
         }
         self.body.append(&self.tree(&nodes));
+        if let Some(w) = self.packages(st) {
+            self.body.append(&w);
+        }
         let picked = self.picked.borrow().clone();
         if !picked.is_empty() {
             self.body.append(&self.picked_bar(st, &nodes, &picked));
@@ -531,21 +607,27 @@ impl View {
     /// The disk: images, wadspaces' files, copies, everything else, free.
     fn disk_bar(self: &Rc<Self>, st: &Storage) -> gtk::Widget {
         let col = gtk::Box::new(gtk::Orientation::Vertical, 10);
-        let images =
-            st.base.as_ref().map(|b| b.bytes).unwrap_or(0) + st.layers.iter().map(|l| l.own_bytes).sum::<u64>();
+        let packages: u64 = st.packages.iter().map(|p| p.bytes).sum();
+        // Each layer once (a wadd from before counted sets on their own).
+        let images = if st.images_bytes > 0 {
+            st.images_bytes.saturating_sub(packages)
+        } else {
+            st.base.as_ref().map(|b| b.bytes).unwrap_or(0) + st.layers.iter().map(|l| l.own_bytes).sum::<u64>()
+        };
         let homes: u64 = st.homes.iter().map(|h| h.bytes).sum();
         let copies: u64 = st.copies.iter().map(|c| c.bytes).sum();
         let total = st.disk.total_bytes.max(1);
         let used = st.disk.total_bytes.saturating_sub(st.disk.free_bytes);
-        let other = used.saturating_sub(images + homes + copies);
+        let other = used.saturating_sub(images + packages + homes + copies);
         let parts = [
             ("Images", images, "template"),
+            ("Packages", packages, "packages"),
             ("Wadspaces' files", homes, "customization"),
             ("Copied in", copies, "extensions"),
             ("Everything else", other, "else"),
         ];
         let head = gtk::Box::new(gtk::Orientation::Horizontal, 8);
-        let uses = gtk::Label::new(Some(&format!("WadSpaces uses {}", bytes(images + homes + copies))));
+        let uses = gtk::Label::new(Some(&format!("WadSpaces uses {}", bytes(images + packages + homes + copies))));
         uses.add_css_class("strong");
         uses.set_hexpand(true);
         uses.set_xalign(0.0);
@@ -596,16 +678,10 @@ impl View {
         }
         legend.insert(&key("Free", st.disk.free_bytes, "free"), -1);
         col.append(&legend);
-        if !st.leftovers.is_empty() {
-            let old: u64 = st.leftovers.iter().map(|l| l.own_bytes).sum();
-            let n = st.leftovers.len();
+        if let Some(text) = leftover_text(&st.leftovers) {
             let row = gtk::Box::new(gtk::Orientation::Horizontal, 12);
             row.add_css_class("old-builds");
-            let l = ui::wrapping(&format!(
-                "Old builds: {n} earlier build{} of sets nothing needs any more, {}.",
-                if n == 1 { "" } else { "s" },
-                bytes(old)
-            ));
+            let l = ui::wrapping(&text);
             l.add_css_class("small-muted");
             row.append(&l);
             let go = ui::button("Delete them", Some("trash"), Variant::Ghost, Size::Sm);
@@ -616,7 +692,7 @@ impl View {
                 glib::spawn_future_local(async move {
                     match send::<Freed>(Method::POST, "/v1/storage/prune".into(), Some(serde_json::json!({}))).await {
                         Ok(f) => me.clone().freed(&f),
-                        Err(e) => crate::toast::error("Couldn't delete the old builds", &e),
+                        Err(e) => crate::toast::error("Couldn't delete what's left over", &e),
                     }
                     b.set_sensitive(true);
                 });
@@ -651,6 +727,88 @@ impl View {
 
     /// "Everything else", part by part: what each is, how big, and where it
     /// can go, a box to pick it.
+    /// The packages kept: closed, a line; open, each with what it's for.
+    fn packages(self: &Rc<Self>, st: &Storage) -> Option<gtk::Widget> {
+        if st.packages.is_empty() {
+            return None;
+        }
+        let rows = store().read_now(|s| {
+            let ws: Vec<(&Value, String)> = s.wadspaces().into_iter().map(|w| (w, s.wadspace_name(w))).collect();
+            package_rows(st, &ws)
+        });
+        let total: u64 = rows.iter().map(|r| r.2).sum();
+        let me = self.clone();
+        let show = move |open: bool| {
+            me.packages_open.set(open);
+            me.render();
+        };
+        if !self.packages_open.get() {
+            let row = gtk::Box::new(gtk::Orientation::Horizontal, 12);
+            row.add_css_class("other-closed");
+            let t = format!(
+                " · {} in {}, kept so a change to a wadspace's apps rebuilds without a download",
+                bytes(total),
+                rows.len()
+            );
+            let l = gtk::Label::new(None);
+            l.set_markup(&format!("<b>Packages</b><span alpha=\"62%\">{}</span>", glib::markup_escape_text(&t)));
+            l.set_hexpand(true);
+            l.set_xalign(0.0);
+            l.set_wrap(true);
+            row.append(&l);
+            let b = ui::button("Show", Some("layers"), Variant::Secondary, Size::Sm);
+            b.set_valign(gtk::Align::Center);
+            b.connect_clicked(move |_| show(true));
+            row.append(&b);
+            return Some(row.upcast());
+        }
+        let card = gtk::Box::new(gtk::Orientation::Vertical, 0);
+        card.add_css_class("other-open");
+        let head = gtk::Box::new(gtk::Orientation::Horizontal, 12);
+        head.add_css_class("other-head");
+        let t = gtk::Label::new(Some("Packages: each app's files, kept for the wadspaces here"));
+        t.add_css_class("strong");
+        t.set_hexpand(true);
+        t.set_xalign(0.0);
+        t.set_wrap(true);
+        head.append(&t);
+        let n = gtk::Label::new(Some(&bytes(total)));
+        n.add_css_class("mono-muted");
+        head.append(&n);
+        let hide = ui::button("Hide", Some("chevron-up"), Variant::Ghost, Size::Sm);
+        hide.connect_clicked(move |_| show(false));
+        head.append(&hide);
+        card.append(&head);
+        for (name, detail, b) in rows {
+            let top = gtk::Box::new(gtk::Orientation::Horizontal, 12);
+            top.add_css_class("other-part");
+            let sq = gtk::Box::new(gtk::Orientation::Horizontal, 0);
+            sq.add_css_class("swatch");
+            sq.add_css_class("packages");
+            sq.set_valign(gtk::Align::Start);
+            sq.set_margin_top(4);
+            sq.set_margin_start(3);
+            sq.set_margin_end(3);
+            top.append(&sq);
+            let text = gtk::Box::new(gtk::Orientation::Vertical, 2);
+            text.set_hexpand(true);
+            let l = gtk::Label::new(Some(&name));
+            l.add_css_class("medium");
+            l.set_xalign(0.0);
+            text.append(&l);
+            let d = ui::wrapping(&detail);
+            d.add_css_class("small-muted");
+            text.append(&d);
+            top.append(&text);
+            let n = gtk::Label::new(Some(&bytes(b)));
+            n.add_css_class("mono-14");
+            n.set_valign(gtk::Align::Start);
+            top.append(&n);
+            card.append(&top);
+        }
+        Some(card.upcast())
+    }
+
     fn other(self: &Rc<Self>, st: &Storage) -> Option<gtk::Widget> {
         let mut parts = st.other.clone();
         if parts.is_empty() {
@@ -1093,6 +1251,8 @@ mod tests {
                 own_bytes: 2_000_000_000,
             }],
             leftovers: vec![],
+            packages: vec![],
+            images_bytes: 0,
             homes: vec![HomeBytes { workspace_id: "vanua".into(), volume: "v".into(), bytes: 900_000_000 }],
             copies: vec![],
             other: vec![OtherPart {
@@ -1187,6 +1347,52 @@ mod tests {
         assert_eq!(p.frees, 2_900_000_000);
         let r = p.request();
         assert_eq!((r.layers, r.wadspaces), (vec![code], vec!["vanua".to_string()]));
+    }
+
+    #[test]
+    fn whats_left_over_says_what_it_is() {
+        assert_eq!(leftover_text(&[]), None);
+        let l = |layer: &str, b: u64| LayerBytes {
+            layer: layer.into(),
+            id: "i".into(),
+            from: String::new(),
+            bytes: b,
+            own_bytes: b,
+        };
+        let left = [
+            l("set:aaaaaaaaaaaa", 2_000_000_000),
+            l("step", 0),
+            l("package:tiled", 100_000_000),
+            l("package:obsidian", 200_000_000),
+            l("template:dev", 600_000_000),
+        ];
+        assert_eq!(
+            leftover_text(&left).unwrap(),
+            format!(
+                "Left over: 1 set no wadspace here runs on, 2 packages no wadspace here needs and the old Builder's \
+                 images, {}. It goes after the next build, or now.",
+                bytes(2_900_000_000)
+            )
+        );
+        assert!(leftover_text(&[l("chain", 5)]).unwrap().starts_with("Left over: steps builds left,"));
+    }
+
+    #[test]
+    fn packages_say_which_wadspaces_theyre_in() {
+        let vanua = wadspace("vanua", &["vscode"]);
+        let mut st = storage();
+        let pkg = |id: &str, name: &str, sets: Vec<String>| wad_proto::v1::PackageBytes {
+            id: id.into(),
+            name: name.into(),
+            version: "cccccccccccc".into(),
+            bytes: 1_000_000_000,
+            sets,
+        };
+        st.packages =
+            vec![pkg("vscode", "VS Code", vec![wad_core::v4::image_key(&vanua)]), pkg("tiled", "Tiled", vec![])];
+        let rows = package_rows(&st, &[(&vanua, "Vanua".to_string())]);
+        assert_eq!(rows[0], ("VS Code".into(), "cccccccccccc · in Vanua".into(), 1_000_000_000));
+        assert_eq!(rows[1].1, "cccccccccccc · kept for a wadspace whose image isn't built yet");
     }
 
     #[test]

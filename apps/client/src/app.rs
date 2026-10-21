@@ -369,6 +369,13 @@ fn snapshot(w: &gtk::ApplicationWindow, dir: std::path::PathBuf) {
                 shot(&tab, &dir.join(format!("machines-{}-whole-dark.png", crate::pages::machines::tab_name())));
             }
         }
+        // Storage's packages, shown.
+        crate::pages::machines::show_tab("storage");
+        crate::pages::machines::show_packages();
+        settle(800).await;
+        if let Some(tab) = crate::pages::machines::tab_widget() {
+            shot(&tab, &dir.join("machines-storage-packages-dark.png"));
+        }
         crate::pages::machines::pick("m-desk");
         settle(800).await;
         shot(&w, &dir.join("machines-other-dark.png"));

@@ -165,6 +165,7 @@ async fn env() -> Env {
         },
     );
     builds.set_packages(p);
+    builds.set_registry(reg.clone());
     Env { _d: d, state, fake, reg, builds }
 }
 
@@ -368,7 +369,7 @@ async fn an_old_base_another_machine_and_a_bad_wadspace_are_refused() {
 }
 
 #[tokio::test]
-async fn the_tidy_up_and_the_disk_page_leave_packages_and_chains_alone() {
+async fn the_tidy_up_keeps_what_a_wadspace_here_runs_on_and_its_packages() {
     let e = env().await;
     e.install_and_build(&iq()).await.unwrap();
     // A newer base: the old one stays while chains stand on it.
@@ -386,7 +387,8 @@ async fn the_tidy_up_and_the_disk_page_leave_packages_and_chains_alone() {
         v.sort();
         v
     };
-    let freed = wadd::images::prune(&e.fake).await.unwrap();
+    let wanted = wadd::tidy::Wanted::here(&e.reg, &e.state);
+    let freed = wadd::images::prune(&e.fake, Some(&wanted)).await.unwrap();
     assert!(freed.removed.is_empty(), "{freed:?}");
     let after: Vec<String> = {
         let m = e.fake.0.lock().unwrap();
@@ -409,8 +411,62 @@ async fn the_tidy_up_and_the_disk_page_leave_packages_and_chains_alone() {
     let freed = wadd::images::delete_selected(&e.reg, &e.builds, &copies, &e.fake, &e.state, &pick).await.unwrap();
     assert!(freed.removed.is_empty() && freed.failed.len() == 1, "{freed:?}");
     assert!(e.fake.0.lock().unwrap().images.iter().any(|i| i.starts_with("localhost/wadspaces-pkg-cpp:")));
-    // The set's builds aren't old builds; a set's image is a layer the disk page counts.
-    assert!(wadd::images::leftovers(&e.fake).await.unwrap().is_empty());
+    // Nothing's left over: the set, its chains and packages are all needed.
+    let all = wadd::backend::Backend::images_all(&e.fake).await.unwrap();
+    assert!(wadd::tidy::plan(&all, &wanted).unused.is_empty());
+}
+
+#[tokio::test]
+async fn a_set_nothing_runs_on_goes_after_the_next_build_with_what_only_it_needed() {
+    let e = env().await;
+    e.install_and_build(&iq()).await.unwrap();
+    let old = set_ref(&iq());
+    let has = |prefix: &str| e.fake.0.lock().unwrap().images.iter().any(|i| i.starts_with(prefix));
+    let ext = "localhost/wadspaces-pkg-ext-rust-lang.rust-analyzer:";
+    assert!(has(&old) && has(ext));
+    // rust-analyzer out: the new set builds, then the tidy-up (after the
+    // last build out) takes the old set, its own steps and the extension.
+    let no_ext = with(iq(), |w| w["templates"][0]["apps"][1]["extras"] = json!([]));
+    let log = e.install_and_build(&no_ext).await.unwrap();
+    assert_eq!(log.build.status, BuildStatus::Done, "{:?}", log.lines);
+    for _ in 0..500 {
+        if !has(&old) {
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(10)).await;
+    }
+    assert!(!has(&old) && !has(ext), "{:?}", e.fake.0.lock().unwrap().images);
+    assert!(has(&set_ref(&no_ext)));
+    // What the wadspace still needs stays, and so do the chains under its set.
+    for p in ["cpp", "rust", "electron-deps", "vscode"] {
+        assert!(has(&format!("localhost/wadspaces-pkg-{p}:")), "{p}");
+    }
+    let chains = e.fake.0.lock().unwrap().images.iter().filter(|i| i.starts_with(pk::CHAIN)).count();
+    assert_eq!(chains, 4);
+    // The disk page: nothing left over; each package with the set stacked from it.
+    let bus = Bus::new(wad_proto::v1::MachineInfo {
+        name: "t".into(),
+        version: "0".into(),
+        profile: wad_proto::v1::Profile::User,
+        started_at: 0,
+        screen: None,
+    });
+    let s = wadd::storage::Storage::new(&e.state, false, Arc::new(e.fake.clone()), e.reg.clone(), bus);
+    let r = s.report(true).await;
+    assert!(r.leftovers.is_empty(), "{:?}", r.leftovers);
+    let key = wad_core::v4::image_key(&no_ext);
+    let mut names: Vec<(&str, &str, &[String])> =
+        r.packages.iter().map(|p| (p.id.as_str(), p.name.as_str(), p.sets.as_slice())).collect();
+    names.sort();
+    assert_eq!(names.len(), 4, "{names:?}");
+    assert_eq!(names[2], ("rust", "Rust", std::slice::from_ref(&key)));
+    assert!(r.images_bytes > 0);
+    // A wadspace taken off the machine: the next tidy-up takes everything of its.
+    e.reg.set_workspaces(vec![]).await.unwrap();
+    let wanted = wadd::tidy::Wanted::here(&e.reg, &e.state);
+    let freed = wadd::images::prune(&e.fake, Some(&wanted)).await.unwrap();
+    assert!(!has(&set_ref(&no_ext)) && !has("localhost/wadspaces-pkg-") && !has(pk::CHAIN), "{freed:?}");
+    assert!(has(BASE));
 }
 
 #[test]
