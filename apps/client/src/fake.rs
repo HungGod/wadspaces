@@ -78,7 +78,6 @@ pub fn load(path: &std::path::Path) {
             color: p["color"].as_str().unwrap_or("#c6ff1f").into(),
             photo_url: None,
             onboarded: true,
-            starters_created: true,
             last_session: v.get("lastSession").cloned(),
         });
         Topic::ACCOUNT

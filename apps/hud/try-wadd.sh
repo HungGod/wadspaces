@@ -15,8 +15,8 @@ dir=$root/.build/hud-try-wadd
 out=$dir/shots
 rm -rf "$dir"; mkdir -p "$dir/state" "$dir/projects" "$dir/config/wadspaces" "$out"
 . "$root/apps/wadd/dev/sway.sh"
-podman image exists localhost/wadspaces-template-trytest:latest ||
-  podman build -q -t localhost/wadspaces-template-trytest:latest "$root/apps/wadd/dev/test-image" >/dev/null
+podman image exists localhost/wadspaces-trytest:latest ||
+  podman build -q -t localhost/wadspaces-trytest:latest "$root/apps/wadd/dev/test-image" >/dev/null
 start_sway "$dir"
 if command -v foot >/dev/null; then foot=$(command -v foot); foot_libs=
 else foot=$root/.build/sway/usr/bin/foot; foot_libs=$root/.build/sway/usr/lib64; fi
@@ -38,7 +38,7 @@ cat >"$dir/state/workspaces.json" <<JSON
 [{"id":"terminal","name":"Terminal","kind":"app","exec":["$foot"],"image":"","display":"host","hotkey":null,
   "enabled":true,"autostart":false,"containerName":"wad-terminal","containerPort":3000,
   "env":[["LD_LIBRARY_PATH","$foot_libs"]],"secrets":[],"volumes":[],"devices":[],"shmSize":null,"projects":[]},
- {"id":"novel","name":"Novel","image":"localhost/wadspaces-template-trytest:latest","display":"stream","port":3197,"hotkey":2,
+ {"id":"novel","name":"Novel","image":"localhost/wadspaces-trytest:latest","display":"stream","port":3197,"hotkey":2,
   "enabled":true,"autostart":false,"containerName":"wad-novel","containerPort":3000,
   "env":[],"secrets":[],"volumes":[],"devices":[],"projects":[]}]
 JSON

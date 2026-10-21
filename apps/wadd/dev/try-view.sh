@@ -19,8 +19,8 @@ sock=$dir/wadd.sock
 rm -rf "$dir"
 mkdir -p "$dir/state" "$dir/projects"
 . "$root/apps/wadd/dev/sway.sh"
-podman image exists localhost/wadspaces-template-trytest:latest ||
-  podman build -q -t localhost/wadspaces-template-trytest:latest "$root/apps/wadd/dev/test-image" >/dev/null
+podman image exists localhost/wadspaces-trytest:latest ||
+  podman build -q -t localhost/wadspaces-trytest:latest "$root/apps/wadd/dev/test-image" >/dev/null
 start_sway "$dir"
 
 cat >"$dir/wadd.toml" <<TOML
@@ -39,7 +39,7 @@ cat >"$dir/state/workspaces.json" <<JSON
   "containerName":"wad-trynative","containerPort":3000,
   "env":[["PUID","1000"],["PGID","1000"],["WADSPACES_WAYLAND","$rt_name/wayland-1"]],
   "secrets":[],"volumes":[],"devices":[],"shmSize":"1g","projects":[]},
- {"id":"trystream","name":"Try stream","image":"localhost/wadspaces-template-trytest:latest","display":"stream","port":3198,"hotkey":2,
+ {"id":"trystream","name":"Try stream","image":"localhost/wadspaces-trytest:latest","display":"stream","port":3198,"hotkey":2,
   "enabled":true,"autostart":false,"containerName":"wad-trystream","containerPort":3000,
   "env":[],"secrets":[],"volumes":[],"devices":[],"projects":[]}]
 JSON

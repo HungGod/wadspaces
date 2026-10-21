@@ -92,7 +92,6 @@ pub struct Profile {
     pub color: String,
     pub photo_url: Option<String>,
     pub onboarded: bool,
-    pub starters_created: bool,
     /// What was last launched (the web app's LastSession): Jump back in.
     pub last_session: Option<Value>,
 }
@@ -107,7 +106,6 @@ impl Profile {
             color: s("color").unwrap_or_else(|| "#999999".into()),
             photo_url: s("photoURL"),
             onboarded: f.get("onboarded").and_then(Value::as_bool).unwrap_or(true),
-            starters_created: f.get("startersCreated").and_then(Value::as_bool).unwrap_or(false),
             last_session: f.get("lastSession").filter(|v| v.is_object()).cloned(),
         }
     }
@@ -383,7 +381,6 @@ impl Account {
             color: color.into(),
             photo_url: user.photo_url,
             onboarded: false,
-            starters_created: false,
             last_session: None,
         })
     }

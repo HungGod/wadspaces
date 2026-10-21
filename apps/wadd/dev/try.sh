@@ -15,8 +15,8 @@ sock=$dir/wadd.sock
 port=3199
 mkdir -p "$dir/state" "$dir/projects"
 
-podman image exists localhost/wadspaces-template-trytest:latest ||
-  podman build -q -t localhost/wadspaces-template-trytest:latest "$root/apps/wadd/dev/test-image" >/dev/null
+podman image exists localhost/wadspaces-trytest:latest ||
+  podman build -q -t localhost/wadspaces-trytest:latest "$root/apps/wadd/dev/test-image" >/dev/null
 
 cat >"$dir/wadd.toml" <<TOML
 [machine]
@@ -31,7 +31,7 @@ ws() { # id name image display port
   printf '{"id":"%s","name":"%s","image":"%s","display":"%s",%s"enabled":true,"autostart":false,"containerName":"wad-%s","containerPort":3000,"env":[],"secrets":[],"volumes":[],"devices":[],"projects":[]}' \
     "$1" "$2" "$3" "$4" "${5:+\"port\":$5,}" "$1"
 }
-echo "[$(ws trystream 'Try stream' localhost/wadspaces-template-trytest:latest stream $port),$(ws trymissing 'Try missing' localhost/wadspaces-template-trymissing:latest host)]" >"$dir/state/workspaces.json"
+echo "[$(ws trystream 'Try stream' localhost/wadspaces-trytest:latest stream $port),$(ws trymissing 'Try missing' localhost/wadspaces-trymissing:latest host)]" >"$dir/state/workspaces.json"
 
 (cd "$root" && cargo build -q -p wadd)
 "$root/target/debug/wadd" serve --user --config "$dir/wadd.toml" >"$dir/wadd.log" 2>&1 &

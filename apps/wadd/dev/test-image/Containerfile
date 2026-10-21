@@ -1,6 +1,5 @@
 # A tiny "workspace" for trying wadd on a laptop: a web page on port 3000,
-# standing in for a stream's desktop. Tagged as a template layer's image
-# (localhost/wadspaces-template-trytest), so wadd treats it as current.
+# standing in for a stream's desktop (tagged localhost/wadspaces-trytest).
 FROM docker.io/library/busybox:latest
 RUN mkdir -p /www && echo '<h1>wadspaces test workspace</h1>' > /www/index.html
 LABEL io.wadspaces.workspace=test io.wadspaces.projects=1
