@@ -59,10 +59,23 @@ pub fn choose(on: bool) {
     super::show_chosen();
 }
 
-/// Opens a wadspace in the sidebar.
+thread_local! {
+    /// The page's way to show the open wadspace (set when it's made).
+    static SHOW_OPEN: std::cell::RefCell<Option<Box<dyn Fn()>>> = const { std::cell::RefCell::new(None) };
+}
+
+/// Opens a wadspace in the sidebar. The board isn't drawn again for it, only
+/// its columns' marks and the sidebar: a double-click on a template's name
+/// finds the same name under its second click.
 pub fn open(id: &str) {
+    if state::read(|s| s.open.as_deref() == Some(id)) {
+        return;
+    }
     state::write(|s| s.open = Some(id.to_string()));
-    state::changed();
+    let shown = SHOW_OPEN.with(|f| f.borrow().as_ref().map(|f| f()).is_some());
+    if !shown {
+        state::changed();
+    }
 }
 
 /// Opens a wadspace in the sidebar, on a tab.
@@ -177,6 +190,8 @@ pub fn page() -> gtk::Widget {
     // Drawn again when the board changes (the page lives as long as the app).
     let pp = p.clone();
     state::on_change(move || render(&pp));
+    let pp = p.clone();
+    SHOW_OPEN.with(|f| f.replace(Some(Box::new(move || show_open(&pp)))));
     let builds_seen: std::rc::Rc<std::cell::RefCell<String>> = Default::default();
     store().watch(&root, Topic::LIBRARY | Topic::ACTIVITY | Topic::WADD | Topic::CLOUD | Topic::MACHINE, move |s| {
         state::take_library(s);
@@ -455,21 +470,7 @@ fn render(p: &Page) {
         draw_row(s, &p.row);
         ui::clear(&p.machines);
         p.machines.append(&carousel::bar(s));
-        ui::clear(&p.side);
-        let open = state::read(|st| st.open.as_ref().and_then(|o| st.board.get(o)).filter(|w| !w.deleted()).cloned());
-        match open {
-            Some(w) => {
-                p.side.append(&sidebar::sidebar(s, &w));
-                p.side.set_visible(true);
-            }
-            None => {
-                p.side.set_visible(false);
-                if state::read(|st| st.open.is_some()) {
-                    state::write(|st| st.open = None);
-                }
-                sidebar::closed();
-            }
-        }
+        draw_side(s, p);
         let (can_undo, picked, picked_ws, err, gone) = state::read(|st| {
             (
                 st.board.can_undo(),
@@ -515,6 +516,47 @@ fn render(p: &Page) {
             p.not_saved.set_tooltip_text(Some(&format!("{e} Your changes are kept here. Click to try again.")));
         }
     });
+}
+
+/// The open wadspace's sidebar, or none.
+fn draw_side(s: &AppState, p: &Page) {
+    ui::clear(&p.side);
+    let open = state::read(|st| st.open.as_ref().and_then(|o| st.board.get(o)).filter(|w| !w.deleted()).cloned());
+    match open {
+        Some(w) => {
+            p.side.append(&sidebar::sidebar(s, &w));
+            p.side.set_visible(true);
+        }
+        None => {
+            p.side.set_visible(false);
+            if state::read(|st| st.open.is_some()) {
+                state::write(|st| st.open = None);
+            }
+            sidebar::closed();
+        }
+    }
+}
+
+/// Another wadspace open: its column marked (each column is in a Width
+/// named after its wadspace) and the sidebar drawn; the rest stays.
+fn show_open(p: &Page) {
+    if state::read(|s| s.renaming) || drag::active() {
+        state::changed();
+        return;
+    }
+    let open = state::read(|s| s.open.clone());
+    let mut c = p.row.first_child();
+    while let Some(x) = c {
+        if let Some(col) = x.first_child() {
+            if open.as_deref() == Some(x.widget_name().as_str()) {
+                col.add_css_class("open");
+            } else {
+                col.remove_css_class("open");
+            }
+        }
+        c = x.next_sibling();
+    }
+    store().read_now(|s| draw_side(s, p));
 }
 
 fn draw_row(s: &AppState, row: &gtk::Box) {
@@ -598,6 +640,37 @@ pub mod sim {
         let p = crate::drag::Payload::B(Bp::CatalogApp { app: app.into() });
         crate::drag::sim::begin(&t, p, buckets::ghost(&buckets::app_icon(app), &buckets::app_name(app)));
         crate::drag::sim::over(&t, 0.0, 20.0);
+        true
+    }
+
+    /// The first widget under `w` with CSS class `class`.
+    fn with_class(w: &gtk::Widget, class: &str) -> Option<gtk::Widget> {
+        if w.has_css_class(class) {
+            return Some(w.clone());
+        }
+        let mut c = w.first_child();
+        while let Some(x) = c {
+            if let Some(f) = with_class(&x, class) {
+                return Some(f);
+            }
+            c = x.next_sibling();
+        }
+        None
+    }
+
+    /// A wadspace's first template name, as drawn now (a double-click's
+    /// second click must find this same one).
+    pub fn template_name(ws: &str) -> Option<gtk::Widget> {
+        with_class(&column(ws)?, "wbb-tpl-name")
+    }
+
+    /// The sidebar scrolled to its end.
+    pub fn scroll_side_to_end() -> bool {
+        let Some(root) = gtk::Window::list_toplevels().into_iter().next() else { return false };
+        let Some(side) = with_class(&root, "wbb-side") else { return false };
+        let Some(sw) = with_class(&side, "wbb-side-scroll").and_downcast::<gtk::ScrolledWindow>() else { return false };
+        let a = sw.vadjustment();
+        a.set_value(a.upper() - a.page_size());
         true
     }
 

@@ -151,6 +151,24 @@ async fn builder_b(w: &gtk::ApplicationWindow, dir: &std::path::Path) {
         settle(1200).await;
         shot(w, &dir.join(format!("builder-b-apps-{}.png", t.name())));
     }
+    // Scrolled down, then the board drawn again (as the library's news does
+    // every half minute): the sidebar stays where it was.
+    wad_gtk::theme::set(&display, wad_gtk::Theme::Dark);
+    settle(600).await;
+    sim::scroll_side_to_end();
+    settle(300).await;
+    state::changed();
+    settle(900).await;
+    shot(w, &dir.join("builder-b-scroll-kept-dark.png"));
+    // Opening a wadspace leaves the board's widgets be: a double-click's
+    // second click lands on the template name its first one did.
+    b::close();
+    settle(600).await;
+    let name = sim::template_name(iq);
+    b::open(iq);
+    settle(600).await;
+    let kept = name.is_some_and(|n| n.root().is_some());
+    tracing::info!("builder-b: template name kept across open: {kept}");
     b::open_on(iq, state::Tab::Customization);
     for t in [wad_gtk::Theme::Dark, wad_gtk::Theme::Light] {
         wad_gtk::theme::set(&display, t);

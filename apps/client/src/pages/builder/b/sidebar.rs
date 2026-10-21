@@ -97,16 +97,45 @@ pub fn sidebar(s: &AppState, w: &Wadspace) -> gtk::Widget {
         Tab::Apps => apps_tab(s, w, &head, &body),
         Tab::Customization => custom_tab(w, &body),
     }
-    let sw = gtk::ScrolledWindow::new();
-    sw.set_hscrollbar_policy(gtk::PolicyType::Never);
-    sw.set_vexpand(true);
-    sw.set_child(Some(&body));
-    drag::autoscroll(&sw);
-    root.append(&sw);
+    root.append(&scroller(&w.id, tab, &body));
     let side = wad_gtk::Width::new(&root, SIDE_W);
     // As tall as the page (Width doesn't take its child's expanding).
     side.set_vexpand(true);
     side.upcast()
+}
+
+thread_local! {
+    /// The sidebar's scroller and its viewport, while it shows this wadspace
+    /// and tab: the sidebar's drawn anew with every change (and with the
+    /// library's news every half minute), its new content goes into them,
+    /// and they stay where they were scrolled to.
+    static SCROLLER: std::cell::RefCell<Option<(String, Tab, gtk::ScrolledWindow, gtk::Viewport)>> =
+        const { std::cell::RefCell::new(None) };
+}
+
+/// `body` in the sidebar's scroller: the one it had, on the same wadspace
+/// and tab, else a new one at the top.
+fn scroller(ws: &str, tab: Tab, body: &gtk::Box) -> gtk::ScrolledWindow {
+    let kept = SCROLLER.with(|s| {
+        s.borrow().as_ref().filter(|(w, t, ..)| w == ws && *t == tab).map(|(_, _, sw, vp)| (sw.clone(), vp.clone()))
+    });
+    if let Some((sw, vp)) = kept {
+        if let Some(b) = sw.parent().and_downcast::<gtk::Box>() {
+            b.remove(&sw);
+        }
+        vp.set_child(Some(body));
+        return sw;
+    }
+    let sw = gtk::ScrolledWindow::new();
+    sw.add_css_class("wbb-side-scroll");
+    sw.set_hscrollbar_policy(gtk::PolicyType::Never);
+    sw.set_vexpand(true);
+    let vp = gtk::Viewport::new(None::<&gtk::Adjustment>, None::<&gtk::Adjustment>);
+    vp.set_child(Some(body));
+    sw.set_child(Some(&vp));
+    drag::autoscroll(&sw);
+    SCROLLER.with(|s| s.replace(Some((ws.to_string(), tab, sw.clone(), vp))));
+    sw
 }
 
 // ─────────────────────────────── Apps ───────────────────────────────
@@ -630,6 +659,7 @@ impl keys::Host for Side {
 /// What the sidebar's open on is gone, or closed: its parts let go.
 pub fn closed() {
     OPEN.with(|o| o.replace(None));
+    SCROLLER.with(|s| s.replace(None));
 }
 
 #[cfg(test)]
