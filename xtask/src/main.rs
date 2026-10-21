@@ -112,6 +112,35 @@ fn layer(docs: &str, dir: &str) -> Result<(), String> {
     Ok(())
 }
 
+/// The pictures the phone's desktop preview draws, 96 px PNGs in `dir`
+/// (Android decodes no SVG): each catalog app's (app-<id>.png), the
+/// project folder (folder.png) and the extensions with their own
+/// (ext-<id>.png). The phone's scripts/sync-wadspaces.sh runs it.
+fn phone_icons(dir: Option<&str>) -> Result<(), String> {
+    let dir = std::path::PathBuf::from(dir.ok_or("usage: cargo xtask phone-icons <dir>")?);
+    std::fs::create_dir_all(&dir).map_err(|e| format!("{}: {e}", dir.display()))?;
+    let public = root().join("assets/public");
+    let c = wad_core::catalog::catalog();
+    let mut want: Vec<(String, String)> = c["apps"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(|a| Some((format!("app-{}", a["id"].as_str()?), a["icon"].as_str()?.to_string())))
+        .collect();
+    want.push(("folder".into(), "/folder.svg".into()));
+    want.push(("ext-anthropic.claude-code".into(), "/icons/claude.png".into()));
+    for (name, src) in &want {
+        let path = public.join(src.trim_start_matches('/'));
+        let bytes = std::fs::read(&path).map_err(|e| format!("{}: {e}", path.display()))?;
+        let img = wad_icons::decode::decode(&bytes).ok_or_else(|| format!("{}: not a picture", path.display()))?;
+        let img = image::imageops::resize(&img, 96, 96, image::imageops::FilterType::Lanczos3);
+        let out = dir.join(format!("{name}.png"));
+        img.save(&out).map_err(|e| format!("{}: {e}", out.display()))?;
+    }
+    println!("{} icons in {}", want.len(), dir.display());
+    Ok(())
+}
+
 /// The package tasks (see the module's docs).
 fn packages(args: &[String]) -> Result<(), String> {
     use wad_core::packages as p;
@@ -208,7 +237,8 @@ fn main() -> ExitCode {
             }
         }
         "packages" => packages(&std::env::args().skip(2).collect::<Vec<_>>()),
-        _ => Err("usage: cargo xtask <ci|wasm|jscheck|layer|packages>".into()),
+        "phone-icons" => phone_icons(std::env::args().nth(2).as_deref()),
+        _ => Err("usage: cargo xtask <ci|wasm|jscheck|layer|packages|phone-icons>".into()),
     };
     match result {
         Ok(()) => ExitCode::SUCCESS,
