@@ -292,6 +292,30 @@ fn a_new_wadspace_never_takes_another_documents_id() {
 }
 
 #[test]
+fn a_wadspace_from_nothing_has_an_empty_template_to_fill_in() {
+    let mut b = board();
+    let id = b.free_id(NEW_NAME);
+    // Made and given its first app as one step (as the client does it).
+    let first = Op::Drop {
+        payload: Payload::CatalogApp { app: "obsidian".into() },
+        into: id.clone(),
+        at: Where { template: Some(BLANK_TEMPLATE.into()), ..Where::default() },
+    };
+    b.apply_all(&[Op::Create { machine: "laptop".into() }, first]).unwrap();
+    let w = b.get(&id).unwrap();
+    assert_eq!((w.name(), w.machine.as_str()), ("New wadspace", "laptop"));
+    assert_eq!(w.templates.len(), 1);
+    assert_eq!((w.templates[0].name.as_str(), w.templates[0].apps[0].app.as_str()), ("Template", "obsidian"));
+    assert_eq!(b.row("laptop").iter().map(|w| w.id.as_str()).collect::<Vec<_>>(), ["vanua", id.as_str()]);
+    // A second takes the next id; one Undo takes the first back whole.
+    b.apply(&Op::Create { machine: "laptop".into() }).unwrap();
+    assert_eq!(b.row("laptop").last().unwrap().id, "new-wadspace-2");
+    b.apply(&Op::Undo).unwrap();
+    b.apply(&Op::Undo).unwrap();
+    assert!(b.get(&id).is_none());
+}
+
+#[test]
 fn edits_made_together_undo_as_one() {
     let mut b = board();
     let both = [
@@ -417,4 +441,9 @@ fn what_the_scenarios_show() {
     let plan = saved["plan"].as_array().unwrap();
     assert_eq!((plan.len(), plan[0]["id"].as_str()), (1, Some("cosmic")));
     assert_eq!(case(&all, "a new key's name and id"), &json!({"id": "hunggod-2", "name": "hunggod-2", "kind": "web"}));
+    let blank = case(&all, "a wadspace from nothing, filled in");
+    assert_eq!(names(blank, "laptop"), ["VanuaAcademy", "Notes", "New wadspace"]);
+    let notes =
+        &blank["wadspaces"].as_array().unwrap().iter().find(|w| w["id"] == "new-wadspace").unwrap()["templates"];
+    assert_eq!(notes, &json!([{"id": "template", "name": "Template", "apps": [{"app": "obsidian", "extras": []}]}]));
 }

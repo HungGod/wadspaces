@@ -28,6 +28,12 @@ use crate::model::KeyGroup;
 
 const UNDO_STEPS: usize = 40;
 
+/// A new wadspace's name, and its one empty template's id and name (made
+/// by [`Op::Create`], to fill in).
+pub const NEW_NAME: &str = "New wadspace";
+pub const BLANK_TEMPLATE: &str = "template";
+const BLANK_TEMPLATE_NAME: &str = "Template";
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Extra {
@@ -228,6 +234,11 @@ pub enum Op {
         machine: String,
         #[serde(default)]
         before: Option<String>,
+    },
+    /// A new wadspace on `machine` from nothing, to fill in: one empty
+    /// template ([`BLANK_TEMPLATE`]) and a customization with only its name.
+    Create {
+        machine: String,
     },
     /// Wadspaces copied to a machine, in one step.
     CopyTo {
@@ -453,6 +464,10 @@ impl Board {
         match op {
             Op::Drop { payload, into, at } => self.drop(payload, into, at),
             Op::Fresh { payload, machine, before } => self.fresh(payload, machine, before.as_deref()).map(drop),
+            Op::Create { machine } => {
+                self.create(machine);
+                Ok(())
+            }
             Op::CopyTo { ids, machine } => {
                 for id in ids {
                     self.fresh(&Payload::Wadspace { ws: id.clone() }, machine, None)?;
@@ -753,6 +768,48 @@ impl Board {
         Ok(())
     }
 
+    /// The id a new wadspace called `name` gets: free among the board's
+    /// (deleted ones too) and the reserved.
+    pub fn free_id(&self, name: &str) -> String {
+        let taken: Vec<String> = self.wadspaces.iter().map(|w| w.id.clone()).chain(self.reserved.clone()).collect();
+        free(&spec::slugify(name), &taken)
+    }
+
+    /// Where a new wadspace goes: before `before`, else after its machine's last.
+    fn place(&self, machine: &str, before: Option<&str>) -> usize {
+        match before.and_then(|b| self.wadspaces.iter().position(|w| w.id == b)) {
+            Some(i) => i,
+            None => self.wadspaces.iter().rposition(|w| w.machine == machine).map_or(self.wadspaces.len(), |i| i + 1),
+        }
+    }
+
+    fn blank(id: String, machine: &str, name: &str, owner: String, templates: Vec<Template>) -> Wadspace {
+        let mut c = Map::new();
+        c.insert("name".into(), name.into());
+        Wadspace {
+            version: v4::VERSION,
+            id,
+            owner,
+            shared_with: vec![],
+            machine: machine.into(),
+            order: 0,
+            templates,
+            customization: c,
+            created_at: None,
+            updated_at: None,
+            deleted_at: None,
+        }
+    }
+
+    /// A new wadspace on `machine` from nothing; its id.
+    fn create(&mut self, machine: &str) -> String {
+        let id = self.free_id(NEW_NAME);
+        let at = self.place(machine, None);
+        let t = Template { id: BLANK_TEMPLATE.into(), name: BLANK_TEMPLATE_NAME.into(), apps: vec![] };
+        self.wadspaces.insert(at, Self::blank(id.clone(), machine, NEW_NAME, String::new(), vec![t]));
+        id
+    }
+
     /// A new wadspace on `machine` from what's dragged; its id.
     fn fresh(&mut self, p: &Payload, machine: &str, before: Option<&str>) -> Result<String, String> {
         let from = match p {
@@ -767,37 +824,17 @@ impl Board {
         };
         let whole = matches!(p, Payload::Wadspace { .. } | Payload::Bucket { pile: true, .. });
         let name = match &from {
-            None => "New wadspace".to_string(),
+            None => NEW_NAME.to_string(),
             Some(w) if whole && w.machine != machine => w.name().to_string(),
             Some(w) => {
                 let taken: Vec<String> = self.row(machine).iter().map(|x| x.name().to_string()).collect();
                 copy_name(w.name(), &taken)
             }
         };
-        let taken: Vec<String> = self.wadspaces.iter().map(|w| w.id.clone()).chain(self.reserved.clone()).collect();
-        let id = free(&spec::slugify(&name), &taken);
-        let at = match before.and_then(|b| self.wadspaces.iter().position(|w| w.id == b)) {
-            Some(i) => i,
-            None => self.wadspaces.iter().rposition(|w| w.machine == machine).map_or(self.wadspaces.len(), |i| i + 1),
-        };
-        let mut c = Map::new();
-        c.insert("name".into(), name.into());
-        self.wadspaces.insert(
-            at,
-            Wadspace {
-                version: v4::VERSION,
-                id: id.clone(),
-                owner: from.as_ref().map(|w| w.owner.clone()).unwrap_or_default(),
-                shared_with: vec![],
-                machine: machine.into(),
-                order: 0,
-                templates: vec![],
-                customization: c,
-                created_at: None,
-                updated_at: None,
-                deleted_at: None,
-            },
-        );
+        let id = self.free_id(&name);
+        let at = self.place(machine, before);
+        let owner = from.as_ref().map(|w| w.owner.clone()).unwrap_or_default();
+        self.wadspaces.insert(at, Self::blank(id.clone(), machine, &name, owner, vec![]));
         let got = self.carry(p, &id)?;
         let w = self.get_mut(&id)?;
         Self::take(w, got, None, &Where { new_template: true, ..Where::default() });

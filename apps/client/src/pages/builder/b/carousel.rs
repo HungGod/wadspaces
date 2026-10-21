@@ -22,6 +22,9 @@ thread_local! {
     static CARDS: RefCell<HashMap<String, glib::WeakRef<gtk::Box>>> = RefCell::default();
 }
 
+/// A machine's card, wide.
+const CARD_W: i32 = 250;
+
 /// A machine's card, if it's drawn.
 pub fn card_of(id: &str) -> Option<gtk::Box> {
     CARDS.with(|c| c.borrow().get(id).and_then(|w| w.upgrade()))
@@ -111,7 +114,8 @@ pub fn bar(s: &AppState) -> gtk::Widget {
     for m in machines(s) {
         let c = card(&m, m.id == shown, &picked);
         CARDS.with(|cs| cs.borrow_mut().insert(m.id.clone(), c.downgrade()));
-        track.append(&c);
+        // As wide as a card is, however few there are.
+        track.append(&wad_gtk::Width::new(&c, CARD_W));
     }
     root.append(&prev);
     root.append(&sw);
@@ -126,7 +130,6 @@ fn card(m: &Shown, shown: bool, picked: &[(String, String, String)]) -> gtk::Box
     if shown {
         c.add_css_class("shown");
     }
-    c.set_size_request(250, -1);
     let top = gtk::Box::new(gtk::Orientation::Horizontal, 10);
     let icon = gtk::Box::new(gtk::Orientation::Horizontal, 0);
     icon.add_css_class("wbb-machine-icon");

@@ -2625,3 +2625,11 @@ entry.wbb-rename {
 }
 .wbb menubutton.wbb-deleted > button:hover { background: var(--surface-2); }
 .wbb menubutton.wbb-deleted > button:disabled { color: var(--faint); box-shadow: inset 0 0 0 1px var(--line); }
+/* A machine with none: a blank wadspace, made when it's used. */
+.wbb .wbb-col.blank .wbb-bucket { border-style: dashed; box-shadow: none; }
+.wbb .wbb-col.blank .wbb-tpl { border-style: dashed; }
+.wbb .wbb-col.blank .wbb-name { color: var(--muted); }
+.wbb .wbb-blank-desk { border-radius: 10px; background: var(--bg-2); box-shadow: inset 0 0 0 1px var(--line); }
+/* The HUD's bar floats over the bottom right: the machines keep clear of it. */
+window.hud-room .wbb .wbb-machines { padding-bottom: 71px; }
+window.hud-room .wbb .wbb-side-body { padding-bottom: 72px; }

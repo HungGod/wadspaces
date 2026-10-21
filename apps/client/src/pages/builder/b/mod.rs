@@ -529,6 +529,11 @@ fn draw_row(s: &AppState, row: &gtk::Box) {
         row.append(&l);
         return;
     }
+    // A machine with none: a blank one to fill in.
+    if list.is_empty() {
+        row.append(&buckets::blank(&shown));
+        return;
+    }
     for w in &list {
         row.append(&buckets::gap(&shown, &w.id));
         row.append(&buckets::column(s, w));
@@ -584,6 +589,15 @@ pub mod sim {
         let p = crate::drag::Payload::B(Bp::CatalogApp { app: app.into() });
         crate::drag::sim::begin(&col, p, buckets::ghost(&buckets::app_icon(app), &buckets::app_name(app)));
         crate::drag::sim::over(&field, 0.0, 10.0);
+        true
+    }
+
+    /// An app from the sidebar held over a blank wadspace's template.
+    pub fn app_over_blank(app: &str) -> bool {
+        let Some(t) = column("blank-template") else { return false };
+        let p = crate::drag::Payload::B(Bp::CatalogApp { app: app.into() });
+        crate::drag::sim::begin(&t, p, buckets::ghost(&buckets::app_icon(app), &buckets::app_name(app)));
+        crate::drag::sim::over(&t, 0.0, 20.0);
         true
     }
 

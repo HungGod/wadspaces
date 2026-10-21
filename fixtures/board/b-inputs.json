@@ -2426,6 +2426,221 @@
   ]
  },
  {
+  "name": "a wadspace from nothing, filled in",
+  "fn": "bRun",
+  "args": [
+   {
+    "board": {
+     "machines": [
+      {
+       "id": "surface",
+       "name": "Surface Book 2"
+      },
+      {
+       "id": "laptop",
+       "name": "Laptop"
+      }
+     ],
+     "wadspaces": [
+      {
+       "version": 4,
+       "id": "iq",
+       "owner": "u1",
+       "sharedWith": [],
+       "machine": "surface",
+       "order": 0,
+       "templates": [
+        {
+         "id": "dev",
+         "name": "Dev",
+         "apps": [
+          {
+           "app": "wadbrowser",
+           "extras": [
+            {
+             "id": "github",
+             "name": "GitHub",
+             "url": "https://github.com"
+            }
+           ]
+          },
+          {
+           "app": "vscode",
+           "extras": [
+            {
+             "id": "anthropic.claude-code"
+            }
+           ]
+          }
+         ]
+        },
+        {
+         "id": "cpp",
+         "name": "C++",
+         "apps": [
+          {
+           "app": "vscode",
+           "extras": [
+            {
+             "id": "ms-vscode.cpptools"
+            }
+           ]
+          },
+          {
+           "app": "terminal",
+           "extras": [
+            {
+             "id": "cpp"
+            }
+           ]
+          }
+         ]
+        },
+        {
+         "id": "art",
+         "name": "Game art",
+         "apps": [
+          {
+           "app": "libresprite",
+           "extras": []
+          },
+          {
+           "app": "tiled",
+           "extras": []
+          }
+         ]
+        }
+       ],
+       "customization": {
+        "description": "A game.",
+        "wallpaper": {
+         "type": "texture",
+         "value": "stars"
+        },
+        "projects": [
+         {
+          "id": "project-iq",
+          "kind": "github",
+          "repo": "HungGod/IntelligenceQuest",
+          "as": "IntelligenceQuest"
+         }
+        ],
+        "secrets": {
+         "bySlot": {
+          "ext:anthropic.claude-code": {
+           "id": "iq-claude",
+           "name": "IQ-claude",
+           "kind": "vscode-claude-code"
+          }
+         },
+         "groups": [
+          {
+           "id": "g1",
+           "members": [
+            "browser",
+            "web:github"
+           ],
+           "key": {
+            "id": "hunggod",
+            "name": "hunggod",
+            "kind": "web"
+           }
+          }
+         ]
+        },
+        "name": "IntelligenceQuest"
+       },
+       "createdAt": "2026-10-20T00:00:00Z",
+       "updatedAt": "2026-10-20T00:00:00Z"
+      },
+      {
+       "version": 4,
+       "id": "cosmic",
+       "owner": "u1",
+       "sharedWith": [],
+       "machine": "surface",
+       "order": 0,
+       "templates": [
+        {
+         "id": "writing",
+         "name": "Writing",
+         "apps": [
+          {
+           "app": "obsidian",
+           "extras": []
+          },
+          {
+           "app": "wadbrowser",
+           "extras": []
+          }
+         ]
+        }
+       ],
+       "customization": {
+        "name": "Cosmic Bodybuilding"
+       },
+       "createdAt": "2026-10-20T00:00:00Z",
+       "updatedAt": "2026-10-20T00:00:00Z"
+      },
+      {
+       "version": 4,
+       "id": "vanua",
+       "owner": "u1",
+       "sharedWith": [],
+       "machine": "laptop",
+       "order": 0,
+       "templates": [
+        {
+         "id": "dev",
+         "name": "Dev",
+         "apps": [
+          {
+           "app": "vscode",
+           "extras": []
+          }
+         ]
+        }
+       ],
+       "customization": {
+        "name": "VanuaAcademy"
+       },
+       "createdAt": "2026-10-20T00:00:00Z",
+       "updatedAt": "2026-10-20T00:00:00Z"
+      }
+     ],
+     "now": "2026-10-21T10:00:00Z"
+    },
+    "ops": [
+     {
+      "op": "create",
+      "machine": "laptop"
+     },
+     {
+      "op": "drop",
+      "payload": {
+       "kind": "catalogApp",
+       "app": "obsidian"
+      },
+      "into": "new-wadspace",
+      "where": {
+       "template": "template"
+      }
+     },
+     {
+      "op": "rename",
+      "ws": "new-wadspace",
+      "name": "Notes"
+     },
+     {
+      "op": "create",
+      "machine": "laptop"
+     }
+    ],
+    "now": "2026-10-21T11:00:00Z"
+   }
+  ]
+ },
+ {
   "name": "groups with loose web apps",
   "fn": "bGroups",
   "args": [

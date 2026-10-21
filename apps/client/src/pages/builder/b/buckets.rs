@@ -11,7 +11,7 @@
 
 use gtk::{glib, prelude::*};
 use serde_json::Value;
-use wad_board::b::{Extra, Op, Payload as Bp, Pick, Template, Wadspace, Where, Which};
+use wad_board::b::{self, Extra, Op, Payload as Bp, Pick, Template, Wadspace, Where, Which};
 use wad_board::catalog::{self, KeyLine};
 use wad_gtk::Icon;
 
@@ -873,7 +873,8 @@ pub fn gap(machine: &str, before: &str) -> gtk::Box {
     b
 }
 
-/// After the last wadspace: a new one, from anything.
+/// After the last wadspace: a new one, from anything dropped here, or (a
+/// click) a blank one.
 pub fn open_board(machine: &str) -> gtk::Widget {
     let b = gtk::Box::new(gtk::Orientation::Vertical, 8);
     b.add_css_class("wbb-open");
@@ -881,12 +882,171 @@ pub fn open_board(machine: &str) -> gtk::Widget {
     let i = Icon::new("plus", 20);
     i.set_halign(gtk::Align::Center);
     b.append(&i);
-    let l = gtk::Label::new(Some("Drop here for a new wadspace"));
+    let l = gtk::Label::new(Some("Click for a new wadspace, or drop something here"));
     l.set_wrap(true);
     l.set_justify(gtk::Justification::Center);
     b.append(&l);
+    let click = gtk::GestureClick::new();
+    click.set_button(1);
+    let m = machine.to_string();
+    click.connect_released(move |_, n, _, _| {
+        if n == 1 {
+            make_blank(&m, None);
+        }
+    });
+    b.add_controller(click);
     drag::target(&b, GapTarget { machine: machine.into(), before: None });
     b.upcast()
+}
+
+// ─────────────────────────────── a blank one ───────────────────────────────
+
+/// A blank wadspace made on `machine` (one empty template and a
+/// customization with its name), with what was dropped in it, as one Undo;
+/// then open in the sidebar.
+fn make_blank(machine: &str, then: Option<(Bp, Where)>) {
+    let id = state::read(|s| s.board.free_id(b::NEW_NAME));
+    let tab = match &then {
+        Some((p, _)) if !appish(p) => state::Tab::Customization,
+        _ => state::Tab::Apps,
+    };
+    let mut ops = vec![Op::Create { machine: machine.into() }];
+    if let Some((payload, at)) = then {
+        ops.push(Op::Drop { payload, into: id.clone(), at });
+    }
+    if let Err(e) = state::apply_all(ops) {
+        crate::toast::error("Couldn't make it", &e);
+        return;
+    }
+    super::open_on(&id, tab);
+}
+
+/// A machine with no wadspaces: a blank one to fill in (an empty template
+/// and an empty customization). It's made, and saved, when it's first used:
+/// clicked, or an app dropped on its template, or a background or project
+/// on its Customizations.
+pub fn blank(machine: &str) -> gtk::Widget {
+    let col = gtk::Box::new(gtk::Orientation::Vertical, 10);
+    col.add_css_class("wbb-col");
+    col.add_css_class("blank");
+
+    let customs = gtk::Box::new(gtk::Orientation::Vertical, 0);
+    customs.add_css_class("wbb-bucket");
+    customs.add_css_class("customs");
+    customs.append(&bucket_bar("palette", "Customizations", 0, None));
+    let body = gtk::Box::new(gtk::Orientation::Vertical, 6);
+    body.add_css_class("wbb-bucket-body");
+    let desk = gtk::Box::new(gtk::Orientation::Vertical, 0);
+    desk.add_css_class("wbb-blank-desk");
+    desk.set_size_request(-1, 136);
+    let l = ui::wrapping("Its background, projects and keys");
+    l.add_css_class("faint");
+    l.add_css_class("tiny");
+    l.set_justify(gtk::Justification::Center);
+    l.set_xalign(0.5);
+    l.set_vexpand(true);
+    l.set_valign(gtk::Align::Center);
+    desk.append(&l);
+    body.append(&desk);
+    customs.append(&body);
+    drag::target(&customs, BlankTarget { machine: machine.into(), template: false });
+    col.append(&customs);
+
+    let templates = gtk::Box::new(gtk::Orientation::Vertical, 0);
+    templates.add_css_class("wbb-bucket");
+    templates.add_css_class("templates");
+    templates.append(&bucket_bar("layout-grid", "Templates", 1, None));
+    let tbody = gtk::Box::new(gtk::Orientation::Vertical, 0);
+    tbody.add_css_class("wbb-bucket-body");
+    let t = gtk::Box::new(gtk::Orientation::Vertical, 0);
+    t.add_css_class("wbb-tpl");
+    let bar = gtk::Box::new(gtk::Orientation::Horizontal, 5);
+    bar.add_css_class("wbb-tpl-bar");
+    let name = gtk::Label::new(Some("Template"));
+    name.add_css_class("wbb-tpl-name");
+    bar.append(&name);
+    let meta = gtk::Label::new(Some("0 apps"));
+    meta.add_css_class("muted");
+    meta.add_css_class("tiny");
+    bar.append(&meta);
+    t.append(&bar);
+    let hint = ui::wrapping("Drag apps here from the sidebar, or click to pick them");
+    hint.add_css_class("faint");
+    hint.add_css_class("tiny");
+    hint.set_margin_start(8);
+    hint.set_margin_end(8);
+    hint.set_margin_bottom(10);
+    hint.set_xalign(0.0);
+    t.append(&hint);
+    t.set_widget_name("blank-template");
+    drag::target(&t, BlankTarget { machine: machine.into(), template: true });
+    tbody.append(&t);
+    templates.append(&tbody);
+    col.append(&templates);
+
+    let row = gtk::Box::new(gtk::Orientation::Horizontal, 8);
+    row.add_css_class("wbb-name-row");
+    let n = gtk::Label::new(Some(b::NEW_NAME));
+    n.add_css_class("wbb-name");
+    n.set_hexpand(true);
+    n.set_xalign(0.0);
+    row.append(&n);
+    let tag = gtk::Label::new(Some("Not made yet"));
+    tag.add_css_class("wbb-tag");
+    tag.add_css_class("unknown");
+    tag.set_tooltip_text(Some("It's made, and saved, once you put something in it"));
+    row.append(&tag);
+    col.append(&row);
+
+    let click = gtk::GestureClick::new();
+    click.set_button(1);
+    let m = machine.to_string();
+    click.connect_released(move |_, n, _, _| {
+        if n == 1 {
+            make_blank(&m, None);
+        }
+    });
+    col.add_controller(click);
+    col.set_tooltip_text(Some("A new wadspace: click it, or drag apps into its template"));
+    let fixed = wad_gtk::Width::new(&col, COL_W);
+    fixed.set_valign(gtk::Align::Start);
+    fixed.upcast()
+}
+
+/// The blank wadspace's template (apps) or Customizations (a background, a
+/// project, another's Customizations): what's dropped makes it.
+struct BlankTarget {
+    machine: String,
+    template: bool,
+}
+
+impl Target for BlankTarget {
+    fn accepts(&self, p: &Payload, _m: Mods, _at: (f64, f64)) -> Option<Verdict> {
+        let b = of(p)?;
+        let ok = if self.template {
+            appish(b)
+        } else {
+            matches!(
+                b,
+                Bp::Texture { .. }
+                    | Bp::CatalogProject { .. }
+                    | Bp::Project { .. }
+                    | Bp::Background { .. }
+                    | Bp::Bucket { which: Which::Customs, .. }
+            )
+        };
+        ok.then(|| Verdict { ok: true, why: Some("A new wadspace with it".into()) })
+    }
+
+    fn land(&self, p: &Payload, _m: Mods, _at: (f64, f64)) {
+        let Some(b) = of(p) else { return };
+        let at = if self.template {
+            Where { template: Some(b::BLANK_TEMPLATE.into()), ..Where::default() }
+        } else {
+            Where::default()
+        };
+        make_blank(&self.machine, Some((b.clone(), at)));
+    }
 }
 
 struct GapTarget {

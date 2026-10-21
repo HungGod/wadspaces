@@ -179,6 +179,22 @@ async fn builder_b(w: &gtk::ApplicationWindow, dir: &std::path::Path) {
     carousel::show("m-desk");
     settle(900).await;
     shot(w, &dir.join("builder-b-desk-dark.png"));
+    // A machine with none: a blank one; an app dropped in it makes it.
+    carousel::show("m-laptop");
+    settle(900).await;
+    shot(w, &dir.join("builder-b-blank-dark.png"));
+    if sim::app_over_blank("obsidian") {
+        settle(500).await;
+        shot(w, &dir.join("builder-b-blank-drag-dark.png"));
+        sim::drop_it();
+        settle(1200).await;
+        shot(w, &dir.join("builder-b-blank-made-dark.png"));
+    }
+    // The HUD out: the machines keep clear of it.
+    w.add_css_class("hud-room");
+    settle(500).await;
+    shot(w, &dir.join("builder-b-hud-dark.png"));
+    w.remove_css_class("hud-room");
     carousel::show("m-surface");
     state::toggle_pick(wad_board::b::Pick::Wadspace { ws: iq.into() });
     for t in [wad_gtk::Theme::Dark, wad_gtk::Theme::Light] {
