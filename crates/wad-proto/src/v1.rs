@@ -1305,33 +1305,11 @@ impl BuildStatus {
     }
 }
 
-/// POST /v1/images/build: build a layer's image here: a template's (on the
-/// templates it builds on), or an Extensions layer's (on its template). What
-/// it's built on is built first when it's missing or out of date. The
-/// documents are the account's (wad-core's layers), which wadd reads with
-/// wad-core.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct LayerBuildRequest {
-    /// "template:<id>" or "custom:<id>" (an Extensions layer).
-    pub layer: String,
-    /// The template: the layer's own, or the one its Extensions are made on.
-    pub template: serde_json::Value,
-    /// The templates `template` builds on, bottom first (none: the base).
-    #[serde(default)]
-    pub parents: Vec<serde_json::Value>,
-    /// An Extensions layer's build: the layer. ("customization" from before
-    /// the layer was called Extensions.)
-    #[serde(default, alias = "customization")]
-    pub extensions: Option<serde_json::Value>,
-}
-
 /// GET /v1/images: a layer's image here, from its labels.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ImageRow {
-    /// "template:<id>", "custom:<id>", "set:<key>" (a version 4 wadspace's
-    /// packages), or "base".
+    /// "set:<key>" (a wadspace's packages), or "base".
     pub layer: String,
     #[serde(rename = "ref")]
     pub image_ref: String,

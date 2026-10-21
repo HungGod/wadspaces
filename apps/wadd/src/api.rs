@@ -20,8 +20,8 @@ use tokio::net::UnixListener;
 use tokio_stream::wrappers::BroadcastStream;
 use wad_proto::v1::{
     Browse, Build, BuildLog, CloudLink, Drive, Event, Health, ImageRow, KeysStatus, Launch, LaunchBody, LaunchLog,
-    LayerBuildRequest, LogLine, MachineInfo, Project, ProjectDeleted, ProjectStatus, Run, Session, SessionRequest,
-    SignIn, SignInPatch, SignInRequest, ViewState, WallpaperUpload, Workspace, WorkspaceSaved, WorkspaceState,
+    LogLine, MachineInfo, Project, ProjectDeleted, ProjectStatus, Run, Session, SessionRequest, SignIn, SignInPatch,
+    SignInRequest, ViewState, WallpaperUpload, Workspace, WorkspaceSaved, WorkspaceState,
 };
 use wad_proto::{ApiError, ErrorCode};
 
@@ -174,7 +174,6 @@ pub fn router(app: Arc<AppState>) -> Router {
         .route("/v1/files/roots", get(file_roots))
         .route("/v1/files", get(file_list).delete(file_delete))
         .route("/v1/files/text", get(file_text).put(file_text_put))
-        .route("/v1/images/build", post(image_build))
         .route("/v1/images/{layer}", delete(image_delete))
         .route("/v1/workspaces/{id}/start", post(start))
         .route("/v1/workspaces/{id}/stop", post(stop))
@@ -878,14 +877,6 @@ async fn storage(State(app): State<Arc<AppState>>, Query(q): Query<StorageQuery>
     Json(app.storage.report(q.fresh).await)
 }
 
-/// Builds a layer's image (what it builds on first, when needed).
-async fn image_build(
-    State(app): State<Arc<AppState>>,
-    Json(req): Json<LayerBuildRequest>,
-) -> Result<(StatusCode, Json<Build>), Failure> {
-    Ok((StatusCode::CREATED, Json(app.builds.create_layer(&req)?)))
-}
-
 async fn image_delete(State(app): State<Arc<AppState>>, Path(layer): Path<String>) -> Result<StatusCode, Failure> {
     crate::images::delete(&app.registry, &app.builds, app.registry_backend.as_ref(), &layer).await?;
     Ok(StatusCode::NO_CONTENT)
@@ -955,17 +946,21 @@ async fn storage_prune(State(app): State<Arc<AppState>>) -> Result<Json<wad_prot
     Ok(Json(freed))
 }
 
-/// Installs a wadspace as a workspace on its layer's image (or updates it).
+/// Installs a wadspace as a workspace on its set (or updates it).
 async fn wadspace_install(
     State(app): State<Arc<AppState>>,
     Path(id): Path<String>,
     Json(req): Json<crate::images::Install>,
 ) -> Result<Json<WorkspaceSaved>, Failure> {
-    if wad_core::v4::is_v4(&req.wadspace) {
-        let i = crate::sets::install(&app.here(), &id, &req.wadspace, req.tz.as_deref()).await?;
-        return Ok(Json(i.saved));
+    if !wad_core::v4::is_v4(&req.wadspace) {
+        return Err(ApiError::new(
+            ErrorCode::BadRequest,
+            "only a version 4 wadspace installs (the Builder's design B)",
+        )
+        .into());
     }
-    Ok(Json(crate::images::install(&app.registry, app.registry_backend.as_ref(), &id, &req).await?))
+    let i = crate::sets::install(&app.here(), &id, &req.wadspace, req.tz.as_deref()).await?;
+    Ok(Json(i.saved))
 }
 
 /// A version 4 wadspace's image (its set), built unless it's up to date.

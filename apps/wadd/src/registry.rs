@@ -634,48 +634,6 @@ impl Registry {
         }
     }
 
-    /// The wadspaces from before the Builder's layers (a container whose
-    /// image isn't a layer's: the old presets and designs), and then their
-    /// images, removed. The wadspaces that replace them install on their
-    /// layers when they're first launched; their volumes stay, so one with
-    /// the same id keeps its home. Not one that's running, and nothing
-    /// while podman doesn't answer.
-    pub async fn sweep_old(&self) {
-        let list = self.workspaces();
-        let candidates: Vec<&Workspace> =
-            list.iter().filter(|w| w.kind == Kind::Container && !is_layer_image(&w.image)).collect();
-        if candidates.is_empty() || !self.backend.available().await {
-            return; // podman not answering: tried again at the next start
-        }
-        let mut old = vec![];
-        for w in candidates {
-            // Podman's word, not the state's (that's "unknown" until reconcile).
-            if matches!(self.backend.container(&w.container_name).await, Ok(s) if s != RUNNING) {
-                old.push(w);
-            }
-        }
-        if old.is_empty() {
-            return;
-        }
-        let ids: Vec<String> = old.iter().map(|w| w.id.clone()).collect();
-        let keep: Vec<Workspace> = list.iter().filter(|w| !ids.contains(&w.id)).cloned().collect();
-        if let Err(e) = self.set_workspaces(keep.clone()).await {
-            tracing::warn!("removing the wadspaces from before the layers: {e}");
-            return;
-        }
-        tracing::info!("removed the wadspaces from before the layers: {}", ids.join(", "));
-        let mut images: Vec<&str> = old.iter().map(|w| w.image.as_str()).filter(|i| !i.is_empty()).collect();
-        images.sort_unstable();
-        images.dedup();
-        for image in images.into_iter().filter(|i| !keep.iter().any(|w| w.image == *i)) {
-            match self.backend.remove_image(image).await {
-                Ok(true) => tracing::info!("removed its image {image}"),
-                Ok(false) => {}
-                Err(e) => tracing::warn!("removing {image}: {e}"),
-            }
-        }
-    }
-
     // ----------------------------------------------------------- bring up
     /// Brings a workspace up in the background (a no-op while it's already coming up).
     pub fn start(self: &Arc<Self>, id: &str) -> Result<(), ApiError> {
@@ -1041,10 +999,4 @@ pub fn save_list(state_dir: &std::path::Path, list: &[Workspace]) -> Result<(), 
         .and_then(|_| std::fs::write(&tmp, text))
         .and_then(|_| std::fs::rename(&tmp, &path))
         .map_err(|e| format!("{}: {e}", path.display()))
-}
-
-/// A Builder layer's image (localhost/wadspaces-template-<id>, -custom-<id>):
-/// what every wadspace runs on.
-pub fn is_layer_image(image: &str) -> bool {
-    image.starts_with("localhost/wadspaces-template-") || image.starts_with("localhost/wadspaces-custom-")
 }

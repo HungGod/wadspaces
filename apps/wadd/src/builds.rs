@@ -1,16 +1,8 @@
-//! Building the Builder's layers on this machine: a template's image FROM
-//! the base or the template it builds on, an Extensions layer's FROM its
-//! template's, each from wad-core's build folder (with its web apps' icons
-//! made here first, icons.rs: nothing is fetched inside the build). Each
-//! image is labelled with the sha of its build folder and the id of the
-//! image it was built on, which is how WadSpaces tells a built layer from a
-//! changed one. What a layer builds on is built first in the same job when
-//! its image is missing, from another build folder, or on an image that's
-//! since been rebuilt. None of it adds a workspace: a wadspace installs on
-//! its layer's image (images.rs, with `merged`).
-//!
-//! A version 4 wadspace's image is a set instead (sets.rs): its packages
-//! stacked on the base. Its build is a job here too.
+//! Building on this machine: a wadspace's image is a set (sets.rs), its
+//! packages stacked on the base, each build a job here. Each image is
+//! labelled with its key and the id of the image it was built on, which is
+//! how WadSpaces tells a built set from an old one. None of it adds a
+//! workspace: a wadspace installs on its set (sets.rs, with `merged`).
 //!
 //! A few builds run at once; bases are never downloaded (they reach a
 //! machine on the update drive), and a build needs some free disk. Progress
@@ -25,12 +17,12 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use serde_json::Value;
 use tokio::task::JoinHandle;
 use tokio::time::Instant;
-use wad_proto::v1::{Build, BuildLog, BuildStatus, Event, LayerBuildRequest, Workspace};
+use wad_proto::v1::{Build, BuildLog, BuildStatus, Event, Workspace};
 use wad_proto::{ApiError, ErrorCode};
 
 use crate::backend::Backend;
 use crate::events::Bus;
-use crate::icons::{IconJob, Icons};
+use crate::icons::Icons;
 use crate::joblog::Lines;
 
 pub const MAX_CONTEXT_BYTES: usize = 64 * 1024 * 1024;
@@ -46,40 +38,12 @@ fn bad(msg: impl Into<String>) -> ApiError {
     ApiError::new(ErrorCode::BadRequest, msg)
 }
 
-/// localhost/wadspaces-<name>:<tag>: one of the bases the update drive brings.
-pub fn is_local_base(image: &str) -> bool {
-    let Some(rest) = image.strip_prefix("localhost/wadspaces-") else { return false };
-    let Some((name, tag)) = rest.split_once(':') else { return false };
-    !name.is_empty()
-        && name.bytes().all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-')
-        && !tag.is_empty()
-        && tag.bytes().all(|b| b.is_ascii_alphanumeric() || matches!(b, b'_' | b'.' | b'-'))
-}
-
 /// "STEP 3/7: RUN ..." -> (3, 7)
 fn step(line: &str) -> Option<(u32, u32)> {
     let rest = line.strip_prefix("STEP ")?;
     let (frac, _) = rest.split_once(':')?;
     let (a, b) = frac.split_once('/')?;
     Some((a.parse().ok()?, b.parse().ok()?))
-}
-
-/// The icons a spec's web apps need: their sites, and the user's pictures.
-fn icon_jobs(spec: &Value) -> Vec<IconJob> {
-    spec["webapps"]
-        .as_array()
-        .into_iter()
-        .flatten()
-        .filter_map(|w| {
-            let id = w["id"].as_str().filter(|i| wad_core::spec::is_id(i))?;
-            let site = w["url"].as_str()?;
-            Some(IconJob {
-                id: id.to_string(),
-                site: site.to_string(),
-                custom: w["iconUrl"].as_str().map(String::from),
-            })
-        })
-        .collect()
 }
 
 /// The workspace list with `fresh` added, or merged into the one already
@@ -130,120 +94,11 @@ pub fn merged(current: &[Workspace], fresh: &Value) -> Result<(Vec<Workspace>, b
 pub const SHA_LABEL: &str = "io.wadspaces.dockerfile-sha256";
 /// The id of the image it was built FROM.
 pub const FROM_LABEL: &str = "io.wadspaces.from";
-/// "template:<id>" or "custom:<id>" (its Dockerfile's own LABEL).
+/// "set:<key>" (what the image is).
 pub const LAYER_LABEL: &str = "io.wadspaces.layer";
 
-/// One layer's image to build.
-pub struct LayerStep {
-    pub key: String,
-    pub name: String,
-    pub tag: String,
-    /// The image it's built FROM.
-    pub from: String,
-    pub files: Vec<(String, String)>,
-    pub sha: String,
-    pub icons: Vec<IconJob>,
-    /// What the layer builds on: built only when its image is missing, was
-    /// built from another build folder, or on another image.
-    pub if_needed: bool,
-}
-
-fn layer_step(layer: &Value, name: &str, icons: Vec<IconJob>, if_needed: bool) -> LayerStep {
-    let files = layer["files"]
-        .as_array()
-        .into_iter()
-        .flatten()
-        .map(|f| {
-            (f["path"].as_str().unwrap_or_default().to_string(), f["content"].as_str().unwrap_or_default().to_string())
-        })
-        .collect();
-    LayerStep {
-        key: layer["key"].as_str().unwrap_or_default().into(),
-        name: name.into(),
-        tag: layer["ref"].as_str().unwrap_or_default().into(),
-        from: layer["from"].as_str().unwrap_or_default().into(),
-        files,
-        sha: layer["sha"].as_str().unwrap_or_default().into(),
-        icons,
-        if_needed,
-    }
-}
-
-/// What a layer build makes, in order: the templates it builds on and (for
-/// an Extensions layer's) its template, each only when needed, then the
-/// layer itself.
-pub fn layer_steps(req: &LayerBuildRequest) -> Result<Vec<LayerStep>, ApiError> {
-    let str_of = |v: &Value, k: &str| v.get(k).and_then(Value::as_str).unwrap_or_default().to_string();
-    let chain: Vec<Value> = req.parents.iter().chain([&req.template]).cloned().collect();
-    for t in &chain {
-        let tid = str_of(t, "id");
-        if !wad_core::spec::is_id(&tid) {
-            return Err(bad(format!("{tid:?} isn't a template id")));
-        }
-        let apps = t.get("apps").and_then(Value::as_array).cloned().unwrap_or_default();
-        if apps.is_empty() || apps.iter().any(|a| a.as_str().and_then(wad_core::catalog::app).is_none()) {
-            return Err(bad(format!("{}: a template's apps are catalog apps, at least one", str_of(t, "name"))));
-        }
-    }
-    if let Some(why) = wad_core::layers::chain_ok(&chain) {
-        return Err(bad(why));
-    }
-    let mut steps: Vec<LayerStep> = chain
-        .iter()
-        .enumerate()
-        .map(|(i, t)| {
-            let parent = if i == 0 { &Value::Null } else { &chain[i - 1] };
-            layer_step(&wad_core::layers::template_layer(t, parent), &str_of(t, "name"), vec![], true)
-        })
-        .collect();
-    let t = &req.template;
-    let tid = str_of(t, "id");
-    match req.layer.split_once(':') {
-        Some(("template", id)) if id == tid => {
-            steps.last_mut().expect("a template").if_needed = false;
-            Ok(steps)
-        }
-        Some(("custom", id)) => {
-            let c = req.extensions.as_ref().ok_or_else(|| bad("an Extensions layer's build needs the layer"))?;
-            if str_of(c, "id") != id || !wad_core::spec::is_id(id) {
-                return Err(bad(format!("{id:?} isn't the Extensions layer sent")));
-            }
-            if str_of(c, "templateId") != tid {
-                return Err(bad(format!("{} isn't made on {}", str_of(c, "name"), str_of(t, "name"))));
-            }
-            let has_browser = wad_core::layers::key_items(t, &Value::Null).iter().any(|i| i == "browser");
-            let icons = icon_jobs(
-                &serde_json::json!({ "webapps": if has_browser { c["webapps"].clone() } else { Value::Null } }),
-            );
-            steps.push(layer_step(&wad_core::layers::extensions_layer(c, t), &str_of(c, "name"), icons, false));
-            Ok(steps)
-        }
-        _ => Err(bad(format!("{:?} isn't this template's layer or an Extensions layer's", req.layer))),
-    }
-}
-
-/// A layer's build folder as a tar, with its web apps' icons.
-fn layer_context(step: &LayerStep, icons: &[(String, Vec<u8>)]) -> Result<Vec<u8>, String> {
-    let mut entries: Vec<wad_core::tar::Entry> =
-        step.files.iter().map(|(p, c)| wad_core::tar::Entry { path: p, content: c.as_bytes() }).collect();
-    let paths: Vec<String> = icons
-        .iter()
-        .map(|(id, _)| format!("root/usr/share/icons/hicolor/512x512/apps/wadspaces-webapp-{id}.png"))
-        .collect();
-    for ((_, png), path) in icons.iter().zip(&paths) {
-        entries.push(wad_core::tar::Entry { path, content: png });
-    }
-    let context = wad_core::tar::tar(&entries)?;
-    if context.len() > MAX_CONTEXT_BYTES {
-        return Err("build folder too big (64 MB max)".into());
-    }
-    Ok(context)
-}
-
-/// What a job builds.
+/// What a job builds: a set.
 enum Work {
-    /// Layer images, in order.
-    Layers(Vec<LayerStep>),
     Set(crate::sets::SetWork),
 }
 
@@ -330,21 +185,6 @@ impl Builds {
     /// Web apps' icons (and their cache), for builds and for WadSpaces Client.
     pub fn icons(&self) -> &Arc<Icons> {
         &self.icons
-    }
-
-    /// Builds a layer's image (what it builds on first when needed); it
-    /// waits its turn behind another build.
-    pub fn create_layer(&self, req: &LayerBuildRequest) -> Result<Build, ApiError> {
-        let steps = layer_steps(req)?;
-        let last = steps.last().expect("a step at least");
-        let key = last.key.clone();
-        let busy = |j: &Job| j.build.ws_id == key && !j.build.status.finished();
-        if self.jobs.lock().unwrap().iter().any(busy) {
-            return Err(ApiError::new(ErrorCode::Conflict, format!("{} is already building", last.name)));
-        }
-        let (name, image, base) = (last.name.clone(), last.tag.clone(), steps[0].from.clone());
-        let groups = steps.len() as u32;
-        Ok(self.start_job(key, name, image, base, Work::Layers(steps), groups))
     }
 
     /// Builds a version 4 wadspace's set (sets.rs): `packages` (wad-core's
@@ -574,72 +414,8 @@ impl Builds {
             return Err(format!("only {free:.1} GB free; building needs at least {} GB", self.min_free_gb));
         }
         match work {
-            Work::Layers(steps) => self.go_layers(id, steps).await,
             Work::Set(work) => crate::sets::build(self, id, work).await,
         }
-    }
-
-    /// A layer build: each image in turn (a template only when needed),
-    /// labelled with its sha and what it was built on.
-    async fn go_layers(&self, id: &str, steps: Vec<LayerStep>) -> Result<String, String> {
-        let mut last = String::new();
-        for (i, step) in steps.into_iter().enumerate() {
-            self.jobs.lock().unwrap().iter_mut().filter(|j| j.build.id == id).for_each(|j| j.group = i as u32);
-            // Another build making this image: after it, then (most likely) skipped.
-            let lock = self.image_lock(&step.tag);
-            let _held = lock.lock().await;
-            let Some(from) = self.backend.image_info(&step.from).await? else {
-                let hint = if is_local_base(&step.from) && !step.from.contains("-template-") {
-                    " — update the drive with host/build.sh update --bases"
-                } else {
-                    ""
-                };
-                return Err(format!("{} is not on this machine{hint}", step.from));
-            };
-            if step.if_needed {
-                // Built already: from this build folder, on what's below it as
-                // it is now (a template rebuilt under it means building again).
-                let have = self.backend.image_info(&step.tag).await?;
-                let label =
-                    |h: &crate::backend::ImageInfo, k: &str| h.labels.get(k).and_then(Value::as_str).map(String::from);
-                if have.is_some_and(|h| {
-                    label(&h, SHA_LABEL).as_deref() == Some(&step.sha)
-                        && label(&h, FROM_LABEL).as_deref() == Some(&from.id)
-                }) {
-                    self.line(id, &format!("» the {} template is built already", step.name));
-                    continue;
-                }
-                self.line(id, &format!("» Building the {} template first", step.name));
-            }
-            let icons = if step.icons.is_empty() {
-                vec![]
-            } else {
-                let (icons, how) = self.icons.for_build(&step.icons).await;
-                self.line(
-                    id,
-                    &format!(
-                        "» icons for {} web apps: {} from their sites, {} chosen, {} with their names",
-                        icons.len(),
-                        how.site,
-                        how.custom,
-                        how.fallback
-                    ),
-                );
-                icons
-            };
-            let context = layer_context(&step, &icons)?;
-            let mut labels = serde_json::Map::new();
-            labels.insert(SHA_LABEL.into(), step.sha.clone().into());
-            labels.insert(FROM_LABEL.into(), from.id.clone().into());
-            labels.insert(LAYER_LABEL.into(), step.key.clone().into());
-            self.line(id, &format!("» building {} on {}", step.tag, step.from));
-            let me = self.me.upgrade().ok_or("wadd is stopping")?;
-            let line_id = id.to_string();
-            self.backend.build(context, &step.tag, &step.from, labels, Box::new(move |l| me.line(&line_id, l))).await?;
-            self.line(id, &format!("✓ built {}", step.tag));
-            last = step.tag;
-        }
-        Ok(last)
     }
 }
 

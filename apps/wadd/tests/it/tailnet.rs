@@ -458,27 +458,25 @@ async fn past_hello_the_owners_sign_in_is_needed_too() {
 }
 
 fn put_library(fb: &FakeFirebase) {
-    fb.put(
-        "users/u1/templates/dev",
-        json!({"owner": "u1", "name": "Dev", "description": "", "apps": ["wadbrowser", "vscode"], "createdAt": "t", "updatedAt": "t"}),
-    );
-    fb.put(
-        "users/u1/extensions/dev-plus",
-        json!({"owner": "u1", "name": "Dev plus", "description": "", "templateId": "dev", "browserMode": "browser",
-               "webapps": [], "extensions": ["anthropic.claude-code"], "tools": [], "autostart": [], "createdAt": "t", "updatedAt": "t"}),
-    );
-    let stack = |owner: &str, name: &str| {
-        json!({"version": 3, "owner": owner, "sharedWith": [], "order": 1, "template": "dev", "extensions": "dev-plus",
-               "customization": {"name": name, "description": "", "wallpaper": {"type": "gradient", "value": wad_wallpaper::PRESETS[0].1},
-                                 "projects": [], "secrets": {"bySlot": {}}},
+    // Web apps only: they run on the base, so there's nothing to build.
+    let wadspace = |id: &str, owner: &str, name: &str| {
+        json!({"version": 4, "id": id, "owner": owner, "sharedWith": [], "machine": "m1", "order": 1,
+               "templates": [{"id": "w", "name": "Web", "apps": [
+                   {"app": "wadbrowser", "extras": [{"id": "notes", "name": "Notes", "url": "http://127.0.0.1:9/"}]}]}],
+               "customization": {"name": name, "wallpaper": {"type": "texture", "value": "stars"}, "projects": [],
+                                 "secrets": {"bySlot": {}, "groups": []}},
                "createdAt": "t", "updatedAt": "t"})
     };
-    fb.put("wadspaces/cosmic", stack("u1", "Cosmic"));
-    fb.put("wadspaces/theirs", stack("u2", "Theirs"));
-    let mut gone = stack("u1", "Gone");
+    fb.put("wadspaces/cosmic", wadspace("cosmic", "u1", "Cosmic"));
+    fb.put("wadspaces/theirs", wadspace("theirs", "u2", "Theirs"));
+    let mut gone = wadspace("gone", "u1", "Gone");
     gone["deletedAt"] = json!("2026-10-01T00:00:00.000Z");
     fb.put("wadspaces/gone", gone);
-    fb.put("wadspaces/unnamed", stack("u1", " "));
+    // The old Builder's.
+    fb.put(
+        "wadspaces/old",
+        json!({"version": 3, "owner": "u1", "sharedWith": [], "order": 1, "template": "dev", "customization": {"name": "Old"}}),
+    );
 }
 
 #[tokio::test]
@@ -486,32 +484,25 @@ async fn a_trusted_device_builds_opens_and_streams_the_owners_wadspace() {
     let e = start_with(RUNNING, true).await;
     e.trust_the_phone().await;
     put_library(&e.fb);
-    for (id, status) in [("theirs", 403), ("gone", 404), ("nope", 404), ("unnamed", 409)] {
+    // A base that takes version 4 wadspaces' extras at start.
+    e.fake.with(|m| {
+        m.image_labels.insert(BASE.into(), json!({"io.wadspaces.extras": "1"}).as_object().unwrap().clone());
+    });
+    for (id, status) in [("theirs", 403), ("gone", 404), ("nope", 404), ("old", 400)] {
         let (got, body) = e.owner("POST", &format!("/v1/remote/wadspaces/{id}/build"), "").await;
         assert_eq!(got, status, "{id}: {body}");
     }
 
-    // Built from the account: installed, its wallpaper drawn, its layers built.
+    // Built from the account: installed on its set (the base, for web apps
+    // alone), with what it starts with.
     let (status, b) = e.owner("POST", "/v1/remote/wadspaces/cosmic/build", "").await;
     assert_eq!(status, 200, "{b}");
     assert_eq!(
         (b["workspace"].as_str(), b["layer"].as_str(), b["built"].as_bool()),
-        (Some("cosmic"), Some("custom:dev-plus"), Some(false))
+        (Some("cosmic"), Some("base"), Some(true))
     );
-    let id = b["buildId"].as_str().unwrap().to_string();
-    let mut log = Value::Null;
-    for _ in 0..600 {
-        (_, log) = e.owner("GET", &format!("/v1/remote/builds/{id}?since=0"), "").await;
-        if log["build"]["status"] != "queued" && log["build"]["status"] != "running" {
-            break;
-        }
-        tokio::time::sleep(Duration::from_millis(20)).await;
-    }
-    assert_eq!(log["build"]["status"], "done", "{log}");
-    let wall = std::fs::read(e.dir.path().join("state/extra/cosmic/wallpaper.png")).unwrap();
-    assert!(wall.starts_with(b"\x89PNG"));
+    assert!(e.dir.path().join("state/extra/cosmic/webapps.json").is_file());
     let built = e.fake.0.lock().unwrap().builds.len();
-    assert_eq!(built, 2, "the template, then the Extensions layer");
     // Asked again: it's built, nothing to do.
     let (_, b) = e.owner("POST", "/v1/remote/wadspaces/cosmic/build", "").await;
     assert_eq!((b["built"].as_bool(), b["buildId"].is_null()), (Some(true), true), "{b}");

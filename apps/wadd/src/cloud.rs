@@ -18,15 +18,14 @@
 //! - the owner's GitHub repo list (users/{uid}/github/repos) for the online
 //!   app, which has no token: checked every 20th heartbeat, and written only
 //!   when it changed; sooner after a repo is made or a sign-in here.
-//! - the Builder's commands from the online app: `build` (a layer's image;
-//!   its documents come with it, else they're read from the account),
-//!   `install` (a wadspace on its layer, with its wallpaper drawn by the app),
-//!   `launch-run` (anything the launcher starts, maybe as a focus session)
-//!   and `session`. The heartbeat carries the layer images here, the saved
+//! - the Builder's commands from the apps: `build` (a wadspace by its id,
+//!   read from the account, installed here and its set built), `launch-run`
+//!   (anything the launcher starts, maybe as a focus session) and `session`.
+//!   The heartbeat carries the images here (the base, sets), the saved
 //!   sign-ins' names (never what they hold) and the screen's size.
-//! - for the remote API (remote.rs): a wadspace of the owner's with the
-//!   library it stands on ([`CloudRelay::stack_docs`]), and whether a
-//!   device's sign-in is the owner's ([`CloudRelay::owner_token`]).
+//! - for the remote API (remote.rs): a wadspace of the owner's
+//!   ([`CloudRelay::wadspace_doc`]), and whether a device's sign-in is the
+//!   owner's ([`CloudRelay::owner_token`]).
 
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -160,20 +159,11 @@ pub struct Parts {
     pub bus: Bus,
     pub builds: Arc<crate::builds::Builds>,
     pub signins: Arc<crate::signins::SignIns>,
-    /// podman, for the layer images.
+    /// podman, for the images.
     pub backend: Arc<dyn crate::backend::Backend>,
     /// The tailnet, when it's on here: where the owner's devices find the
     /// remote API.
     pub tailnet: Option<Arc<crate::tailnet::Tailnet>>,
-}
-
-/// A wadspace of the owner's, as the account has it, and the library it
-/// stands on: `{templates, extensions}` (its template chain, bottom first,
-/// and its Extensions).
-#[derive(Debug, Clone)]
-pub struct StackDocs {
-    pub wadspace: Value,
-    pub lib: Value,
 }
 
 /// How long an ID token's check is kept.
@@ -553,19 +543,16 @@ impl CloudRelay {
                 };
                 return Ok(json!({"ok": true, "pulled": pulled, "pushed": pushed, "repos": repos}));
             }
-            // A version 4 wadspace by its id: read from the account,
-            // installed here and its set built.
-            "build" if s(cmd, "layer").is_empty() => {
+            // A wadspace by its id: read from the account, installed here
+            // and its set built.
+            "build" => {
                 need_ws("build")?;
-                let docs = self.stack_docs(&ws).await.map_err(msg)?;
-                if !wad_core::v4::is_v4(&docs.wadspace) {
-                    return Err("only a version 4 wadspace builds by its id: send its layer".into());
-                }
+                let w = self.wadspace_doc(&ws).await.map_err(msg)?;
                 let tz = s(cmd, "tz");
                 let (_, b) = crate::sets::install_and_build(
                     &self.here(),
                     &ws,
-                    &docs.wadspace,
+                    &w,
                     Some(&tz).filter(|t| !t.is_empty()).map(|t| t.as_str()),
                 )
                 .await
@@ -573,35 +560,6 @@ impl CloudRelay {
                 return Ok(
                     json!({"ok": true, "imageKey": b.image_key, "built": b.built, "buildId": b.build.map(|b| b.id)}),
                 );
-            }
-            "build" => {
-                let req = self.layer_request(cmd).await?;
-                let b = p.builds.create_layer(&req).map_err(msg)?;
-                return Ok(json!({"ok": true, "buildId": b.id}));
-            }
-            "install" => {
-                let id = s(cmd, "wsId");
-                let req: crate::images::Install = serde_json::from_value(json!({
-                    "wadspace": cmd.get("wadspace").cloned().unwrap_or(Value::Null),
-                    "template": cmd.get("template").cloned().unwrap_or(Value::Null),
-                    "extensions": cmd.get("extensions").or_else(|| cmd.get("customization")).cloned().filter(|c| !c.is_null()),
-                    "tz": cmd.get("tz").cloned().filter(|t| !t.is_null()),
-                }))
-                .map_err(|e| e.to_string())?;
-                if wad_core::v4::is_v4(&req.wadspace) {
-                    let i =
-                        crate::sets::install(&self.here(), &id, &req.wadspace, req.tz.as_deref()).await.map_err(msg)?;
-                    return Ok(
-                        json!({"ok": true, "restartRequired": i.saved.restart_required, "warnings": i.warnings}),
-                    );
-                }
-                let saved = crate::images::install(&p.registry, p.backend.as_ref(), &id, &req).await.map_err(msg)?;
-                if let Some(w) = cmd.get("wallpaper").filter(|w| w.is_object()) {
-                    let up: wad_proto::v1::WallpaperUpload =
-                        serde_json::from_value(w.clone()).map_err(|e| e.to_string())?;
-                    crate::images::put_wallpaper(&self.settings.state_dir, &saved.workspace, &up).map_err(msg)?;
-                }
-                return Ok(json!({"ok": true, "restartRequired": saved.restart_required}));
             }
             "launch-run" => {
                 let items: Vec<wad_proto::v1::LaunchItem> =
@@ -616,76 +574,6 @@ impl CloudRelay {
         Ok(json!({"ok": true}))
     }
 
-    /// A `build` command's layer, with its documents: as sent, else read
-    /// from the owner's account (and the templates it builds on, read by
-    /// following each one's `parent`).
-    async fn layer_request(&self, cmd: &Value) -> Result<wad_proto::v1::LayerBuildRequest, String> {
-        let layer = s(cmd, "layer");
-        let given = |k: &str| cmd.get(k).cloned().filter(Value::is_object);
-        let (mut template, mut extensions) =
-            (given("template"), given("extensions").or_else(|| given("customization")));
-        let (kind, id) = layer.split_once(':').ok_or_else(|| format!("{layer:?} isn't a layer"))?;
-        if !wad_core::spec::is_id(id) {
-            return Err(format!("{layer:?} isn't a layer"));
-        }
-        if kind == "custom" && extensions.is_none() {
-            // Kept as "customizations" until the account moves to stacks.
-            extensions = Some(match self.owner_doc("extensions", id).await {
-                Ok(e) => e,
-                Err(_) => self.owner_doc("customizations", id).await?,
-            });
-        }
-        if template.is_none() {
-            let tid = match (kind, &extensions) {
-                ("custom", Some(c)) => s(c, "templateId"),
-                _ => id.to_string(),
-            };
-            template = Some(self.owner_doc("templates", &tid).await?);
-        }
-        let template = template.unwrap_or_default();
-        let parents: Vec<Value> = match cmd.get("parents").and_then(Value::as_array) {
-            Some(p) => p.clone(),
-            None => self.template_chain(&s(&template, "parent"), true).await?,
-        };
-        Ok(wad_proto::v1::LayerBuildRequest { layer, template, parents, extensions })
-    }
-
-    /// A template and those it builds on, from the account, bottom first
-    /// ("": none). `strict`: a template that isn't there is an error, else
-    /// the chain stops at it (and wad-core says it's gone).
-    async fn template_chain(&self, tid: &str, strict: bool) -> Result<Vec<Value>, String> {
-        let mut up = Vec::new();
-        let mut next = tid.to_string();
-        while !next.is_empty() && up.len() < wad_core::layers::MAX_CHAIN {
-            let t = match self.owner_doc_opt("templates", &next).await? {
-                Some(t) => t,
-                None if strict => return Err(format!("no template {next} in the account")),
-                None => break,
-            };
-            next = s(&t, "parent");
-            up.push(t);
-            // A loop in the account ends the chain.
-            if up.iter().any(|u| s(u, "id") == next) {
-                break;
-            }
-        }
-        up.reverse();
-        Ok(up)
-    }
-
-    /// One of the owner's documents (users/{uid}/<collection>/<id>), with its id.
-    async fn owner_doc(&self, collection: &str, id: &str) -> Result<Value, String> {
-        let (uid, _) = self.ids().ok_or("not linked")?;
-        self.owner_doc_opt(collection, id)
-            .await?
-            .ok_or_else(|| format!("no users/{uid}/{collection}/{id} in the account"))
-    }
-
-    async fn owner_doc_opt(&self, collection: &str, id: &str) -> Result<Option<Value>, String> {
-        let (uid, _) = self.ids().ok_or("not linked")?;
-        self.doc_at(&format!("users/{uid}/{collection}/{id}"), id).await
-    }
-
     /// A document by its path, with its id; None when it isn't there.
     async fn doc_at(&self, path: &str, id: &str) -> Result<Option<Value>, String> {
         let tok = self.id_token().await?;
@@ -697,11 +585,11 @@ impl CloudRelay {
         }))
     }
 
-    /// One of the owner's wadspaces (wadspaces/{id}), with its templates and
-    /// Extensions: what the remote API builds from. Only the owner's own
-    /// (the rules let a machine read wadspaces shared with its owner too,
-    /// but their templates are someone else's), and not one that's deleted.
-    pub async fn stack_docs(&self, ws_id: &str) -> Result<StackDocs, ApiError> {
+    /// One of the owner's wadspaces (wadspaces/{id}): what the remote API and
+    /// the relay build from. Only the owner's own (the rules let a machine
+    /// read wadspaces shared with its owner too), a version 4 one, and not
+    /// one that's deleted.
+    pub async fn wadspace_doc(&self, ws_id: &str) -> Result<Value, ApiError> {
         let (uid, _) =
             self.ids().ok_or_else(|| ApiError::new(ErrorCode::Offline, "This machine isn't linked to an account."))?;
         if !wad_core::spec::is_id(ws_id) {
@@ -716,22 +604,10 @@ impl CloudRelay {
         if w.get("deletedAt").is_some_and(|d| !d.is_null()) {
             return Err(ApiError::new(ErrorCode::NotFound, "That wadspace is deleted."));
         }
-        // Version 4 carries its own templates.
-        if wad_core::v4::is_v4(&w) {
-            return Ok(StackDocs { wadspace: w, lib: Value::Null });
+        if !wad_core::v4::is_v4(&w) {
+            return Err(ApiError::new(ErrorCode::BadRequest, "That wadspace is from the old Builder: make it again."));
         }
-        let templates = self.template_chain(&s(&w, "template"), false).await.map_err(up)?;
-        let eid = s(&w, "extensions");
-        let mut extensions = vec![];
-        if !eid.is_empty() {
-            // Kept as "customizations" until the account moves to stacks.
-            let e = match self.owner_doc_opt("extensions", &eid).await.map_err(up)? {
-                Some(e) => Some(e),
-                None => self.owner_doc_opt("customizations", &eid).await.map_err(up)?,
-            };
-            extensions.extend(e);
-        }
-        Ok(StackDocs { wadspace: w, lib: json!({ "templates": templates, "extensions": extensions }) })
+        Ok(w)
     }
 
     /// Whether an ID token is the machine owner's: Firebase is asked (it

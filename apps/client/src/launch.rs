@@ -81,10 +81,6 @@ pub fn image_state(key: &str, lib: &Value, images: &HashMap<String, ImageRow>) -
     core::image_state(key, lib, &rows)
 }
 
-fn layer_request(key: &str, lib: &Value) -> Result<Value, String> {
-    core::layer_request(key, lib)
-}
-
 /// The machine's time zone (what the wadspace's clock shows).
 fn time_zone() -> String {
     std::fs::read_link("/etc/localtime")
@@ -220,22 +216,15 @@ fn run_overrides(
     Ok(json!({ "wallpaper": wallpaper_upload(wallpaper)?, "signins": signins }))
 }
 
-/// A wadspace installed here as it is now, with its wallpaper drawn (a
-/// version 4 one's wadd draws, in the machine's theme).
+/// A wadspace installed here as it is now (wadd draws its wallpaper, in the
+/// machine's theme).
 async fn install(w: &Wadd, ws: &Value, lib: &Value, tz: &str) -> Result<(), String> {
     let id = s(ws, "id");
     if let Some(why) = not_ready(ws, lib) {
         return Err(format!("{}: {why}", s(&ws["customization"], "name")));
     }
-    if wad_core::v4::is_v4(ws) {
-        let install = json!({ "wadspace": ws, "tz": tz });
-        return w.act(Method::PUT, &format!("/v1/wadspaces/{id}"), Some(&install)).await.map_err(|e| e.to_string());
-    }
-    let r = core::resolve_stack(lib, ws);
-    let install = json!({ "wadspace": ws, "template": r["template"], "extensions": r.get("extensions").cloned().unwrap_or(Value::Null), "tz": tz });
-    w.act(Method::PUT, &format!("/v1/wadspaces/{id}"), Some(&install)).await.map_err(|e| e.to_string())?;
-    let wall = wallpaper_upload(&ws["customization"]["wallpaper"])?;
-    w.act(Method::PUT, &format!("/v1/workspaces/{id}/wallpaper"), Some(&wall)).await.map_err(|e| e.to_string())
+    let install = json!({ "wadspace": ws, "tz": tz });
+    w.act(Method::PUT, &format!("/v1/wadspaces/{id}"), Some(&install)).await.map_err(|e| e.to_string())
 }
 
 /// A wadspace installed here as it is now, without starting it (a stream
@@ -251,15 +240,13 @@ pub async fn install_here(id: String) -> Result<(), String> {
     rt::run(async move { install(&Wadd::here(), &ws, &lib, &tz).await }).await
 }
 
-/// Builds a wadspace here without starting it (the web app's buildStack):
-/// installed as it is now, its layer built unless that's up to date or
-/// already building (a version 4 one's set: wadd decides).
+/// Builds a wadspace here without starting it: installed as it is now,
+/// its set built unless that's up to date or already building (wadd
+/// decides).
 pub async fn build_here(id: String) -> Result<(), String> {
-    let (lib, ws, building) = store().read_now(|st| {
+    let (lib, ws) = store().read_now(|st| {
         let ws = st.library.as_ref().and_then(|l| l.all_wadspaces().find(|x| s(x, "id") == id).cloned());
-        let building: Vec<String> =
-            st.builds.iter().filter(|(b, _)| !b.status.finished()).filter_map(|(b, _)| b.layer.clone()).collect();
-        (st.library.as_ref().map(|l| l.lib()), ws, building)
+        (st.library.as_ref().map(|l| l.lib()), ws)
     });
     let lib = lib.ok_or("Your library isn't here yet.")?;
     let ws = ws.ok_or("That wadspace is gone.")?;
@@ -267,26 +254,7 @@ pub async fn build_here(id: String) -> Result<(), String> {
     rt::run(async move {
         let w = Wadd::here();
         install(&w, &ws, &lib, &tz).await?;
-        if wad_core::v4::is_v4(&ws) {
-            return build_set(&w, &ws).await;
-        }
-        let key = core::stack_image_key(&ws);
-        if key.is_empty() || building.contains(&key) {
-            return Ok(());
-        }
-        let images: HashMap<String, ImageRow> = w
-            .get::<Vec<ImageRow>>("/v1/images")
-            .await
-            .unwrap_or_default()
-            .into_iter()
-            .map(|r| (r.layer.clone(), r))
-            .collect();
-        if image_state(&key, &lib, &images) != ImageState::Built {
-            w.act(Method::POST, "/v1/images/build", Some(&layer_request(&key, &lib)?))
-                .await
-                .map_err(|e| e.to_string())?;
-        }
-        Ok(())
+        build_set(&w, &ws).await
     })
     .await
 }
@@ -326,18 +294,9 @@ pub async fn launch(items: Vec<RunItem>, focus_minutes: Option<u32>) -> Result<V
         for id in &ids {
             let Some(ws) = wadspaces.iter().find(|x| s(x, "id") == id) else { continue };
             install(&w, ws, &lib, &tz).await?;
-            let key = core::stack_image_key(ws);
-            if wad_core::v4::is_v4(ws) {
-                // Its set on an older base still runs: an update, not a build.
-                if image_state(&key, &lib, &images) == ImageState::Never {
-                    build_set(&w, ws).await?;
-                }
-                continue;
-            }
-            if !key.is_empty() && matches!(image_state(&key, &lib, &images), ImageState::Never | ImageState::Changed) {
-                w.act(Method::POST, "/v1/images/build", Some(&layer_request(&key, &lib)?))
-                    .await
-                    .map_err(|e| e.to_string())?;
+            // Its set on an older base still runs: an update, not a build.
+            if image_state(&core::stack_image_key(ws), &lib, &images) == ImageState::Never {
+                build_set(&w, ws).await?;
             }
         }
         // Drawn off GTK's thread: a run's own background.

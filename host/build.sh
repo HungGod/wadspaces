@@ -17,12 +17,6 @@
 # end (a drive copy takes longer than sudo remembers a password). The drive's
 # partitions are unmounted first if the desktop mounted them.
 #
-#   --layers template:writing,custom:vanua-academy-dev
-#                                  with install/update: also copy these Builder
-#                                  layers' images (localhost/wadspaces-template-<id>
-#                                  and -custom-<id>, built here by images/build.sh
-#                                  --example or wadd) onto the drive, labels and
-#                                  ids intact, so the machine counts them built
 #   --bases                        with update: also copy the base images
 #                                  (localhost/wadspaces-base:trixie, and the stream
 #                                  sidecar localhost/wadspaces-stream:trixie, built
@@ -70,7 +64,6 @@ SECRETS_DIR="${ROOT}/host/secrets"
 BIB_CONFIG="${ROOT}/host/bib-config.toml"
 TARGET="${1:-image}"
 DISK=""
-LAYERS=""
 BASES=""
 STAGE_ONLY=""
 FULL=""
@@ -84,7 +77,6 @@ if [[ "${TARGET}" == "install" || "${TARGET}" == "update" ]] && [[ $# -gt 0 && "
 fi
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        --layers) LAYERS="$2"; shift 2 ;;
         --bases) BASES=1; shift ;;
         --no-bases) BASES=0; shift ;;
         --stage-only) STAGE_ONLY="$2"; shift 2 ;;
@@ -340,23 +332,14 @@ check_update_target() {
 }
 
 # ------------------------------------------------------------ drive updates
-# What goes onto the drive: an OCI directory holding the host image ("host"),
-# Builder layers' images ("layer-<kind>-<id>") and base images ("base-<name>"), with layers left
+# What goes onto the drive: an OCI directory holding the host image ("host")
+# and base images ("base-<name>"), with layers left
 # uncompressed, so a file name is its content digest and stays the same in every
 # build that didn't change it.
 # The system image's layers the drive's system already holds aren't copied
 # at all: bootc reads only the layers it lacks (the drive's ostree repo names
 # each one it has, by digest). On the drive, wadspaces-import.service
 # (host/usr/libexec/wadspaces/import-updates) imports them at the next boot.
-
-# A Builder layer's image name, as wadd builds it: template:<id> or custom:<id>.
-layer_image() {
-    case "$1" in
-        template:*) echo "localhost/wadspaces-template-${1#template:}:latest" ;;
-        custom:*) echo "localhost/wadspaces-custom-${1#custom:}:latest" ;;
-        *) echo "--layers: template:<id> or custom:<id>, not $1" >&2; exit 2 ;;
-    esac
-}
 
 stage_stick() {
     rm -rf "${STICK_OCI}" && mkdir -p "${STICK_OCI}"
@@ -366,15 +349,6 @@ stage_stick() {
         skopeo copy -q --dest-oci-accept-uncompressed-layers "containers-storage:${IMAGE}" "oci:${STICK_OCI}:host"
         podman image inspect --format '{{.Id}}' "${IMAGE}" > "${STICK_OCI}/host.id"
     fi
-    local key target tag
-    for key in ${LAYERS//,/ }; do
-        target="$(layer_image "${key}")"
-        tag="layer-${key/:/-}"
-        podman image exists "${target}" || { echo "${target} isn't built: images/build.sh --example <name>" >&2; exit 1; }
-        echo ">> staging ${target}"
-        skopeo copy -q --dest-oci-accept-uncompressed-layers "containers-storage:${target}" "oci:${STICK_OCI}:${tag}"
-        echo "${tag} ${target}" >> "${STICK_OCI}/import.list"
-    done
     # Bases keep their own names: wadd builds on them as they are.
     local b
     local b src
@@ -454,7 +428,7 @@ case "${TARGET}" in
             check_update_target; sudo_once "updating ${DISK}"; unmount_disk
         fi
         ;;
-    *) echo "usage: host/build.sh [image|qcow2|iso|raw|install [/dev/sdX]|update [/dev/sdX]] [--layers template:a,custom:b] [--bases|--no-bases] [--full]" >&2; exit 2 ;;
+    *) echo "usage: host/build.sh [image|qcow2|iso|raw|install [/dev/sdX]|update [/dev/sdX]] [--bases|--no-bases] [--full]" >&2; exit 2 ;;
 esac
 
 stage_client
@@ -507,8 +481,8 @@ case "${TARGET}" in
             --security-opt label=type:unconfined_t \
             -v /dev:/dev -v /var/lib/containers:/var/lib/containers \
             "${IMAGE}" bootc install to-disk --wipe "${DISK}"
-        if [[ -n "${LAYERS}" || -n "${BASES}" ]]; then
-            # The host image is installed already; only the layers and bases go over.
+        if [[ -n "${BASES}" ]]; then
+            # The host image is installed already; only the bases go over.
             stage_stick
             push_to_drive
         fi

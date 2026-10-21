@@ -244,71 +244,20 @@ async fn build(
         .cloud
         .as_ref()
         .ok_or_else(|| Failure(ApiError::new(ErrorCode::Offline, "This machine isn't linked to an account.")))?;
-    let docs = relay.stack_docs(&id).await?;
-    let (w, lib) = (&docs.wadspace, &docs.lib);
+    let w = relay.wadspace_doc(&id).await?;
     let name = w["customization"]["name"].as_str().unwrap_or(&id).to_string();
-    if wad_core::v4::is_v4(w) {
-        let (i, b) = crate::sets::install_and_build(&app.here(), &id, w, time_zone().as_deref()).await?;
-        if b.build.is_some() {
-            notice(&app, format!("{} is building {name}", c.name));
-        }
-        return Ok(Json(RemoteBuild {
-            workspace: i.saved.workspace.id,
-            layer: b.image_key,
-            build_id: b.build.map(|b| b.id),
-            built: b.built,
-            restart_required: i.saved.restart_required,
-            warnings: i.warnings,
-        }));
+    let (i, b) = crate::sets::install_and_build(&app.here(), &id, &w, time_zone().as_deref()).await?;
+    if b.build.is_some() {
+        notice(&app, format!("{} is building {name}", c.name));
     }
-    if let Some(why) = wad_core::layers::not_ready(w, lib) {
-        return Err(Failure(ApiError::new(ErrorCode::Conflict, format!("{name}: {why}"))));
-    }
-    let r = wad_core::layers::resolve_stack(lib, w);
-    let install = crate::images::Install {
-        wadspace: w.clone(),
-        template: r["template"].clone(),
-        extensions: r.get("extensions").cloned().filter(|e| !e.is_null()),
-        tz: time_zone(),
-    };
-    let saved = crate::images::install(&app.registry, app.registry_backend.as_ref(), &id, &install).await?;
-    let mut warnings = vec![];
-    let (ext, bytes, warn) = crate::images::wallpaper_for(&w["customization"]["wallpaper"], &crate::api::assets_dir());
-    warnings.extend(warn);
-    if let Err(e) = crate::images::write_wallpaper(&app.store.dir, &id, &ext, &bytes) {
-        warnings.push(format!("Its wallpaper wasn't saved: {e}"));
-    }
-    let layer = wad_core::layers::stack_image_key(w);
-    let mut out = RemoteBuild {
-        workspace: saved.workspace.id.clone(),
-        layer: layer.clone(),
-        build_id: building(&app, &layer),
-        built: false,
-        restart_required: saved.restart_required,
-        warnings,
-    };
-    if out.build_id.is_some() {
-        return Ok(Json(out));
-    }
-    let rows = crate::images::list(app.registry_backend.as_ref()).await?;
-    let images = rows
-        .into_iter()
-        .map(|r| {
-            let row = wad_core::layers::LayerImage { id: r.id, from: r.from, sha: r.dockerfile_sha };
-            (r.layer, row)
-        })
-        .collect();
-    if wad_core::layers::image_state(&layer, lib, &images) == wad_core::layers::ImageState::Built {
-        out.built = true;
-        return Ok(Json(out));
-    }
-    let req =
-        wad_core::layers::layer_request(&layer, lib).map_err(|e| Failure(ApiError::new(ErrorCode::Conflict, e)))?;
-    let req = serde_json::from_value(req).map_err(|e| Failure(ApiError::new(ErrorCode::Internal, e.to_string())))?;
-    let b = app.builds.create_layer(&req)?;
-    notice(&app, format!("{} is building {name}", c.name));
-    out.build_id = Some(b.id);
-    Ok(Json(out))
+    Ok(Json(RemoteBuild {
+        workspace: i.saved.workspace.id,
+        layer: b.image_key,
+        build_id: b.build.map(|b| b.id),
+        built: b.built,
+        restart_required: i.saved.restart_required,
+        warnings: i.warnings,
+    }))
 }
 
 #[derive(Deserialize)]

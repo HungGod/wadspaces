@@ -284,28 +284,15 @@ async fn projects() {
 #[tokio::test]
 async fn builds() {
     let (_d, sock, stop) = start(true).await;
-    let req = r#"{"layer":"template:tryb","template":{"id":"tryb","owner":"me","name":"Try build","description":"",
-        "apps":["obsidian"],"createdAt":"t","updatedAt":"t"},"customization":null}"#;
-    let (status, body) = send(&sock, "POST", "/v1/images/build", req).await;
-    assert_eq!(status, 201, "{body}");
-    let b: serde_json::Value = serde_json::from_str(&body).unwrap();
-    assert_eq!(b["image"], "localhost/wadspaces-template-tryb:latest");
-    // No podman here: the build says so.
-    for _ in 0..100 {
-        let (_, body) = get(&sock, &format!("/v1/builds/{}", b["id"].as_str().unwrap())).await;
-        if body.contains(r#""status":"error""#) {
-            assert!(body.contains("no podman"), "{body}");
-            break;
-        }
-        tokio::time::sleep(Duration::from_millis(20)).await;
-    }
-    // Designs aren't built any more.
+    // The old Builder's layers aren't built any more, nor designs: a
+    // wadspace's set is (POST /v1/wadspaces/{id}/build, sets.rs).
+    assert_eq!(send(&sock, "POST", "/v1/images/build", r#"{"layer":"template:tryb"}"#).await.0, 405);
     assert_eq!(send(&sock, "POST", "/v1/builds", r#"{"design":{"id":"x"}}"#).await.0, 405);
+    // Only a version 4 wadspace installs.
     let (status, body) =
-        send(&sock, "POST", "/v1/images/build", r#"{"layer":"template:Bad Id","template":{"id":"Bad Id"}}"#).await;
+        send(&sock, "PUT", "/v1/wadspaces/old", r#"{"wadspace":{"version":3,"id":"old","template":"dev"}}"#).await;
     assert_eq!(status, 400, "{body}");
-    let (_, body) = get(&sock, "/v1/builds").await;
-    assert!(body.contains("tryb"), "{body}");
+    assert!(body.contains("version 4"), "{body}");
     let _ = stop.send(());
 }
 

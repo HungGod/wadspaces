@@ -497,7 +497,6 @@ impl Server {
         tokio::spawn(async move {
             sweep.reconcile().await;
             sweep.sweep_ephemeral().await;
-            sweep.sweep_old().await;
         });
         self.state.storage.start();
         let watcher = self.sway.clone().map(|d| tokio::spawn(d.run(self.state.view.clone() as Arc<dyn WindowSink>)));

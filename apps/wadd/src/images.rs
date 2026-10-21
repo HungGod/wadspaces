@@ -1,18 +1,13 @@
-//! The Builder's layer images on this machine, and wadspaces installed on
-//! them.
+//! The images on this machine (the base, and sets: sets.rs), and what
+//! wadspaces start with.
 //!
-//! - `GET /v1/images`: each layer image here, from its labels (builds.rs
-//!   puts them on): its build folder's sha and the id of the image it was
-//!   built on. WadSpaces compares those with the layer as it is now to show
-//!   Built, Changed since built, or Not built.
-//! - `DELETE /v1/images/{layer}`: when a template or Extensions layer is
-//!   deleted for good. Refused while a workspace here runs on it.
-//! - `PUT /v1/wadspaces/{id}`: a wadspace (its customization has no image)
-//!   installed, or updated, as a workspace on its top layer's image
-//!   (wad-core's `workspace_for`): its name and wallpaper at run time, a
-//!   /config of its own, its sign-ins, and the github_token secret when the
-//!   machine has one. A stack (version 3), or a version 2 wadspace; a
-//!   version 4 one installs on its set (sets.rs).
+//! - `GET /v1/images`: each set here, from its labels: its key and the id of
+//!   the image it was built on. WadSpaces compares those with the wadspace
+//!   as it is now to show Built, Update, or Not built.
+//! - `DELETE /v1/images/{layer}`: a set nothing needs. Refused while a
+//!   workspace here runs on it.
+//! - `PUT /v1/wadspaces/{id}`: a version 4 wadspace installed, or updated,
+//!   as a workspace on its set (sets.rs).
 //! - `PUT /v1/workspaces/{id}/wallpaper`: the wallpaper it's started with,
 //!   kept in its extra folder (mounted at /run/wadspaces-extra).
 
@@ -20,8 +15,8 @@ use std::path::{Path, PathBuf};
 
 use base64::Engine;
 use serde::Deserialize;
-use serde_json::{Value, json};
-use wad_proto::v1::{Freed, ImageRow, StorageDelete, WallpaperUpload, Workspace, WorkspaceSaved};
+use serde_json::Value;
+use wad_proto::v1::{Freed, ImageRow, StorageDelete, WallpaperUpload, Workspace};
 use wad_proto::{ApiError, ErrorCode};
 
 use crate::backend::{Backend, ImageInfo};
@@ -39,30 +34,22 @@ fn internal(e: impl std::fmt::Display) -> ApiError {
     ApiError::new(ErrorCode::Internal, e.to_string())
 }
 
-/// "template:<id>" / "custom:<id>" with a valid id, or a set's "set:<key>".
+/// A set's "set:<key>".
 pub fn layer_ok(layer: &str) -> bool {
-    match layer.split_once(':') {
-        Some(("template" | "custom", id)) => wad_core::spec::is_id(id),
-        Some(("set", key)) => key.len() == 12 && key.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b)),
-        _ => false,
-    }
+    layer
+        .strip_prefix("set:")
+        .is_some_and(|key| key.len() == 12 && key.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b)))
 }
 
 /// The image a layer's name points at.
 pub fn layer_ref(layer: &str) -> String {
-    if layer.starts_with("set:") {
-        wad_core::v4::image_ref(layer, wad_core::spec::DEFAULT_BASE_IMAGE)
-    } else {
-        wad_core::layers::image_ref(layer)
-    }
+    wad_core::v4::image_ref(layer, wad_core::spec::DEFAULT_BASE_IMAGE)
 }
 
-/// The layer a workspace's image is ("template:<id>", "custom:<id>",
-/// "set:<key>"), if it's one of the Builder's.
+/// The set a workspace's image is ("set:<key>"), if it's one.
 pub fn layer_of(image: &str) -> Option<String> {
-    let rest = image.strip_prefix("localhost/wadspaces-")?.strip_suffix(":latest")?;
-    let (kind, id) = rest.split_once('-')?;
-    matches!(kind, "template" | "custom" | "set").then(|| format!("{kind}:{id}")).filter(|l| layer_ok(l))
+    let key = image.strip_prefix("localhost/wadspaces-set-")?.strip_suffix(":latest")?;
+    Some(format!("set:{key}")).filter(|l| layer_ok(l))
 }
 
 /// The layer images here.
@@ -405,115 +392,14 @@ async fn old_bases(backend: &dyn Backend) -> Vec<ImageInfo> {
         .collect()
 }
 
-/// PUT /v1/wadspaces/{id}: a wadspace and the layers it's on.
+/// PUT /v1/wadspaces/{id}: a version 4 wadspace (sets.rs installs it).
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Install {
     pub wadspace: Value,
-    /// Its template (the top of its chain); none for version 4, whose
-    /// templates are its own.
-    #[serde(default)]
-    pub template: Value,
-    /// Its Extensions layer, if it has one ("customization" from before
-    /// the layer was called Extensions).
-    #[serde(default, alias = "customization")]
-    pub extensions: Option<Value>,
     /// The time zone its clock shows (the client's).
     #[serde(default)]
     pub tz: Option<String>,
-}
-
-/// The workspace a wadspace installs as (wad-core), in workspaces.json's shape.
-pub async fn workspace_of(backend: &dyn Backend, id: &str, req: &Install) -> Result<Value, ApiError> {
-    let w = &req.wadspace;
-    if w.get("id").and_then(Value::as_str) != Some(id) || !wad_core::spec::is_id(id) {
-        return Err(bad(format!("{id:?}: the wadspace sent is another")));
-    }
-    let setup = match w.get("version").and_then(Value::as_u64) {
-        Some(4) => return Err(bad("a version 4 wadspace installs with its set (sets.rs)")),
-        Some(3) => setup_v3(w, req)?,
-        Some(2) => setup_v2(w, req)?,
-        _ => return Err(bad("a wadspace from before the layers: WadSpaces moves it to them first")),
-    };
-    // Git's credentials, when the machine has them.
-    let secrets: Vec<String> =
-        backend.secret_names().await.unwrap_or_default().into_iter().filter(|n| n == "github_token").collect();
-    let tz = req.tz.as_deref().filter(|t| !t.is_empty() && t.len() < 64 && !t.contains(char::is_control));
-    let opts = json!({ "tz": tz.unwrap_or("Etc/UTC"), "secrets": secrets });
-    let mut ws = wad_core::layers::workspace_for(w, &req.template, &setup, &opts);
-    ws["desktop"] = desktop_of(w, &req.template, &setup);
-    Ok(ws)
-}
-
-/// Its desktop's icons as the image draws them (what the switcher shows):
-/// `[{label, icon}]`.
-fn desktop_of(w: &Value, template: &Value, setup: &Value) -> Value {
-    // Version 3 keeps its projects (with their folder names) in its customization.
-    let projects: Vec<Value> = w["customization"]["projects"]
-        .as_array()
-        .filter(|_| w.get("version").and_then(Value::as_u64) == Some(3))
-        .into_iter()
-        .flatten()
-        .map(|p| json!({ "id": p["id"], "name": p["as"] }))
-        .collect();
-    wad_core::layers::desktop_for(template, setup, &projects)
-        .iter()
-        .map(|i| json!({ "label": i["label"], "icon": i["iconUrl"] }))
-        .collect()
-}
-
-/// A stack's setup: its Extensions' (made on its template), or its
-/// template's own. It needs a customization (its name, at least).
-fn setup_v3(w: &Value, req: &Install) -> Result<Value, ApiError> {
-    let tid = req.template["id"].as_str().unwrap_or_default();
-    if w["template"] != req.template["id"] || tid.is_empty() {
-        return Err(bad("the template sent isn't this wadspace's"));
-    }
-    if !w["customization"].is_object() {
-        return Err(bad("a wadspace needs its customization (a name, at least) to be installed"));
-    }
-    match (&req.extensions, w.get("extensions").and_then(Value::as_str)) {
-        (Some(e), Some(eid)) if e["id"] == eid && e["templateId"] == tid => Ok(wad_core::layers::setup_of(e)),
-        (None, None) => Ok(wad_core::layers::empty_setup(tid)),
-        _ => Err(bad("the Extensions sent aren't this wadspace's")),
-    }
-}
-
-/// A version 2 wadspace's setup: its base's.
-fn setup_v2(w: &Value, req: &Install) -> Result<Value, ApiError> {
-    match &req.extensions {
-        Some(c) => {
-            let base = &w["base"];
-            if base["kind"] != "customization" || base["id"] != c["id"] || c["templateId"] != req.template["id"] {
-                return Err(bad("the customization sent isn't this wadspace's"));
-            }
-            Ok(wad_core::layers::setup_of(c))
-        }
-        None => {
-            if w["base"]["kind"] != "template" || w["base"]["id"] != req.template["id"] {
-                return Err(bad("the template sent isn't this wadspace's"));
-            }
-            Ok(wad_core::layers::empty_setup(req.template["id"].as_str().unwrap_or_default()))
-        }
-    }
-}
-
-/// Installs or updates it; whether it's running with the old settings.
-pub async fn install(
-    registry: &Registry,
-    backend: &dyn Backend,
-    id: &str,
-    req: &Install,
-) -> Result<WorkspaceSaved, ApiError> {
-    let fresh = workspace_of(backend, id, req).await?;
-    let (list, updated) = crate::builds::merged(&registry.workspaces(), &fresh).map_err(bad)?;
-    let running = registry.state(id).is_some_and(|s| s.container == "running");
-    registry.set_workspaces(list).await.map_err(internal)?;
-    let workspace = registry.workspace(id)?;
-    if !workspace.image.is_empty() && backend.image_exists(&workspace.image).await.unwrap_or(false) {
-        registry.image_here(id);
-    }
-    Ok(WorkspaceSaved { workspace, restart_required: updated && running })
 }
 
 /// `<state_dir>/extra/<id>`: what's mounted in at /run/wadspaces-extra.
@@ -546,42 +432,6 @@ pub fn decode_wallpaper(up: &WallpaperUpload) -> Result<Vec<u8>, ApiError> {
         return Err(bad(format!("that isn't a {} picture", up.ext)));
     }
     Ok(bytes)
-}
-
-/// A wadspace's wallpaper as the file its desktop shows, made here (the
-/// remote API's builds; the client draws its own): a gradient or a colour
-/// drawn, a picture sent along (a data: URL), or one of WadSpaces' own
-/// (/wallpapers/…, from `assets`). Anything else gets the blank one, and
-/// says so. (ext, bytes, a warning).
-pub fn wallpaper_for(wall: &Value, assets: &Path) -> (String, Vec<u8>, Option<String>) {
-    let blank = |why: String| {
-        let w = wad_wallpaper::Wallpaper { kind: wad_wallpaper::Kind::Gradient, value: wad_wallpaper::BLANK.into() };
-        ("png".to_string(), wad_wallpaper::draw_png(&w).unwrap_or_default(), Some(why))
-    };
-    let Ok(w) = serde_json::from_value::<wad_wallpaper::Wallpaper>(wall.clone()) else {
-        return blank("It has no wallpaper: it gets the plain one.".into());
-    };
-    if w.kind != wad_wallpaper::Kind::Image {
-        return match wad_wallpaper::draw_png(&w) {
-            Some(png) => ("png".into(), png, None),
-            None => blank("Its wallpaper didn't draw: it gets the plain one.".into()),
-        };
-    }
-    let bytes = if let Some((_, b64)) = w.value.strip_prefix("data:").and_then(|d| d.split_once(";base64,")) {
-        base64::engine::general_purpose::STANDARD.decode(b64).ok()
-    } else {
-        crate::api::asset_path(assets, &w.value).and_then(|p| std::fs::read(p).ok())
-    };
-    let Some(bytes) = bytes.filter(|b| b.len() <= MAX_WALLPAPER) else {
-        return blank("Its wallpaper's picture isn't here: it gets the plain one.".into());
-    };
-    if bytes.starts_with(b"\x89PNG\r\n\x1a\n") {
-        ("png".into(), bytes, None)
-    } else if bytes.starts_with(&[0xFF, 0xD8, 0xFF]) {
-        ("jpg".into(), bytes, None)
-    } else {
-        blank("Its wallpaper isn't a PNG or a JPEG: it gets the plain one.".into())
-    }
 }
 
 /// Writes it (and drops the other kind), readable inside.

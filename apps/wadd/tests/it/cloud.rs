@@ -376,70 +376,43 @@ async fn the_repo_list_goes_to_the_account_when_it_changes() {
 }
 
 #[tokio::test]
-async fn the_builders_commands_build_install_and_launch() {
+async fn the_old_builders_commands_are_refused_and_launches_run() {
     let e = linked().await;
-    e.fake.with(|m| {
-        m.images.insert("localhost/wadspaces-base:trixie".into());
-        m.free_gb = 100.0;
-    });
-    let template = json!({"owner": "u1", "name": "Dev", "description": "", "apps": ["wadbrowser", "vscode"], "createdAt": "t", "updatedAt": "t"});
-    let custom = json!({"owner": "u1", "name": "Dev plus", "description": "", "templateId": "dev", "browserMode": "browser",
-        "webapps": [], "extensions": [], "tools": ["go"], "autostart": [], "createdAt": "t", "updatedAt": "t"});
-    // The documents are in the account: the machine reads them.
-    e.fb.put("users/u1/templates/dev", template.clone());
-    e.fb.put("users/u1/customizations/dev-plus", custom.clone());
     let cmds = "users/u1/machines/m1/commands";
+    // The old Builder's: a layer's build, a wadspace installed on its layer.
     e.fb.put(
         &format!("{cmds}/b1"),
         json!({"type": "build", "layer": "custom:dev-plus", "status": "pending", "createdAt": time(1000)}),
     );
-    e.relay.poll_once().await.unwrap();
-    let b1 = e.fb.doc(&format!("{cmds}/b1")).unwrap();
-    assert_eq!(b1["status"], "done", "{b1}");
-    assert!(b1["result"]["buildId"].is_string());
-    for _ in 0..300 {
-        if e.fake.0.lock().unwrap().images.contains("localhost/wadspaces-custom-dev-plus:latest") {
-            break;
-        }
-        tokio::time::sleep(Duration::from_millis(10)).await;
-    }
-    let built: Vec<String> = e.fake.0.lock().unwrap().builds.iter().map(|b| b.0.clone()).collect();
-    assert_eq!(built, ["localhost/wadspaces-template-dev:latest", "localhost/wadspaces-custom-dev-plus:latest"]);
-    // A wadspace installed with its documents and the wallpaper the app drew,
-    // then launched with the terminal as a focus session.
-    let mut t = template.clone();
-    t["id"] = "dev".into();
-    let mut c = custom.clone();
-    c["id"] = "dev-plus".into();
-    let png = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
     e.fb.put(
         &format!("{cmds}/i1"),
-        json!({"type": "install", "wsId": "academy", "status": "pending", "createdAt": time(2000), "tz": "Pacific/Fiji",
-               "wadspace": {"version": 2, "id": "academy", "owner": "u1", "name": "Academy", "description": "",
-                            "base": {"kind": "customization", "id": "dev-plus"}, "wallpaper": {"type": "color", "value": "#000"},
-                            "projects": [], "secrets": {}, "createdAt": "t", "updatedAt": "t"},
-               "template": t, "customization": c, "wallpaper": {"ext": "png", "data": png}}),
+        json!({"type": "install", "wsId": "academy", "status": "pending", "createdAt": time(2000)}),
     );
+    // Launched with the terminal as a focus session.
     e.reg.put_workspace(common::app("terminal", "/usr/bin/foot")).await.unwrap();
     e.fb.put(
         &format!("{cmds}/l1"),
         json!({"type": "launch-run", "status": "pending", "createdAt": time(3000), "focusMinutes": 25,
-               "items": [{"kind": "workspace", "workspace": "academy"}, {"kind": "terminal"}]}),
+               "items": [{"kind": "terminal"}]}),
     );
     e.relay.poll_once().await.unwrap();
+    let b1 = e.fb.doc(&format!("{cmds}/b1")).unwrap();
+    assert_eq!(
+        (b1["status"].as_str(), b1["result"]["error"].as_str()),
+        (Some("error"), Some("build needs wsId")),
+        "{b1}"
+    );
     let i1 = e.fb.doc(&format!("{cmds}/i1")).unwrap();
-    assert_eq!(i1["status"], "done", "{i1}");
-    assert_eq!(e.reg.workspace("academy").unwrap().image, "localhost/wadspaces-custom-dev-plus:latest");
-    assert!(e.state.join("extra/academy/wallpaper.png").is_file());
+    assert_eq!(i1["status"], "error", "{i1}");
     let l1 = e.fb.doc(&format!("{cmds}/l1")).unwrap();
-    assert_eq!(l1["result"]["workspaces"], json!(["academy", "terminal"]), "{l1}");
+    assert_eq!(l1["result"]["workspaces"], json!(["terminal"]), "{l1}");
     for _ in 0..300 {
         if e.view.session().is_some() {
             break;
         }
         tokio::time::sleep(Duration::from_millis(10)).await;
     }
-    assert_eq!(e.view.session().unwrap().workspaces, ["academy", "terminal"]);
+    assert_eq!(e.view.session().unwrap().workspaces, ["terminal"]);
 }
 
 #[tokio::test]

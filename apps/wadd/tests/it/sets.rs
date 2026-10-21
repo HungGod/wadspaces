@@ -421,8 +421,9 @@ fn layer_names_and_images() {
     assert!(!layer_ok("set:xyz") && !layer_ok("set:0123456789abc"));
     assert_eq!(layer_ref("set:0123456789ab"), "localhost/wadspaces-set-0123456789ab:latest");
     assert_eq!(layer_of("localhost/wadspaces-set-0123456789ab:latest").as_deref(), Some("set:0123456789ab"));
-    assert_eq!(layer_of("localhost/wadspaces-template-my-dev:latest").as_deref(), Some("template:my-dev"));
-    assert_eq!(layer_of("localhost/wadspaces-custom-dev-plus:latest").as_deref(), Some("custom:dev-plus"));
+    // The old Builder's layers aren't any more.
+    assert_eq!(layer_of("localhost/wadspaces-template-my-dev:latest"), None);
+    assert!(!layer_ok("template:my-dev") && !layer_ok("custom:dev-plus"));
     assert_eq!(layer_of(BASE), None);
     assert_eq!(layer_of("localhost/wadspaces-chain:0123456789ab"), None);
 }
