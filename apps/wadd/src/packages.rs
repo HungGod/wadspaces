@@ -3,16 +3,16 @@
 //! package, in order: the one here, else downloaded from CI's registry (the
 //! packages are private: the machine's GitHub token signs in), else an older
 //! one here, else built here from its recipe. Each is tagged by its image id
-//! (local_ref), which the update drive's re-compressed copies keep too.
+//! (local_ref).
 //!
-//! The index is fetched at most once an `index_max_age`, saved in
-//! state_dir/packages/index.json for when the network's out, and the update
-//! drive's copy is the last resort. A package is fetched or built once at a
-//! time (two builds that need rust wait for one download), and a download
-//! leaves the free space builds keep.
+//! The index is fetched at most once an `index_max_age`, and saved in
+//! state_dir/packages/index.json for when the network's out (building a
+//! wadspace needs it anyway: there's no offline copy). A package is fetched
+//! or built once at a time (two builds that need rust wait for one
+//! download), and a download leaves the free space builds keep.
 //!
-//! `fetch` gets packages now rather than when a build needs them (before
-//! going offline, say), as a job that sends `packages` events.
+//! `fetch` gets packages now rather than when a build needs them, as a job
+//! that sends `packages` events.
 
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -62,8 +62,6 @@ pub struct Settings {
     /// Download what CI published; false: only what's here, or built here.
     pub pull: bool,
     pub index_url: String,
-    /// The update drive's copy of the index.
-    pub drive_index: PathBuf,
     pub index_max_age: Duration,
     pub state_dir: PathBuf,
     /// Free space a download or a build leaves (the builds' own).
@@ -76,7 +74,6 @@ impl Settings {
         Self {
             pull: p.pull,
             index_url: p.index_url.clone(),
-            drive_index: p.drive_index.clone(),
             index_max_age: Duration::from_secs(p.index_max_age_min * 60),
             state_dir: config.daemon.state_dir.clone(),
             min_free_gb: config.daemon.build_min_free_gb,
@@ -84,8 +81,7 @@ impl Settings {
     }
 }
 
-/// The index as it was got: from the network, the last one saved, or the
-/// update drive's.
+/// The index as it was got: from the network, or the last one saved.
 #[derive(Clone)]
 struct Index {
     doc: Value,
@@ -171,7 +167,7 @@ impl Packages {
     }
 
     /// CI's index: fetched again once it's older than `index_max_age`; when
-    /// that fails, the last one fetched, else the update drive's.
+    /// that fails, the last one fetched.
     async fn index(&self) -> Option<Index> {
         let mut st = self.index.lock().await;
         let fresh = st
@@ -192,8 +188,7 @@ impl Packages {
                     tracing::info!("the packages index: {e}");
                     st.failed = Some(Instant::now());
                     if st.got.is_none() {
-                        st.got = read_index(&self.saved_index(), "saved")
-                            .or_else(|| read_index(&self.settings.drive_index, "drive"));
+                        st.got = read_index(&self.saved_index(), "saved");
                     }
                 }
             }

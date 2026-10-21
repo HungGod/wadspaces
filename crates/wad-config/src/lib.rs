@@ -43,6 +43,7 @@ pub struct Config {
 /// Packages: an app's, a tool's or an extension's files, built once by CI
 /// (wad_core::packages) and copied onto the base. Where CI's index of them
 /// is, and whether this machine downloads them (else it builds them itself).
+/// Building a wadspace needs the network: its packages download then.
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 #[serde(default)]
 pub struct Packages {
@@ -51,8 +52,6 @@ pub struct Packages {
     pub pull: bool,
     /// CI's index of what it published.
     pub index_url: String,
-    /// The update drive's copy of the index, for a machine that's offline.
-    pub drive_index: PathBuf,
     /// How long a fetched index is used before it's fetched again.
     pub index_max_age_min: u64,
 }
@@ -62,7 +61,6 @@ impl Default for Packages {
         Self {
             pull: true,
             index_url: "https://github.com/HungGod/WadSpaces/releases/download/packages/index.json".into(),
-            drive_index: "/var/lib/wadspaces/incoming/packages-index.json".into(),
             index_max_age_min: 60,
         }
     }

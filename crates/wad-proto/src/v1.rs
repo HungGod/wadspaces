@@ -1367,8 +1367,8 @@ pub struct PackageList {
     pub base: String,
     /// The base's ABI (io.wadspaces.abi); none: a base from before packages.
     pub abi: Option<String>,
-    /// Where the index came from: "network", "saved" (the last one fetched),
-    /// "drive" (the update drive's) or "none".
+    /// Where the index came from: "network", "saved" (the last one fetched)
+    /// or "none".
     pub index_from: String,
     /// When that index was fetched (Unix seconds).
     pub index_at: Option<f64>,

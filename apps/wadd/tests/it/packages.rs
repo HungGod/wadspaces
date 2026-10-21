@@ -53,7 +53,6 @@ impl Env {
         Settings {
             pull: true,
             index_url: format!("file://{}", self.index_path().display()),
-            drive_index: self.d.path().join("drive-index.json"),
             index_max_age: Duration::from_secs(3600),
             state_dir: self.d.path().join("state"),
             min_free_gb: 8,
@@ -240,7 +239,7 @@ async fn a_base_from_before_packages_is_refused() {
 }
 
 #[tokio::test]
-async fn the_index_comes_from_the_network_else_the_last_one_saved_else_the_drive() {
+async fn the_index_comes_from_the_network_else_the_last_one_saved() {
     let e = env();
     let list = e.packages().list(BASE).await.unwrap();
     assert_eq!((list.index_from.as_str(), list.abi.as_deref()), ("network", Some(ABI)));
@@ -251,16 +250,11 @@ async fn the_index_comes_from_the_network_else_the_last_one_saved_else_the_drive
     assert!(list.packages.iter().all(|r| r.state == PackageState::Missing));
     assert_eq!(list.packages[1].size_mb, 1000.0);
     // The network's out: the copy it saved.
-    let index = std::fs::read_to_string(e.index_path()).unwrap();
     std::fs::remove_file(e.index_path()).unwrap();
     let list = e.packages().list(BASE).await.unwrap();
     assert_eq!((list.index_from.as_str(), list.packages.len()), ("saved", 3));
-    // Nothing saved either: the update drive's.
+    // Nothing saved either: none.
     std::fs::remove_dir_all(e.d.path().join("state")).unwrap();
-    std::fs::write(e.d.path().join("drive-index.json"), &index).unwrap();
-    let list = e.packages().list(BASE).await.unwrap();
-    assert_eq!((list.index_from.as_str(), list.packages.len()), ("drive", 3));
-    std::fs::remove_file(e.d.path().join("drive-index.json")).unwrap();
     let list = e.packages().list(BASE).await.unwrap();
     assert_eq!((list.index_from.as_str(), list.index_at, list.packages.len()), ("none", None, 0));
 }

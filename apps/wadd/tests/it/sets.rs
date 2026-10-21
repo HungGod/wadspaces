@@ -159,7 +159,6 @@ async fn env() -> Env {
         PkgSettings {
             pull: true,
             index_url: format!("file://{}", d.path().join("index.json").display()),
-            drive_index: d.path().join("drive-index.json"),
             index_max_age: Duration::from_secs(3600),
             state_dir: state.clone(),
             min_free_gb: 8,
