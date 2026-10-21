@@ -563,6 +563,18 @@ fn template(w: &Wadspace, t: &Template, i: usize) -> gtk::Widget {
             n.set_hexpand(true);
             n.set_xalign(0.0);
             wb.append(&n);
+            if e.mode.as_deref() == Some("focus") {
+                // The top template with the app decides its mode.
+                let above =
+                    w.templates.iter().take_while(|x| x.id != t.id).find(|x| x.apps.iter().any(|a| a.app == e.app));
+                let tag = gtk::Label::new(Some(if above.is_some() { "focus, not used" } else { "focus" }));
+                tag.add_css_class("faint");
+                tag.add_css_class("tiny");
+                if let Some(a) = above {
+                    tag.set_tooltip_text(Some(&format!("{} is higher up, so its setting is the one used", a.name)));
+                }
+                wb.append(&tag);
+            }
             let x = ui::icon_button("x", "Take it out", 11);
             x.add_css_class("wbb-x");
             let (ws, tid, app) = (w.id.clone(), t.id.clone(), e.app.clone());

@@ -275,10 +275,13 @@ pub enum Op {
         app: String,
         id: String,
     },
-    /// WadBrowser's mode, wherever it is in the wadspace.
+    /// WadBrowser's mode in `template` (none: wherever it is in the
+    /// wadspace). The top template with WadBrowser decides (v4::apps_of).
     SetMode {
         ws: String,
         mode: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        template: Option<String>,
     },
     SetBackground {
         ws: String,
@@ -507,12 +510,18 @@ impl Board {
                 }
                 Ok(())
             }
-            Op::SetMode { ws, mode } => {
+            Op::SetMode { ws, mode, template } => {
                 if !matches!(mode.as_str(), "browser" | "focus") {
                     return Err(format!("WadBrowser has no mode {mode}"));
                 }
                 let w = self.get_mut(ws)?;
-                for t in &mut w.templates {
+                if let Some(id) = template {
+                    let t = w.templates.iter().find(|t| t.id == *id).ok_or("no such template")?;
+                    if !t.apps.iter().any(|e| e.app == "wadbrowser") {
+                        return Err(format!("{} has no WadBrowser", t.name));
+                    }
+                }
+                for t in w.templates.iter_mut().filter(|t| template.as_ref().is_none_or(|id| t.id == *id)) {
                     for e in t.apps.iter_mut().filter(|e| e.app == "wadbrowser") {
                         e.mode = (mode == "focus").then(|| mode.clone());
                     }

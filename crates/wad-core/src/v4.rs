@@ -148,7 +148,9 @@ pub fn check(w: &Value) -> Result<(), String> {
 }
 
 /// Every app in it once, where it first is, with all the extras its
-/// templates give it: `[{app, mode?, extras}]`.
+/// templates give it: `[{app, mode?, extras}]`. Where templates disagree,
+/// the top one wins: the first template with an app gives its mode (none
+/// there is WadBrowser's address bar, whatever a lower one says).
 pub fn apps_of(w: &Value) -> Vec<Value> {
     let mut apps: Vec<(String, Option<String>, Vec<Value>)> = vec![];
     for t in js::arr(w, "templates") {
@@ -160,13 +162,10 @@ pub fn apps_of(w: &Value) -> Vec<Value> {
             let i = match apps.iter().position(|a| a.0 == app) {
                 Some(i) => i,
                 None => {
-                    apps.push((app.to_string(), None, vec![]));
+                    apps.push((app.to_string(), e.get("mode").and_then(Value::as_str).map(String::from), vec![]));
                     apps.len() - 1
                 }
             };
-            if apps[i].1.is_none() {
-                apps[i].1 = e.get("mode").and_then(Value::as_str).map(String::from);
-            }
             for x in js::arr(e, "extras") {
                 if !apps[i].2.iter().any(|y| s(y, "id") == s(x, "id")) {
                     apps[i].2.push(x.clone());

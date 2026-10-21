@@ -447,3 +447,18 @@ fn what_the_scenarios_show() {
         &blank["wadspaces"].as_array().unwrap().iter().find(|w| w["id"] == "new-wadspace").unwrap()["templates"];
     assert_eq!(notes, &json!([{"id": "template", "name": "Template", "apps": [{"app": "obsidian", "extras": []}]}]));
 }
+
+#[test]
+fn the_top_template_decides_the_mode() {
+    let all = made();
+    let out = case(&all, "WadBrowser's mode per template: the top one decides");
+    let iq = out["wadspaces"].as_array().unwrap().iter().find(|w| w["id"] == "iq").unwrap();
+    let browser = |w: &Value| wad_core::v4::apps_of(w).into_iter().find(|a| a["app"] == "wadbrowser").unwrap();
+    // Game art (focus) went on top of Dev (an address bar): focus.
+    assert_eq!(browser(iq)["mode"], "focus");
+    // Dev back on top: its address bar, Game art's focus kept but not used.
+    let mut moved = iq.clone();
+    moved["templates"].as_array_mut().unwrap().swap(0, 1);
+    assert!(browser(&moved).get("mode").is_none());
+    assert_eq!(out["errors"][3], "C++ has no WadBrowser");
+}

@@ -344,15 +344,17 @@ fn item(w: &impl IsA<gtk::Widget>, ws: &str, p: Bp, (icon, label): (String, Stri
     w.add_controller(click);
 }
 
-/// WadBrowser's mode: an address bar, or Focus (its web apps alone).
+/// WadBrowser's mode: an address bar, or Focus (its web apps alone). The
+/// top template with WadBrowser decides, so the switch shows and sets its.
 fn focus_switch(ws: &str) -> gtk::Box {
-    let focus = state::read(|st| {
-        st.board.get(ws).is_some_and(|w| {
-            w.templates
-                .iter()
-                .flat_map(|t| &t.apps)
-                .any(|e| e.app == "wadbrowser" && e.mode.as_deref() == Some("focus"))
-        })
+    let (top, focus) = state::read(|st| {
+        st.board
+            .get(ws)
+            .and_then(|w| {
+                w.templates.iter().find_map(|t| Some((t.id.clone(), t.apps.iter().find(|e| e.app == "wadbrowser")?)))
+            })
+            .map(|(t, e)| (Some(t), e.mode.as_deref() == Some("focus")))
+            .unwrap_or((None, false))
     });
     let row = gtk::Box::new(gtk::Orientation::Horizontal, 8);
     row.add_css_class("wbb-mode");
@@ -368,7 +370,7 @@ fn focus_switch(ws: &str) -> gtk::Box {
     sw.set_valign(gtk::Align::Center);
     let ws = ws.to_string();
     sw.connect_state_set(move |_, on| {
-        act(Op::SetMode { ws: ws.clone(), mode: if on { "focus" } else { "browser" }.into() });
+        act(Op::SetMode { ws: ws.clone(), mode: if on { "focus" } else { "browser" }.into(), template: top.clone() });
         glib::Propagation::Proceed
     });
     row.append(&sw);

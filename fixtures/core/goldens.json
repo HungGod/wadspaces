@@ -35626,5 +35626,234 @@
     "value": "seigaiha"
    }
   }
+ },
+ {
+  "fn": "v4Apps",
+  "args": [
+   {
+    "version": 4,
+    "id": "iq",
+    "owner": "u1",
+    "machine": "surface",
+    "order": 1,
+    "templates": [
+     {
+      "id": "vg-dev",
+      "name": "VG Dev",
+      "apps": [
+       {
+        "app": "wadbrowser",
+        "mode": "focus",
+        "extras": [
+         {
+          "id": "itch",
+          "name": "itch.io",
+          "url": "https://itch.io"
+         }
+        ]
+       }
+      ]
+     },
+     {
+      "id": "dev",
+      "name": "Dev",
+      "apps": [
+       {
+        "app": "wadbrowser",
+        "extras": [
+         {
+          "id": "github",
+          "name": "GitHub",
+          "url": "https://github.com"
+         }
+        ]
+       },
+       {
+        "app": "vscode",
+        "extras": []
+       }
+      ]
+     }
+    ],
+    "customization": {
+     "name": "IntelligenceQuest",
+     "description": "A game.",
+     "wallpaper": {
+      "type": "texture",
+      "value": "stars"
+     },
+     "autostart": [
+      "app:vscode"
+     ],
+     "projects": [
+      {
+       "id": "project-iq",
+       "kind": "github",
+       "repo": "HungGod/IntelligenceQuest",
+       "as": "IntelligenceQuest"
+      }
+     ],
+     "secrets": {
+      "bySlot": {
+       "ext:anthropic.claude-code": {
+        "id": "iq-claude",
+        "name": "IQ Claude",
+        "kind": "vscode-claude-code"
+       }
+      },
+      "groups": [
+       {
+        "id": "g1",
+        "members": [
+         "browser",
+         "web:github"
+        ],
+        "key": {
+         "id": "hunggod",
+         "name": "hunggod",
+         "kind": "web"
+        }
+       }
+      ]
+     }
+    }
+   }
+  ],
+  "out": [
+   {
+    "app": "wadbrowser",
+    "mode": "focus",
+    "extras": [
+     {
+      "id": "itch",
+      "name": "itch.io",
+      "url": "https://itch.io"
+     },
+     {
+      "id": "github",
+      "name": "GitHub",
+      "url": "https://github.com"
+     }
+    ]
+   },
+   {
+    "app": "vscode",
+    "extras": []
+   }
+  ]
+ },
+ {
+  "fn": "v4Apps",
+  "args": [
+   {
+    "version": 4,
+    "id": "iq",
+    "owner": "u1",
+    "machine": "surface",
+    "order": 1,
+    "templates": [
+     {
+      "id": "dev",
+      "name": "Dev",
+      "apps": [
+       {
+        "app": "wadbrowser",
+        "extras": [
+         {
+          "id": "github",
+          "name": "GitHub",
+          "url": "https://github.com"
+         }
+        ]
+       },
+       {
+        "app": "vscode",
+        "extras": []
+       }
+      ]
+     },
+     {
+      "id": "vg-dev",
+      "name": "VG Dev",
+      "apps": [
+       {
+        "app": "wadbrowser",
+        "mode": "focus",
+        "extras": [
+         {
+          "id": "itch",
+          "name": "itch.io",
+          "url": "https://itch.io"
+         }
+        ]
+       }
+      ]
+     }
+    ],
+    "customization": {
+     "name": "IntelligenceQuest",
+     "description": "A game.",
+     "wallpaper": {
+      "type": "texture",
+      "value": "stars"
+     },
+     "autostart": [
+      "app:vscode"
+     ],
+     "projects": [
+      {
+       "id": "project-iq",
+       "kind": "github",
+       "repo": "HungGod/IntelligenceQuest",
+       "as": "IntelligenceQuest"
+      }
+     ],
+     "secrets": {
+      "bySlot": {
+       "ext:anthropic.claude-code": {
+        "id": "iq-claude",
+        "name": "IQ Claude",
+        "kind": "vscode-claude-code"
+       }
+      },
+      "groups": [
+       {
+        "id": "g1",
+        "members": [
+         "browser",
+         "web:github"
+        ],
+        "key": {
+         "id": "hunggod",
+         "name": "hunggod",
+         "kind": "web"
+        }
+       }
+      ]
+     }
+    }
+   }
+  ],
+  "out": [
+   {
+    "app": "wadbrowser",
+    "extras": [
+     {
+      "id": "github",
+      "name": "GitHub",
+      "url": "https://github.com"
+     },
+     {
+      "id": "itch",
+      "name": "itch.io",
+      "url": "https://itch.io"
+     }
+    ]
+   },
+   {
+    "app": "vscode",
+    "extras": []
+   }
+  ]
  }
 ]
