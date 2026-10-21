@@ -9,20 +9,6 @@ use serde_json::Value;
 
 use crate::js;
 
-/// A shell-safe double-quoted string (Dockerfile ENV and RUN arguments).
-pub(crate) fn q(s: &str) -> String {
-    let mut out = String::with_capacity(s.len() + 2);
-    out.push('"');
-    for c in s.chars() {
-        if matches!(c, '"' | '\\' | '$' | '`') {
-            out.push('\\');
-        }
-        out.push(c);
-    }
-    out.push('"');
-    out
-}
-
 /// /etc/wadspaces/wadbrowser.conf for a design with a WadBrowser on its
 /// desktop: links open in that one.
 pub fn wadbrowser_conf(spec: &Value) -> Option<String> {

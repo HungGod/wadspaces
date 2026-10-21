@@ -19,13 +19,14 @@ pub fn truthy(v: &Value) -> bool {
 
 /// Fields projects had when they were Syncthing folders: dropped on sight.
 const OLD_FIELDS: &[&str] = &["holders", "ignore", "folderId"];
-/// The library's collections: the Builder's layers (templates, extensions,
-/// wadspaces: its stacks), saved WadBrowser setups, and `meta` (what the
-/// library knows of itself: whether its starter templates were made).
-/// `customizations` is the Extensions layers' from before they were called
-/// that: WadSpaces moves them to `extensions` and empties it. Drafts from
-/// before the layers are gone (`discard_drafts`).
-pub const COLLECTIONS: &[&str] = &["wadspaces", "templates", "extensions", "customizations", "browsers", "meta"];
+/// The library's collections here: saved WadBrowser setups. (Wadspaces live
+/// in the account; the old Builder's collections are gone:
+/// `discard_old_builder`.)
+pub const COLLECTIONS: &[&str] = &["browsers"];
+
+/// The old Builder's collections here (its drafts, templates, Extensions
+/// layers and the stacks it kept offline).
+const OLD_BUILDER: &[&str] = &["drafts", "templates", "extensions", "customizations", "meta", "wadspaces"];
 
 #[derive(Debug, Clone)]
 pub struct State {
@@ -241,15 +242,16 @@ impl State {
             .then(|| json_files(&self.dir.join("library").join(collection)).into_iter().map(|(_, d)| d).collect())
     }
 
-    /// The Builder has no drafts now: library/drafts from before the layers
-    /// is removed. How many there were.
-    pub fn discard_drafts(&self) -> std::io::Result<usize> {
-        let dir = self.dir.join("library").join("drafts");
-        if !dir.exists() {
-            return Ok(0);
+    /// The old Builder's documents here are removed. How many there were.
+    pub fn discard_old_builder(&self) -> std::io::Result<usize> {
+        let mut n = 0;
+        for c in OLD_BUILDER {
+            let dir = self.dir.join("library").join(c);
+            if dir.exists() {
+                n += json_files(&dir).len();
+                std::fs::remove_dir_all(&dir)?;
+            }
         }
-        let n = json_files(&dir).len();
-        std::fs::remove_dir_all(&dir)?;
         Ok(n)
     }
 

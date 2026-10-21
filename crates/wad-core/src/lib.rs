@@ -1,7 +1,6 @@
 //! WadSpaces' core logic, shared by wadd (native) and the UI (WebAssembly, via
-//! wad-wasm): the Builder's layers (templates, extensions, wadspaces) and
-//! their images, the catalog, projects, saved sign-ins, and the units wadd
-//! writes.
+//! wad-wasm): version 4 wadspaces (their templates, customization and set
+//! image), the catalog, projects, saved sign-ins, and the units wadd writes.
 //!
 //! fixtures/core/goldens.json holds what it returns for a wide corpus, which
 //! the tests here and the UI's check alike. Values are JSON, as in the
@@ -83,54 +82,27 @@ pub fn call(name: &str, args: &[Value]) -> Result<Value, String> {
         // saved sign-ins
         "signInPaths" => signins::paths_for(s(0)).map(|p| json!(p)).unwrap_or(Value::Null),
         "isSignInPath" => signins::is_path(s(0)).into(),
-        // the Builder's layers (layers.rs) and catalog (catalog.rs)
+        // what wadspaces are made of (layers.rs) and the catalog (catalog.rs)
         "catalog" => catalog::catalog().clone(),
-        "starters" => catalog::starters().clone(),
         "signInKinds" => json!(signins::SLOT_KINDS),
-        "emptySetup" => layers::empty_setup(s(0)),
-        "setupOf" => layers::setup_of(a(0)),
-        "sameSetup" => layers::same_setup(a(0), a(1)).into(),
         "webappId" => layers::webapp_id(s(0)).into(),
         "webappIcon" => layers::webapp_icon(s(0)).into(),
-        "imageKey" => layers::image_key(a(0)).into(),
-        "imageRef" => layers::image_ref(s(0)).into(),
-        "resolve" => layers::resolve(a(0), a(1)),
         "slotsFor" => Value::Array(layers::slots_for(a(0), a(1))),
         "browserSlots" => Value::Array(layers::browser_slots(a(0))),
         "newSecretName" => layers::new_secret_name(s(0), a(1)).into(),
         "defaultBrowserSecretName" => layers::default_browser_secret_name(s(0), a(1)).into(),
         "fits" => layers::fits(a(0), a(1)).into(),
         "kindOfSlotKey" => layers::kind_of_slot_key(s(0)).map(Value::from).unwrap_or(Value::Null),
-        "secretUse" => layers::secret_use(list(0), list(1)),
         "opensFolders" => layers::opens_folders(a(0)).into(),
         "desktopFor" => Value::Array(layers::desktop_for(a(0), a(1), list(2))),
         "startMenuFor" => Value::Array(layers::start_menu_for(a(0), a(1))),
-        "bootables" => Value::Array(layers::bootables(a(0), a(1))),
         "layoutJsonFor" => layers::layout_json_for(a(0), a(1)).into(),
         "isExtensionId" => layers::is_extension_id(s(0)).into(),
-        "templateDockerfile" => layers::template_dockerfile(a(0), a(1)).into(),
-        "extensionsDockerfile" => layers::extensions_dockerfile(a(0), a(1)).into(),
-        "templateLayer" => layers::template_layer(a(0), a(1)),
-        "extensionsLayer" => layers::extensions_layer(a(0), a(1)),
-        "chainOf" => Value::Array(layers::chain_of(a(0), s(1))),
-        "chainOk" => layers::chain_ok(list(0)).map(Value::from).unwrap_or(Value::Null),
-        "resolveStack" => layers::resolve_stack(a(0), a(1)),
-        "stackImageKey" => layers::stack_image_key(a(0)).into(),
         "keyItems" => json!(layers::key_items(a(0), a(1))),
         "keyGroupsOf" => Value::Array(layers::key_groups_of(a(0), a(1), a(2))),
-        "migrateV2" => layers::migrate_v2(a(0), a(1), list(2)),
         "wallpaperExt" => layers::wallpaper_ext(a(0)).into(),
-        "runSummary" => json!(layers::run_summary(a(0), list(1), list(2))),
-        "workspaceFor" => layers::workspace_for(a(0), a(1), a(2), a(3)),
         "knownWebapps" => Value::Array(layers::known_webapps(list(0), list(1))),
         "named" => layers::named(s(0), list(1), opt_s(2)).into(),
-        "stacks" => Value::Array(layers::stacks(a(0))),
-        "nameTaken" => layers::name_taken(s(0), a(1), opt_s(2)).into(),
-        "importable" => layers::importable(a(0), a(1)),
-        "importInto" => {
-            let parts: Vec<&str> = list(3).iter().filter_map(Value::as_str).collect();
-            layers::import_into(a(0), a(1), a(2), &parts)
-        }
         // version 4 wadspaces (design B's Builder: v4.rs)
         "textures" => json!(v4::TEXTURES),
         "v4Check" => match v4::check(a(0)) {

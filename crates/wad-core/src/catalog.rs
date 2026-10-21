@@ -1,8 +1,7 @@
 //! The Builder's catalog (data/catalog.json): the apps a template is made of,
-//! the VS Code extensions and command-line tools an Extensions layer adds, and
-//! for each app what the Builder shows (summary, screenshots, its Start menu
-//! category) and how it gets into an image. The starter templates every
-//! library begins with are in data/starters.json.
+//! the VS Code extensions and command-line tools they take, and for each app
+//! what the Builder shows (summary, screenshots, its Start menu category) and
+//! how it gets into an image.
 
 use std::sync::OnceLock;
 
@@ -19,18 +18,11 @@ pub enum Recipe {
 }
 
 pub const CATALOG_JSON: &str = include_str!("../data/catalog.json");
-pub const STARTERS_JSON: &str = include_str!("../data/starters.json");
 
 /// The whole catalog, as the Builder shows it: `{apps, extensions, tools}`.
 pub fn catalog() -> &'static Value {
     static C: OnceLock<Value> = OnceLock::new();
     C.get_or_init(|| serde_json::from_str(CATALOG_JSON).expect("data/catalog.json is valid"))
-}
-
-/// The starter templates (Writing, Dev): `[{id, name, description, apps}]`.
-pub fn starters() -> &'static Value {
-    static S: OnceLock<Value> = OnceLock::new();
-    S.get_or_init(|| serde_json::from_str(STARTERS_JSON).expect("data/starters.json is valid"))
 }
 
 /// How a catalog app is installed, read once from the catalog (which lives

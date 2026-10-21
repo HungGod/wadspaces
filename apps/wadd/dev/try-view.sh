@@ -5,7 +5,7 @@
 # that sway. Checks adoption, switching, Super+Tab (by API), focus rules and
 # stop.
 #
-#   apps/wadd/dev/try-view.sh [image]     default localhost/wadspaces-template-writing:latest
+#   apps/wadd/dev/try-view.sh [image]     default localhost/wadspaces-base:trixie
 #
 # Needs sway: installed, or unpacked under .build/sway (no root needed):
 #   cd .build/sway && dnf download sway sway-config-upstream wlroots libseat libliftoff xcb-util-errors \
@@ -13,7 +13,7 @@
 set -euo pipefail
 ulimit -c 0
 root=$(cd "$(dirname "$0")/../../.." && pwd)
-image=${1:-localhost/wadspaces-template-writing:latest}
+image=${1:-localhost/wadspaces-base:trixie}
 dir=$root/.build/wadd-try-view
 sock=$dir/wadd.sock
 rm -rf "$dir"

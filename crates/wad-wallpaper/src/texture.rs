@@ -1,9 +1,9 @@
 //! The Builder's backgrounds: textures, each its own material or pattern,
 //! drawn here (SVG noise and patterns) so there's nothing to upload. Each
 //! comes in black (the dark theme) and white (the light theme), with greys
-//! between and no other colour. A port of the design spike's textures
-//! (../ui-mockup-pieces/src/data/textures.ts): the same seeds, fields and
-//! tiles, so they look as the spike drew them.
+//! between and no other colour. A port of the design spike's textures (its
+//! data/textures.ts): the same seeds, fields and tiles, so they look as the
+//! spike drew them.
 //!
 //! [`svg`] writes a texture as an SVG of any size; with the raster feature,
 //! [`png`] draws it (resvg: its filters make the noise).

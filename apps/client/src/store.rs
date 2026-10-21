@@ -25,7 +25,7 @@ impl Topic {
     pub const WADD: Topic = Topic(1 << 7);
     /// Who's signed in, their profile, this machine's GitHub token.
     pub const ACCOUNT: Topic = Topic(1 << 8);
-    /// The account's library (templates, Extensions, wadspaces) and machines.
+    /// The account's library (wadspaces, saved WadBrowser setups) and machines.
     pub const LIBRARY: Topic = Topic(1 << 9);
     /// Builds and launches under way (the sidebar's tray).
     pub const ACTIVITY: Topic = Topic(1 << 10);
@@ -123,9 +123,8 @@ impl AppState {
         }
     }
 
-    /// The wadspaces this machine can start, not deleted, in the board's
-    /// order: version 3's (any machine takes them) and the version 4 ones
-    /// that live here.
+    /// The wadspaces this machine can start (the ones that live here), not
+    /// deleted, in the board's order.
     pub fn wadspaces(&self) -> Vec<&serde_json::Value> {
         self.all_wadspaces().into_iter().filter(|w| self.lives_here(w)).collect()
     }
@@ -135,7 +134,7 @@ impl AppState {
         let mut ws: Vec<&serde_json::Value> = self
             .library
             .iter()
-            .flat_map(|l| l.all_wadspaces())
+            .flat_map(|l| &l.wadspaces)
             .filter(|w| w.get("deletedAt").is_none_or(|d| d.is_null()))
             .collect();
         ws.sort_by(|a, b| {
@@ -145,32 +144,22 @@ impl AppState {
         ws
     }
 
-    /// Whether a wadspace runs on this machine: a version 4 one lives on
-    /// one machine (any, while this one isn't linked to the account: wadd
-    /// takes it then); version 3's go anywhere.
+    /// Whether a wadspace runs on this machine: each lives on one machine
+    /// (any, while this one isn't linked to the account: wadd takes it then).
     pub fn lives_here(&self, w: &serde_json::Value) -> bool {
-        if !wad_account::library::is_v4(w) {
-            return true;
-        }
         let here = self.cloud.as_ref().filter(|c| c.linked).and_then(|c| c.machine_id.as_deref());
         here.is_none_or(|m| w.get("machine").and_then(serde_json::Value::as_str) == Some(m))
     }
 
-    /// A wadspace's name (the web app's wadspaceName).
+    /// A wadspace's name (its customization's).
     pub fn wadspace_name(&self, w: &serde_json::Value) -> String {
-        let s = |v: &serde_json::Value, k: &str| {
-            v.get(k).and_then(serde_json::Value::as_str).map(str::trim).filter(|x| !x.is_empty()).map(String::from)
-        };
-        if let Some(n) = w.get("customization").and_then(|c| s(c, "name")) {
-            return n;
-        }
-        let lib = self.library.as_ref();
-        let find = |coll: &[serde_json::Value], id: Option<String>| {
-            id.and_then(|id| coll.iter().find(|d| s(d, "id").as_deref() == Some(&id)).and_then(|d| s(d, "name")))
-        };
-        lib.and_then(|l| find(&l.extensions, s(w, "extensions")))
-            .or_else(|| lib.and_then(|l| find(&l.templates, s(w, "template"))))
-            .unwrap_or_else(|| "Untitled".into())
+        w["customization"]
+            .get("name")
+            .and_then(serde_json::Value::as_str)
+            .map(str::trim)
+            .filter(|n| !n.is_empty())
+            .unwrap_or("Untitled")
+            .to_string()
     }
 
     /// NetworkManager says the machine's online.
@@ -355,11 +344,10 @@ mod tests {
     use super::*;
 
     #[test]
-    fn a_version_4_wadspace_shows_on_its_own_machine() {
+    fn a_wadspace_shows_on_its_own_machine() {
         let v4 = |id: &str, machine: &str, order: u32| json!({ "version": 4, "id": id, "machine": machine, "order": order, "templates": [], "customization": { "name": id } });
         let lib = wad_account::Library {
-            wadspaces: vec![json!({ "version": 3, "id": "old", "order": 1, "template": "dev" })],
-            v4: vec![v4("here", "m-here", 2), v4("there", "m-there", 3)],
+            wadspaces: vec![v4("here", "m-here", 2), v4("there", "m-there", 3)],
             ..Default::default()
         };
         let mut s = AppState { library: Some(lib), ..Default::default() };
@@ -367,7 +355,7 @@ mod tests {
             ws.into_iter().map(|w| w["id"].as_str().unwrap_or("")).collect()
         }
         // Not linked yet: wadd takes any (as it does then).
-        assert_eq!(ids(s.wadspaces()), ["old", "here", "there"]);
+        assert_eq!(ids(s.wadspaces()), ["here", "there"]);
         s.cloud = Some(CloudLink {
             linked: true,
             machine_id: Some("m-here".into()),
@@ -377,7 +365,7 @@ mod tests {
             last_heartbeat: None,
             last_error: None,
         });
-        assert_eq!(ids(s.wadspaces()), ["old", "here"]);
-        assert_eq!(ids(s.all_wadspaces()), ["old", "here", "there"]);
+        assert_eq!(ids(s.wadspaces()), ["here"]);
+        assert_eq!(ids(s.all_wadspaces()), ["here", "there"]);
     }
 }

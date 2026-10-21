@@ -135,7 +135,7 @@ pub async fn save_wadspace(w: serde_json::Value) -> Result<(), String> {
     rt::run(async move { a.save_wadspace(&doc).await }).await.map_err(|e| e.to_string())?;
     store().update(|s| match s.library.as_mut() {
         Some(l) => {
-            put(l.wadspaces_for(&w), w);
+            put(&mut l.wadspaces, w);
             Topic::LIBRARY
         }
         None => Topic::NONE,
@@ -158,41 +158,21 @@ pub async fn save_browser(b: serde_json::Value) -> Result<(), String> {
     Ok(())
 }
 
-/// A document written as it is (the board's plan has the library as it'll
-/// be already): `collection` is "templates", "extensions" or "wadspaces".
-pub async fn write_doc(collection: &'static str, doc: serde_json::Value) -> Result<(), String> {
+/// A wadspace's document written as it is (the board has the library as
+/// it'll be already).
+pub async fn write_wadspace(doc: serde_json::Value) -> Result<(), String> {
     let a = account().filter(|a| a.user().is_some()).ok_or("Sign in first.")?;
-    rt::run(async move {
-        if collection == "wadspaces" { a.save_wadspace(&doc).await } else { a.save_doc(collection, &doc).await }
-    })
-    .await
-    .map_err(|e| e.to_string())
+    rt::run(async move { a.save_wadspace(&doc).await }).await.map_err(|e| e.to_string())
 }
 
-/// A document deleted for good (`collection`: "templates", "extensions"
-/// or "wadspaces"), and from the library here.
-pub async fn delete_doc(collection: &'static str, id: String) -> Result<(), String> {
+/// A wadspace deleted for good, and from the library here.
+pub async fn delete_wadspace(id: String) -> Result<(), String> {
     let a = account().filter(|a| a.user().is_some()).ok_or("Sign in first.")?;
     let id2 = id.clone();
-    rt::run(async move {
-        if collection == "wadspaces" { a.delete_wadspace(&id2).await } else { a.delete_doc(collection, &id2).await }
-    })
-    .await
-    .map_err(|e| e.to_string())?;
+    rt::run(async move { a.delete_wadspace(&id2).await }).await.map_err(|e| e.to_string())?;
     store().update(|s| match s.library.as_mut() {
         Some(l) => {
-            let list = match collection {
-                "templates" => &mut l.templates,
-                "extensions" => {
-                    l.customizations.retain(|x| x["id"] != id.as_str());
-                    &mut l.extensions
-                }
-                _ => {
-                    l.v4.retain(|x| x["id"] != id.as_str());
-                    &mut l.wadspaces
-                }
-            };
-            list.retain(|x| x["id"] != id.as_str());
+            l.wadspaces.retain(|x| x["id"] != id.as_str());
             Topic::LIBRARY
         }
         None => Topic::NONE,

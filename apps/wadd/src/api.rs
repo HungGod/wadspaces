@@ -953,11 +953,7 @@ async fn wadspace_install(
     Json(req): Json<crate::images::Install>,
 ) -> Result<Json<WorkspaceSaved>, Failure> {
     if !wad_core::v4::is_v4(&req.wadspace) {
-        return Err(ApiError::new(
-            ErrorCode::BadRequest,
-            "only a version 4 wadspace installs (the Builder's design B)",
-        )
-        .into());
+        return Err(ApiError::new(ErrorCode::BadRequest, "only a version 4 wadspace installs").into());
     }
     let i = crate::sets::install(&app.here(), &id, &req.wadspace, req.tz.as_deref()).await?;
     Ok(Json(i.saved))

@@ -1,28 +1,8 @@
 {
   "comment": "A new account on a machine with nothing on it yet (empty states).",
-  "user": {
-    "uid": "me",
-    "githubId": "4242",
-    "login": "me",
-    "displayName": "Me",
-    "photoUrl": null
-  },
-  "profile": {
-    "username": "me",
-    "displayName": "Me",
-    "color": "#c6ff1f"
-  },
-  "machine": {
-    "name": "surface",
-    "version": "0.1.0",
-    "profile": "system",
-    "startedAt": 1792020000,
-    "screen": {
-      "width": 1368,
-      "height": 912,
-      "scale": 2.0
-    }
-  },
+  "user": { "uid": "me", "githubId": "4242", "login": "me", "displayName": "Me", "photoUrl": null },
+  "profile": { "username": "me", "displayName": "Me", "color": "#c6ff1f" },
+  "machine": { "name": "surface", "version": "0.1.0", "profile": "system", "startedAt": 1792020000, "screen": { "width": 1368, "height": 912, "scale": 2.0 } },
   "cloud": {
     "linked": true,
     "machineId": "m-surface",
@@ -33,14 +13,7 @@
     "lastError": null
   },
   "lastSession": null,
-  "library": {
-    "templates": [],
-    "extensions": [],
-    "customizations": [],
-    "browsers": [],
-    "wadspaces": [],
-    "machines": []
-  },
+  "library": { "browsers": [], "wadspaces": [], "machines": [] },
   "workspaces": [],
   "states": [],
   "wadd": {
@@ -59,59 +32,29 @@
     "/v1/images": [],
     "/v1/signins": [],
     "/v1/secrets": [],
-    "/v1/tunnel": { "cloudflaredInstalled": true, "tokenPresent": false, "tunnelId": null, "service": "inactive", "connected": false, "connections": 0, "domain": "wadspaces.com", "webrtc": false, "idleMinutes": 30, "ready": false },
+    "/v1/tunnel": {
+      "cloudflaredInstalled": true,
+      "tokenPresent": false,
+      "tunnelId": null,
+      "service": "inactive",
+      "connected": false,
+      "connections": 0,
+      "domain": "wadspaces.com",
+      "webrtc": false,
+      "idleMinutes": 30,
+      "ready": false
+    },
     "/v1/streams": [],
     "/v1/logs": [],
     "/v1/storage": {
-      "disk": {
-        "path": "/var/lib/containers",
-        "freeBytes": 48000000000,
-        "totalBytes": 120000000000
-      },
-      "base": {
-        "ref": "localhost/wadspaces-base:trixie",
-        "id": "base",
-        "bytes": 3100000000
-      },
+      "disk": { "path": "/var/lib/containers", "freeBytes": 48000000000, "totalBytes": 120000000000 },
+      "base": { "ref": "localhost/wadspaces-base:trixie", "id": "base", "bytes": 3100000000 },
       "layers": [
-        {
-          "layer": "template:writing",
-          "id": "i-writing",
-          "from": "base",
-          "bytes": 5200000000,
-          "ownBytes": 2100000000
-        },
-        {
-          "layer": "template:dev",
-          "id": "i-dev",
-          "from": "base",
-          "bytes": 4700000000,
-          "ownBytes": 1600000000
-        },
-        {
-          "layer": "custom:vanua-academy-dev",
-          "id": "i-vanua",
-          "from": "i-dev",
-          "bytes": 5300000000,
-          "ownBytes": 600000000
-        }
+        { "layer": "set:eda3cf2abd20", "id": "i-writing", "from": "base", "bytes": 5200000000, "ownBytes": 2100000000 },
+        { "layer": "set:d719e2d6b3ec", "id": "i-vanua", "from": "base", "bytes": 5300000000, "ownBytes": 2200000000 }
       ],
-      "leftovers": [
-        {
-          "layer": "template:writing",
-          "id": "i-writing-old",
-          "from": "base",
-          "bytes": 5100000000,
-          "ownBytes": 2300000000
-        }
-      ],
-      "homes": [
-        {
-          "workspaceId": "cosmic-bodybuilding",
-          "volume": "wad-cosmic-bodybuilding-config",
-          "bytes": 900000000
-        }
-      ],
+      "leftovers": [{ "layer": "set:eda3cf2abd20", "id": "i-writing-old", "from": "base", "bytes": 5100000000, "ownBytes": 2300000000 }],
+      "homes": [{ "workspaceId": "cosmic-bodybuilding", "volume": "wad-cosmic-bodybuilding-config", "bytes": 900000000 }],
       "copies": [],
       "other": [
         {
@@ -143,13 +86,7 @@
               "bytes": 4100000000,
               "deletable": true
             },
-            {
-              "id": "dd44",
-              "label": "A build step",
-              "detail": "Left by a build; nothing names it.",
-              "bytes": 500000000,
-              "deletable": true
-            }
+            { "id": "dd44", "label": "A build step", "detail": "Left by a build; nothing names it.", "bytes": 500000000, "deletable": true }
           ],
           "deletable": false
         },
@@ -190,67 +127,18 @@
       "measuring": false
     },
     "/v1/files/roots": [
-      {
-        "id": "home",
-        "label": "Your files",
-        "detail": "On the machine itself."
-      },
-      {
-        "id": "ws:cosmic-bodybuilding",
-        "label": "Cosmic Bodybuilding's home",
-        "detail": "The wadspace's own files."
-      }
+      { "id": "home", "label": "Your files", "detail": "On the machine itself." },
+      { "id": "ws:cosmic-bodybuilding", "label": "Cosmic Bodybuilding's home", "detail": "The wadspace's own files." }
     ],
     "/v1/diagnostics": {
-      "wadd": {
-        "version": "0.1.0",
-        "uptimeS": 7300,
-        "pid": 812,
-        "profile": "system"
-      },
-      "podman": {
-        "connected": true,
-        "version": "5.6.1",
-        "graphRoot": "/var/lib/containers/storage",
-        "storageDriver": "overlay",
-        "images": 6,
-        "error": null
-      },
-      "disk": {
-        "path": "/var/lib/containers",
-        "freeBytes": 48000000000,
-        "totalBytes": 120000000000
-      },
-      "network": {
-        "available": true,
-        "state": "connected",
-        "connectivity": "full",
-        "wifiEnabled": true,
-        "wifiDevice": "wlp1s0",
-        "ssid": "Home",
-        "signal": 72
-      },
-      "view": {
-        "view": {
-          "kind": "workspace",
-          "id": "cosmic-bodybuilding"
-        },
-        "pending": null,
-        "nativeDisplay": true
-      },
-      "keys": {
-        "enabled": true,
-        "grabbing": true,
-        "keyboards": [
-          "Surface Keyboard"
-        ],
-        "note": null
-      },
+      "wadd": { "version": "0.1.0", "uptimeS": 7300, "pid": 812, "profile": "system" },
+      "podman": { "connected": true, "version": "5.6.1", "graphRoot": "/var/lib/containers/storage", "storageDriver": "overlay", "images": 6, "error": null },
+      "disk": { "path": "/var/lib/containers", "freeBytes": 48000000000, "totalBytes": 120000000000 },
+      "network": { "available": true, "state": "connected", "connectivity": "full", "wifiEnabled": true, "wifiDevice": "wlp1s0", "ssid": "Home", "signal": 72 },
+      "view": { "view": { "kind": "workspace", "id": "cosmic-bodybuilding" }, "pending": null, "nativeDisplay": true },
+      "keys": { "enabled": true, "grabbing": true, "keyboards": ["Surface Keyboard"], "note": null },
       "secrets": [],
-      "logUnits": [
-        "wadd.service",
-        "client-session.service"
-      ],
+      "logUnits": ["wadd.service", "client-session.service"],
       "workspaces": [
         {
           "id": "cosmic-bodybuilding",
@@ -262,14 +150,7 @@
           "since": 1792020000
         }
       ],
-      "recentProblems": [
-        {
-          "time": 1792019000000,
-          "level": "warn",
-          "target": "wadd::network",
-          "message": "Wi-Fi dropped for 4 s"
-        }
-      ]
+      "recentProblems": [{ "time": 1792019000000, "level": "warn", "target": "wadd::network", "message": "Wi-Fi dropped for 4 s" }]
     }
   }
 }

@@ -1,8 +1,7 @@
 //! Design B's board: the Builder's version 4 wadspaces (wad_core::v4). Each
 //! wadspace is on one machine, with its Templates bucket (its own templates,
 //! each apps with their extras) and its Customizations bucket (background,
-//! projects, keys). The edits are the design's spike's
-//! (../ui-mockup-pieces/src/spikes/B-Buckets.tsx):
+//! projects, keys). The edits are the design's spike's (B-Buckets):
 //!
 //! - A drag takes a module and what's under it: a template the templates
 //!   below it, the Customizations bucket the whole wadspace; Shift takes
@@ -385,8 +384,8 @@ pub struct Board {
     /// What a delete stamps (the caller's clock).
     #[serde(default)]
     pub now: String,
-    /// Ids taken by other documents in the same collection (version 3
-    /// wadspaces): a new wadspace never takes one.
+    /// Ids taken by other documents in the same collection (ones the board
+    /// doesn't show): a new wadspace never takes one.
     #[serde(default)]
     pub reserved: Vec<String>,
     #[serde(skip)]

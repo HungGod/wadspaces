@@ -310,13 +310,13 @@ impl Storage {
             items.sort_by_key(|i| std::cmp::Reverse(i.bytes));
             let others: u64 = items.iter().map(|i| i.bytes).sum();
             if !items.is_empty() {
-                parts.push(OtherPart { items, ..part("images", "Other images", "Images the wadspaces' layers don't count: older bases, images from before layers, steps builds left.", others) });
+                parts.push(OtherPart { items, ..part("images", "Other images", "Images the wadspaces' sets don't count: older bases, images from before sets, steps builds left.", others) });
             }
             let ours = r.base.as_ref().map(|b| b.bytes).unwrap_or(0)
                 + r.layers.iter().chain(&r.leftovers).map(|l| l.own_bytes).sum::<u64>();
             let shared = df.images_size.saturating_sub(ours + others);
             if shared > 0 {
-                parts.push(part("shared", "Shared by older images", "Image layers older images still hold in common, such as an older base that templates built before the last base update still stand on. Update those templates and it goes.", shared));
+                parts.push(part("shared", "Shared by older images", "Image layers older images still hold in common, such as an older base that sets built before the last base update still stand on. Update those wadspaces and it goes.", shared));
             }
             let changes: u64 = df.containers.iter().map(|(_, b)| b).sum();
             if changes > 0 {
@@ -414,17 +414,13 @@ fn classify(
     // Version 4 wadspaces' parts (sets.rs). They inherit the base's labels.
     let pkg = label(crate::packages::PKG_LABEL);
     if !pkg.is_empty() {
-        return (
-            format!("The {pkg} package"),
-            "What version 4 wadspaces' images are put together from: it stays.".into(),
-            false,
-        );
+        return (format!("The {pkg} package"), "What wadspaces' sets are put together from: it stays.".into(), false);
     }
     let chain = label(crate::sets::CHAIN_LABEL);
     if !chain.is_empty() {
         return (
             format!("Packages stacked: {}", wad_core::packages::pkgs_of_label(&chain).join(", ")),
-            "A step version 4 wadspaces' images are built from: the next build with these packages starts here.".into(),
+            "A step wadspaces' sets are built from: the next build with these packages starts here.".into(),
             false,
         );
     }
@@ -432,7 +428,8 @@ fn classify(
         return if built_on {
             (
                 "An older base".into(),
-                "Templates built before the last base update still stand on it: update them, and it can go.".into(),
+                "Sets built before the last base update still stand on it: update those wadspaces, and it can go."
+                    .into(),
                 false,
             )
         } else {
@@ -448,11 +445,7 @@ fn classify(
         };
     }
     if let Some(name) = i.name.strip_prefix("localhost/wadspaces-") {
-        return (
-            name.split(':').next().unwrap_or(name).to_string(),
-            "From before the Builder's layers: nothing uses it.".into(),
-            true,
-        );
+        return (name.split(':').next().unwrap_or(name).to_string(), "From before sets: nothing uses it.".into(), true);
     }
     if !i.name.is_empty() {
         return (i.name.clone(), "An image podman fetched, to build or run something.".into(), true);

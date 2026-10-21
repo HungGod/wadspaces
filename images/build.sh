@@ -1,17 +1,10 @@
 #!/usr/bin/env bash
-# Build the base every template is made from, and the stream sidecar.
-# Templates and customizations are built by wadd from the WadSpaces Client's
-# Builder, on the machine.
+# Build the base every wadspace runs on, and the stream sidecar. A
+# wadspace's apps are put together on the base by wadd, on the machine, from
+# packages CI builds.
 #
 #   images/build.sh                  the base and the stream sidecar
 #   images/build.sh --only base      just one (base or stream)
-#   images/build.sh --example vanua-academy
-#                                    an example wadspace's layers
-#                                    (images/examples/<name>/layers.json):
-#                                    its template's image, then its
-#                                    customization's, as wadd builds and
-#                                    labels them (so wadd counts them built),
-#                                    the base first if it's missing
 #   images/build.sh --no-cache       without podman's layer cache
 #   images/build.sh --push           also tag and push to ghcr.io/hunggod
 #
@@ -28,36 +21,29 @@
 #           streaming proxy
 #
 # host/build.sh install (or update --bases) copies them onto a machine's
-# drive: the machine builds templates and customizations on the base.
+# drive: the machine puts wadspaces' apps together on the base.
 set -euo pipefail
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
 REGISTRY="${REGISTRY:-ghcr.io/hunggod}"
 ALL=(base stream)
 ONLY=()
-EXAMPLES=()
 NO_CACHE=false
 PUSH=false
 
-usage() { sed -n '2,31p' "$0" | sed 's/^# \{0,1\}//'; }
+usage() { sed -n '2,24p' "$0" | sed 's/^# \{0,1\}//'; }
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --only) [[ $# -gt 1 && " ${ALL[*]} " == *" $2 "* ]] || { echo "--only ${ALL[*]// /|}" >&2; exit 2; }
                 ONLY+=("$2"); shift 2 ;;
-        --example) [[ $# -gt 1 && -f "${HERE}/examples/$2/layers.json" ]] || {
-                       echo "--example: one of $(ls "${HERE}/examples" | tr '\n' ' ')" >&2; exit 2; }
-                   EXAMPLES+=("$2"); shift 2 ;;
         --no-cache) NO_CACHE=true; shift ;;
         --push) PUSH=true; shift ;;
         -h|--help) usage; exit 0 ;;
         *) echo "unknown option: $1" >&2; usage >&2; exit 2 ;;
     esac
 done
-if [[ ${#EXAMPLES[@]} -gt 0 ]]; then
-    # An example needs the base.
-    podman image exists localhost/wadspaces-base:trixie || ONLY+=(base)
-elif [[ ${#ONLY[@]} -eq 0 ]]; then
+if [[ ${#ONLY[@]} -eq 0 ]]; then
     ONLY=("${ALL[@]}")
 fi
 
@@ -139,21 +125,4 @@ for name in "${ONLY[@]}"; do
         podman push "${REGISTRY}/wadspaces-${name}:trixie"
     fi
 done
-for name in "${EXAMPLES[@]}"; do
-    # wad-core writes each layer's build folder (cargo xtask layer); built
-    # FROM the one before, labelled with its folder's sha and that image's id.
-    out="${ROOT}/.build/examples/${name}"
-    mkdir -p "${out}"
-    (cd "${ROOT}" && cargo run -q -p xtask -- layer "${HERE}/examples/${name}/layers.json" "${out}") > "${out}/layers.txt"
-    folders=(template customization)
-    i=0
-    while read -r key ref from sha; do
-        args=(--label "io.wadspaces.layer=${key}" --label "io.wadspaces.dockerfile-sha256=${sha}"
-              --label "io.wadspaces.from=$(podman image inspect -f '{{.Id}}' "${from}")")
-        ${NO_CACHE} && args+=(--no-cache)
-        echo ">> building ${ref} (${key}) from images/examples/${name}/"
-        podman build "${args[@]}" -t "${ref}" "${out}/${folders[i]}"
-        i=$((i + 1))
-    done < "${out}/layers.txt"
-done
-echo ">> built: ${ONLY[*]} ${EXAMPLES[*]}"
+echo ">> built: ${ONLY[*]}"

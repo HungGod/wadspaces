@@ -119,8 +119,12 @@ fn machines(s: &AppState) -> Vec<Machine> {
 
 /// Wadspaces from the library, in each machine's order.
 fn from_library(s: &AppState) -> Vec<Wadspace> {
-    let mut ws: Vec<Wadspace> =
-        s.library.iter().flat_map(|l| l.v4.iter()).filter_map(|d| serde_json::from_value(d.clone()).ok()).collect();
+    let mut ws: Vec<Wadspace> = s
+        .library
+        .iter()
+        .flat_map(|l| l.wadspaces.iter())
+        .filter_map(|d| serde_json::from_value(d.clone()).ok())
+        .collect();
     ws.sort_by(|a, b| (a.order, &a.id).cmp(&(b.order, &b.id)));
     ws
 }
@@ -133,11 +137,8 @@ pub fn take_library(s: &AppState) {
     }
     let machines = machines(s);
     let docs = from_library(s);
-    let reserved: Vec<String> =
-        s.library.iter().flat_map(|l| l.wadspaces.iter()).filter_map(|w| w["id"].as_str().map(String::from)).collect();
     write(|st| {
         st.board.machines = machines;
-        st.board.reserved = reserved;
         if st.pending > 0 || st.stale {
             return;
         }
@@ -231,9 +232,9 @@ pub fn save() {
     store().update(|s| match s.library.as_mut() {
         Some(l) => {
             for d in &plan {
-                match l.v4.iter_mut().find(|x| x["id"] == d["id"]) {
+                match l.wadspaces.iter_mut().find(|x| x["id"] == d["id"]) {
                     Some(x) => *x = d.clone(),
-                    None => l.v4.push(d.clone()),
+                    None => l.wadspaces.push(d.clone()),
                 }
             }
             Topic::LIBRARY
@@ -248,7 +249,7 @@ pub fn save() {
     glib::spawn_future_local(async move {
         let writes = async {
             for d in plan {
-                crate::account::write_doc("wadspaces", d).await?;
+                crate::account::write_wadspace(d).await?;
             }
             Ok::<(), String>(())
         };
@@ -406,7 +407,7 @@ pub fn delete_forever(id: String) {
         return;
     }
     glib::spawn_future_local(async move {
-        if let Err(e) = crate::account::delete_doc("wadspaces", id).await {
+        if let Err(e) = crate::account::delete_wadspace(id).await {
             crate::toast::error("Couldn't delete it for good", &e);
         }
     });

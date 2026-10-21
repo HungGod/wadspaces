@@ -88,7 +88,6 @@ fn alive(v: &Value) -> bool {
 pub fn key_use(st: &AppState) -> HashMap<String, Vec<KeyUser>> {
     let mut out: HashMap<String, Vec<KeyUser>> = HashMap::new();
     let Some(lib) = st.library.as_ref() else { return out };
-    let lib_v = lib.lib();
     let vscode = catalog::app("vscode").map(|a| a.icon).unwrap_or_else(|| "/apps/vscode/icon.png".into());
     let slot_item = |slot: &str| {
         let (kind, id) = slot.split_once(':').unwrap_or((slot, ""));
@@ -128,8 +127,7 @@ pub fn key_use(st: &AppState) -> HashMap<String, Vec<KeyUser>> {
                 KeyUser { kind: "wadspace", id: s(w, "id").into(), name: name.clone(), what: what(&items), items },
             );
         }
-        let r = layers::resolve_stack(&lib_v, w);
-        let webapps = r["setup"]["webapps"].as_array().cloned().unwrap_or_default();
+        let webapps = wad_core::v4::as_template_setup(w).1["webapps"].as_array().cloned().unwrap_or_default();
         for g in keys["groups"].as_array().into_iter().flatten() {
             let members = g["members"].as_array().cloned().unwrap_or_default();
             if !g["key"].is_object() || members.is_empty() {
@@ -286,9 +284,12 @@ mod tests {
 
     fn state() -> AppState {
         let lib = wad_account::Library {
-            templates: vec![json!({ "id": "dev", "name": "Dev", "apps": ["wadbrowser", "vscode"] })],
             wadspaces: vec![json!({
-                "id": "vanua", "template": "dev", "order": 1,
+                "version": 4, "id": "vanua", "order": 1,
+                "templates": [{ "id": "dev", "name": "Dev", "apps": [
+                    { "app": "wadbrowser", "extras": [] },
+                    { "app": "vscode", "extras": [{ "id": "anthropic.claude-code" }] },
+                ] }],
                 "customization": { "name": "Vanua", "secrets": {
                     "bySlot": { "ext:anthropic.claude-code": { "id": "k1", "name": "Claude", "kind": "vscode-claude-code" } },
                     "groups": [{ "members": ["browser"], "key": { "id": "k2", "name": "Work", "kind": "web" } }],

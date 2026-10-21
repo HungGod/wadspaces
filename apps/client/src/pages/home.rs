@@ -511,7 +511,7 @@ fn your_wadspaces(grid: &gtk::Grid, s: &AppState) {
 }
 
 thread_local! {
-    /// The layer images here (what's built), read when Home first shows and
+    /// The images here (what's built), read when Home first shows and
     /// again when a build ends. None: not read yet.
     static IMAGES: std::cell::RefCell<Option<std::collections::HashMap<String, ImageRow>>> =
         const { std::cell::RefCell::new(None) };
@@ -550,12 +550,11 @@ fn go_for(s: &AppState, w: &Value) -> Go {
     {
         return Go::Building;
     }
-    let lib = s.library.as_ref().map(|l| l.lib()).unwrap_or_default();
     IMAGES.with(|i| match i.borrow().as_ref() {
         // Not read yet: as it most likely is.
         None => Go::Launch,
         Some(_) if key.is_empty() => Go::Build,
-        Some(images) => match launch::image_state(&key, &lib, images) {
+        Some(images) => match launch::image_state(&key, images) {
             launch::ImageState::Built | launch::ImageState::Update => Go::Launch,
             _ => Go::Build,
         },

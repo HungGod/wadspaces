@@ -69,14 +69,13 @@ fn browser_detail(mode: &str, webapps: &[Value]) -> String {
     format!("{bar} · {}", if apps.is_empty() { "no web apps".to_string() } else { apps.join(", ") })
 }
 
-/// The WadBrowser every machine has. (Focus is how a wadspace's Extensions
-/// set WadBrowser up, not another app.)
+/// The WadBrowser every machine has. (Focus is a mode a wadspace's
+/// WadBrowser is set to, not another app.)
 fn default_browsers() -> [Value; 1] {
     [json!({ "id": "wadbrowser", "name": "WadBrowser", "mode": "browser", "webapps": [], "secrets": {} })]
 }
 
 fn entries(st: &AppState, images: &HashMap<String, ImageRow>) -> (Vec<Entry>, Vec<Entry>) {
-    let lib = st.library.as_ref().map(|l| l.lib()).unwrap_or_default();
     let spaces = st
         .wadspaces()
         .into_iter()
@@ -85,15 +84,10 @@ fn entries(st: &AppState, images: &HashMap<String, ImageRow>) -> (Vec<Entry>, Ve
             let n = w["customization"]["projects"].as_array().map(Vec::len).unwrap_or(0);
             let count = format!("{n} project{}", if n == 1 { "" } else { "s" });
             let key = layers::stack_image_key(w);
-            let resolves = !layers::resolve_stack(&lib, w).is_null();
-            let detail = if !resolves {
-                "Its template is gone".to_string()
-            } else {
-                match launch::image_state(&key, &lib, images) {
-                    ImageState::Built => count,
-                    ImageState::Update => format!("{count} · an update is available"),
-                    ImageState::Never | ImageState::Changed => format!("{count} · its image builds first"),
-                }
+            let detail = match launch::image_state(&key, images) {
+                ImageState::Built => count,
+                ImageState::Update => format!("{count} · an update is available"),
+                ImageState::Never => format!("{count} · its image builds first"),
             };
             Entry {
                 id: format!("w:{}", s(w, "id")),
@@ -426,13 +420,10 @@ impl Flow {
         b.connect_clicked(move |_| me.toggle(&id));
         card.append(&b);
 
-        // Customize: a wadspace (if its template's there) or a WadBrowser.
+        // Customize: a wadspace or a WadBrowser.
         if !e.once {
             if let Some(w) = e.wadspace.clone() {
-                let ok = store()
-                    .read_now(|st| st.library.as_ref().is_some_and(|l| !layers::resolve_stack(&l.lib(), &w).is_null()));
                 let c = ui::icon_button("sliders-horizontal", &format!("Customize {}", e.label), 16);
-                c.set_sensitive(ok);
                 let me = self.clone();
                 c.connect_clicked(move |_| me.wadspace_run(w.clone()));
                 card.append(&c);
@@ -580,9 +571,8 @@ impl Flow {
         let images = self.images.borrow();
         // Not read yet: as it most likely is.
         if !images.is_empty() {
-            let lib = store().read_now(|s| s.library.as_ref().map(|l| l.lib()).unwrap_or_default());
             let key = layers::stack_image_key(w);
-            if !matches!(launch::image_state(&key, &lib, &images), ImageState::Built | ImageState::Update) {
+            if !matches!(launch::image_state(&key, &images), ImageState::Built | ImageState::Update) {
                 return Err("Launch it once first: its image builds then");
             }
         }
@@ -779,21 +769,10 @@ impl Flow {
         ui::clear(body);
         let c = w["customization"].clone();
         let cname = s(&c, "name").to_string();
-        let (lib, wadspaces) = store().read_now(|st| {
-            (
-                st.library.as_ref().map(|l| l.lib()).unwrap_or_default(),
-                st.wadspaces().into_iter().cloned().collect::<Vec<_>>(),
-            )
-        });
-        let r = layers::resolve_stack(&lib, &w);
-        let slots: Vec<Value> = if r.is_null() {
-            vec![]
-        } else {
-            layers::slots_for(&r["template"], &r["setup"])
-                .into_iter()
-                .filter(|sl| !s(sl, "key").starts_with("web:"))
-                .collect()
-        };
+        let wadspaces = store().read_now(|st| st.wadspaces().into_iter().cloned().collect::<Vec<_>>());
+        let (template, setup) = wad_core::v4::as_template_setup(&w);
+        let slots: Vec<Value> =
+            layers::slots_for(&template, &setup).into_iter().filter(|sl| !s(sl, "key").starts_with("web:")).collect();
         let draft = Rc::new(RefCell::new(Draft {
             name: cname.clone(),
             secrets: slots::as_choices(&c["secrets"]["bySlot"]),
@@ -836,11 +815,7 @@ impl Flow {
         let picked = move |v| {
             wp.replace(v);
         };
-        let pick = if wad_core::v4::is_v4(&w) {
-            wallpaper_picker::texture_picker(c["wallpaper"].clone(), picked)
-        } else {
-            wallpaper_picker::picker(c["wallpaper"].clone(), picked)
-        };
+        let pick = wallpaper_picker::texture_picker(c["wallpaper"].clone(), picked);
         pick.set_size_request(560, -1);
         pick.set_halign(gtk::Align::Start);
         bg.append(&pick);
@@ -997,11 +972,10 @@ impl Flow {
     /// wadspace has any).
     fn from_wadspaces(self: &Rc<Self>) -> Option<gtk::Widget> {
         let groups: Vec<(String, String, Vec<Value>)> = store().read_now(|st| {
-            let lib = st.library.as_ref().map(|l| l.lib()).unwrap_or_default();
             st.wadspaces()
                 .into_iter()
                 .filter(|w| w["customization"].is_object())
-                .map(|w| (s(w, "id").to_string(), st.wadspace_name(w), launch::wadspace_webapps(&lib, w)))
+                .map(|w| (s(w, "id").to_string(), st.wadspace_name(w), launch::wadspace_webapps(w)))
                 .filter(|(_, _, apps)| !apps.is_empty())
                 .collect()
         });
@@ -1336,9 +1310,10 @@ fn draw_webapps(sec: &gtk::Box, webapps: &Rc<RefCell<Vec<Value>>>, again: Option
     // Web apps used elsewhere, to add with a click.
     let known: Vec<Value> = store().read_now(|st| {
         let lib = st.library.clone().unwrap_or_default();
-        let ext: Vec<Value> = lib.extensions.iter().filter(|x| alive(x)).cloned().collect();
+        let setups: Vec<Value> =
+            lib.wadspaces.iter().filter(|x| alive(x)).map(|w| wad_core::v4::as_template_setup(w).1).collect();
         let br: Vec<Value> = lib.browsers.iter().filter(|x| alive(x)).cloned().collect();
-        layers::known_webapps(&ext, &br)
+        layers::known_webapps(&setups, &br)
     });
     let have: Vec<String> = webapps.borrow().iter().map(|w| s(w, "url").to_string()).collect();
     let known: Vec<Value> = known.into_iter().filter(|w| !have.iter().any(|u| u == s(w, "url"))).collect();
@@ -1464,10 +1439,9 @@ fn new_wadspace(
     c["description"] = description.into();
     c["wallpaper"] = wallpaper;
     c["secrets"]["bySlot"] = by_slot;
-    // Every stack's id is taken, deleted ones too.
+    // Every wadspace's id is taken, deleted ones too.
     let mut taken = wadspaces.to_vec();
-    if let Some(l) = store().read_now(|st| st.library.as_ref().map(|l| l.all_wadspaces().cloned().collect::<Vec<_>>()))
-    {
+    if let Some(l) = store().read_now(|st| st.library.as_ref().map(|l| l.wadspaces.clone())) {
         taken.extend(l);
     }
     let order = wadspaces.iter().filter_map(|x| x["order"].as_f64()).fold(0.0f64, f64::max) + 1.0;
@@ -1478,10 +1452,6 @@ fn new_wadspace(
         }
         o.insert("customization".into(), c);
         o.insert("id".into(), free_id(name, &taken).into());
-        // A version 4 one stays one (its own templates, on this machine).
-        if !wad_core::v4::is_v4(w) {
-            o.insert("version".into(), 3.into());
-        }
         o.insert("order".into(), order.into());
         o.insert("createdAt".into(), now.clone().into());
         o.insert("updatedAt".into(), now.into());
@@ -1494,8 +1464,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn a_saved_run_is_a_new_stack_at_the_boards_end() {
-        let w = json!({ "id": "vanua", "version": 3, "order": 2, "owner": "me", "template": "dev",
+    fn a_saved_run_is_a_new_wadspace_at_the_boards_end() {
+        let w = json!({ "id": "vanua", "version": 4, "order": 2, "owner": "me", "machine": "m1",
+            "templates": [{ "id": "dev", "name": "Dev", "apps": [] }],
             "customization": { "name": "Vanua", "secrets": { "bySlot": {}, "groups": [] }, "projects": [] } });
         let others = vec![w.clone(), json!({ "id": "cosmic", "order": 5 })];
         let doc = new_wadspace(
@@ -1503,12 +1474,15 @@ mod tests {
             &others,
             "Vanua Late",
             "Nights",
-            json!({ "type": "gradient", "value": "x" }),
+            json!({ "type": "texture", "value": "stars" }),
             json!({ "k": 1 }),
         );
         assert_eq!(doc["id"], "vanua-late");
         assert_eq!(doc["order"], 6.0);
-        assert_eq!(doc["template"], "dev");
+        assert_eq!(
+            (&doc["version"], &doc["machine"], &doc["templates"][0]["id"]),
+            (&json!(4), &json!("m1"), &json!("dev"))
+        );
         assert_eq!(doc["customization"]["name"], "Vanua Late");
         assert_eq!(doc["customization"]["secrets"]["bySlot"]["k"], 1);
         assert!(doc.get("owner").is_none());

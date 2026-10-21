@@ -1,9 +1,7 @@
-//! Launching (the web app's data/local/layers.ts launch and data/layers.ts):
-//! each wadspace is installed as it is now (with its wallpaper drawn), its
-//! layer built first when it has to be, then wadd starts them all
-//! together, the first on screen. A version 4 wadspace is installed as its
-//! document (wadd draws its background and web app icons) and its set
-//! built by its id. What was launched is kept for "Jump back in".
+//! Launching: each wadspace is installed as its document (wadd draws its
+//! background and web app icons), its set built by its id first when it has
+//! never been, then wadd starts them all together, the first on screen. What
+//! was launched is kept for "Jump back in".
 
 use std::collections::HashMap;
 
@@ -69,16 +67,16 @@ fn s<'a>(v: &'a Value, k: &str) -> &'a str {
     v.get(k).and_then(Value::as_str).unwrap_or("")
 }
 
-/// A layer image's state against the library (wad-core's image_state, with
-/// wadd's image rows).
-pub fn image_state(key: &str, lib: &Value, images: &HashMap<String, ImageRow>) -> ImageState {
+/// A wadspace's image's state (wad-core's image_state, with wadd's image
+/// rows).
+pub fn image_state(key: &str, images: &HashMap<String, ImageRow>) -> ImageState {
     let rows = images
         .iter()
         .map(|(k, r)| {
             (k.clone(), core::LayerImage { id: r.id.clone(), from: r.from.clone(), sha: r.dockerfile_sha.clone() })
         })
         .collect();
-    core::image_state(key, lib, &rows)
+    core::image_state(key, &rows)
 }
 
 /// The machine's time zone (what the wadspace's clock shows).
@@ -127,7 +125,7 @@ pub fn wallpaper_upload(wall: &Value) -> Result<Value, String> {
 }
 
 /// What wadd's batch launch takes for each item (the first on screen).
-fn launch_items(items: &[RunItem], lib: &Value, wadspaces: &[Value]) -> Result<Vec<Value>, String> {
+fn launch_items(items: &[RunItem], wadspaces: &[Value]) -> Result<Vec<Value>, String> {
     items
         .iter()
         .enumerate()
@@ -137,7 +135,7 @@ fn launch_items(items: &[RunItem], lib: &Value, wadspaces: &[Value]) -> Result<V
                     json!({ "kind": "workspace", "workspace": id, "background": n > 0 })
                 }
                 RunItem::WadspaceRun { id, wallpaper, by_slot } => {
-                    json!({ "kind": "run", "from": id, "overrides": run_overrides(lib, wadspaces, id, wallpaper, by_slot)?, "background": n > 0 })
+                    json!({ "kind": "run", "from": id, "overrides": run_overrides(wadspaces, id, wallpaper, by_slot)?, "background": n > 0 })
                 }
                 RunItem::Terminal => json!({ "kind": "terminal", "background": n > 0 }),
                 RunItem::Browser(b) => json!({
@@ -152,75 +150,64 @@ fn launch_items(items: &[RunItem], lib: &Value, wadspaces: &[Value]) -> Result<V
                     "background": n > 0,
                 }),
                 RunItem::WadspaceWebApp { from, webapp } => {
-                    json!({ "kind": "browser", "setup": wadspace_webapp_setup(lib, wadspaces, from, webapp)?, "background": n > 0 })
+                    json!({ "kind": "browser", "setup": wadspace_webapp_setup(wadspaces, from, webapp)?, "background": n > 0 })
                 }
             })
         })
         .collect()
 }
 
-/// A wadspace's web apps (its Extensions' WadBrowser ones), as it resolves.
-pub fn wadspace_webapps(lib: &Value, w: &Value) -> Vec<Value> {
-    let r = core::resolve_stack(lib, w);
-    if r.is_null() || !core::has_app(&r["template"], "wadbrowser") {
+/// A wadspace's web apps (its WadBrowser's extras).
+pub fn wadspace_webapps(w: &Value) -> Vec<Value> {
+    let (template, setup) = wad_core::v4::as_template_setup(w);
+    if !core::has_app(&template, "wadbrowser") {
         return vec![];
     }
-    r["setup"]["webapps"].as_array().cloned().unwrap_or_default()
+    setup["webapps"].as_array().cloned().unwrap_or_default()
+}
+
+/// A wadspace's sign-ins as wadd mounts them.
+fn signins_of(w: &Value) -> Value {
+    wad_core::v4::workspace_for(w, &json!({}))["signins"].clone()
 }
 
 /// A WadBrowser setup for one of a wadspace's web apps: that app alone, its
 /// sign-ins as the wadspace has them, and the wadspace's WadBrowser mode.
-fn wadspace_webapp_setup(lib: &Value, wadspaces: &[Value], from: &str, webapp: &str) -> Result<Value, String> {
+fn wadspace_webapp_setup(wadspaces: &[Value], from: &str, webapp: &str) -> Result<Value, String> {
     let w = wadspaces.iter().find(|x| s(x, "id") == from).ok_or("That wadspace is gone.")?;
-    let r = core::resolve_stack(lib, w);
-    if r.is_null() {
-        return Err("That wadspace's template is gone.".into());
-    }
-    let wa = r["setup"]["webapps"]
+    let (_, setup) = wad_core::v4::as_template_setup(w);
+    let wa = setup["webapps"]
         .as_array()
         .into_iter()
         .flatten()
         .find(|x| s(x, "id") == webapp)
         .cloned()
         .ok_or("That web app isn't in the wadspace any more.")?;
-    let signins: Vec<Value> = core::workspace_for(w, &r["template"], &r["setup"], &json!({}))["signins"]
+    let signins: Vec<Value> = signins_of(w)
         .as_array()
         .into_iter()
         .flatten()
         .filter(|x| x["web"] == true && s(x, "app") == webapp)
         .cloned()
         .collect();
-    let mode = if s(&r["setup"], "browserMode") == "focus" { "focus" } else { "browser" };
+    let mode = if s(&setup, "browserMode") == "focus" { "focus" } else { "browser" };
     let name = format!("{} · {}", s(&w["customization"], "name"), s(&wa, "name"));
     Ok(json!({ "name": name, "mode": mode, "webapps": [wa], "signins": signins }))
 }
 
 /// A run's own background (drawn) and sign-ins: its keys by slot in place
 /// of the wadspace's, its WadBrowser groups as they are.
-fn run_overrides(
-    lib: &Value,
-    wadspaces: &[Value],
-    id: &str,
-    wallpaper: &Value,
-    by_slot: &Value,
-) -> Result<Value, String> {
-    let w = wadspaces.iter().find(|x| s(x, "id") == id).ok_or("That wadspace is gone.")?;
-    let r = core::resolve_stack(lib, w);
-    let mut w = w.clone();
+fn run_overrides(wadspaces: &[Value], id: &str, wallpaper: &Value, by_slot: &Value) -> Result<Value, String> {
+    let mut w = wadspaces.iter().find(|x| s(x, "id") == id).ok_or("That wadspace is gone.")?.clone();
     w["customization"]["secrets"]["bySlot"] = by_slot.clone();
-    let signins = if r.is_null() {
-        json!([])
-    } else {
-        core::workspace_for(&w, &r["template"], &r["setup"], &json!({}))["signins"].clone()
-    };
-    Ok(json!({ "wallpaper": wallpaper_upload(wallpaper)?, "signins": signins }))
+    Ok(json!({ "wallpaper": wallpaper_upload(wallpaper)?, "signins": signins_of(&w) }))
 }
 
 /// A wadspace installed here as it is now (wadd draws its wallpaper, in the
 /// machine's theme).
-async fn install(w: &Wadd, ws: &Value, lib: &Value, tz: &str) -> Result<(), String> {
+async fn install(w: &Wadd, ws: &Value, tz: &str) -> Result<(), String> {
     let id = s(ws, "id");
-    if let Some(why) = not_ready(ws, lib) {
+    if let Some(why) = not_ready(ws) {
         return Err(format!("{}: {why}", s(&ws["customization"], "name")));
     }
     let install = json!({ "wadspace": ws, "tz": tz });
@@ -230,36 +217,32 @@ async fn install(w: &Wadd, ws: &Value, lib: &Value, tz: &str) -> Result<(), Stri
 /// A wadspace installed here as it is now, without starting it (a stream
 /// starts it on its sidecar).
 pub async fn install_here(id: String) -> Result<(), String> {
-    let (lib, ws) = store().read_now(|st| {
-        let ws = st.library.as_ref().and_then(|l| l.all_wadspaces().find(|x| s(x, "id") == id).cloned());
-        (st.library.as_ref().map(|l| l.lib()), ws)
-    });
-    let lib = lib.ok_or("Your library isn't here yet.")?;
-    let ws = ws.ok_or("That wadspace is gone.")?;
+    let ws = store().read_now(|st| {
+        let lib = st.library.as_ref().ok_or("Your library isn't here yet.")?;
+        lib.wadspaces.iter().find(|x| s(x, "id") == id).cloned().ok_or("That wadspace is gone.")
+    })?;
     let tz = time_zone();
-    rt::run(async move { install(&Wadd::here(), &ws, &lib, &tz).await }).await
+    rt::run(async move { install(&Wadd::here(), &ws, &tz).await }).await
 }
 
 /// Builds a wadspace here without starting it: installed as it is now,
 /// its set built unless that's up to date or already building (wadd
 /// decides).
 pub async fn build_here(id: String) -> Result<(), String> {
-    let (lib, ws) = store().read_now(|st| {
-        let ws = st.library.as_ref().and_then(|l| l.all_wadspaces().find(|x| s(x, "id") == id).cloned());
-        (st.library.as_ref().map(|l| l.lib()), ws)
-    });
-    let lib = lib.ok_or("Your library isn't here yet.")?;
-    let ws = ws.ok_or("That wadspace is gone.")?;
+    let ws = store().read_now(|st| {
+        let lib = st.library.as_ref().ok_or("Your library isn't here yet.")?;
+        lib.wadspaces.iter().find(|x| s(x, "id") == id).cloned().ok_or("That wadspace is gone.")
+    })?;
     let tz = time_zone();
     rt::run(async move {
         let w = Wadd::here();
-        install(&w, &ws, &lib, &tz).await?;
+        install(&w, &ws, &tz).await?;
         build_set(&w, &ws).await
     })
     .await
 }
 
-/// A version 4 wadspace's set built here (POST /v1/wadspaces/{id}/build:
+/// A wadspace's set built here (POST /v1/wadspaces/{id}/build:
 /// nothing when it's built already or building).
 async fn build_set(w: &Wadd, ws: &Value) -> Result<(), String> {
     w.act(Method::POST, &format!("/v1/wadspaces/{}/build", s(ws, "id")), None::<&Value>)
@@ -270,11 +253,8 @@ async fn build_set(w: &Wadd, ws: &Value) -> Result<(), String> {
 /// Launches `items` (the first on screen), as a focus session of
 /// `focus_minutes` if given. The ids wadd started.
 pub async fn launch(items: Vec<RunItem>, focus_minutes: Option<u32>) -> Result<Vec<String>, String> {
-    let (lib, wadspaces) = store().read_now(|s| {
-        let all = s.library.as_ref().map(|l| l.all_wadspaces().cloned().collect::<Vec<_>>());
-        (s.library.as_ref().map(|l| l.lib()), all.unwrap_or_default())
-    });
-    let lib = lib.ok_or("Your library isn't here yet.")?;
+    let wadspaces =
+        store().read_now(|s| s.library.as_ref().map(|l| l.wadspaces.clone())).ok_or("Your library isn't here yet.")?;
     let mut ids: Vec<String> = vec![];
     for id in items.iter().filter_map(RunItem::wadspace) {
         if !ids.iter().any(|x| x == id) {
@@ -293,14 +273,14 @@ pub async fn launch(items: Vec<RunItem>, focus_minutes: Option<u32>) -> Result<V
             .collect();
         for id in &ids {
             let Some(ws) = wadspaces.iter().find(|x| s(x, "id") == id) else { continue };
-            install(&w, ws, &lib, &tz).await?;
+            install(&w, ws, &tz).await?;
             // Its set on an older base still runs: an update, not a build.
-            if image_state(&core::stack_image_key(ws), &lib, &images) == ImageState::Never {
+            if image_state(&core::stack_image_key(ws), &images) == ImageState::Never {
                 build_set(&w, ws).await?;
             }
         }
         // Drawn off GTK's thread: a run's own background.
-        let body_items = launch_items(&items, &lib, &wadspaces)?;
+        let body_items = launch_items(&items, &wadspaces)?;
         w.post::<Vec<String>>("/v1/launches/batch", &json!({ "items": body_items, "focusMinutes": focus_minutes }))
             .await
             .map_err(|e| e.to_string())
@@ -371,38 +351,24 @@ mod tests {
     }
 
     #[test]
-    fn images_need_building_when_never_made_or_changed() {
-        let t = json!({"id": "dev", "name": "Dev", "apps": ["wadbrowser"]});
-        let lib = json!({"templates": [t], "extensions": []});
-        let mut images = HashMap::new();
-        assert_eq!(image_state("template:dev", &lib, &images), ImageState::Never);
-        let sha = core::template_layer(&t, &Value::Null)["sha"].as_str().unwrap().to_string();
-        let row = |sha: &str| ImageRow {
-            layer: "template:dev".into(),
+    fn a_wadspace_builds_first_only_when_its_set_was_never_made() {
+        let row = |layer: &str, id: &str, from: &str| ImageRow {
+            layer: layer.into(),
             image_ref: String::new(),
-            id: "i1".into(),
-            dockerfile_sha: sha.into(),
+            id: id.into(),
+            dockerfile_sha: String::new(),
             built_at: 0.0,
             size_mb: 0.0,
-            from: String::new(),
+            from: from.into(),
             pkgs: vec![],
         };
-        images.insert("template:dev".into(), row("old"));
-        assert_eq!(image_state("template:dev", &lib, &images), ImageState::Changed);
-        images.insert("template:dev".into(), row(&sha));
-        assert_eq!(image_state("template:dev", &lib, &images), ImageState::Built);
-    }
-
-    #[test]
-    fn a_stack_without_a_customization_isnt_ready() {
-        let lib = json!({"templates": [{"id": "dev", "apps": []}], "extensions": []});
-        assert_eq!(not_ready(&json!({"template": ""}), &lib), Some("It needs a template with apps."));
-        assert_eq!(not_ready(&json!({"template": "gone"}), &lib), Some("Its template is gone."));
-        assert_eq!(not_ready(&json!({"template": "dev"}), &lib), Some("It needs a customization."));
-        assert_eq!(
-            not_ready(&json!({"template": "dev", "customization": {"name": " "}}), &lib),
-            Some("Its customization needs a name.")
-        );
-        assert_eq!(not_ready(&json!({"template": "dev", "customization": {"name": "W"}}), &lib), None);
+        let mut images = HashMap::from([("base".to_string(), row("base", "b2", ""))]);
+        assert_eq!(image_state("set:abc", &images), ImageState::Never);
+        images.insert("set:abc".into(), row("set:abc", "s1", "b1"));
+        assert_eq!(image_state("set:abc", &images), ImageState::Update);
+        images.insert("set:abc".into(), row("set:abc", "s2", "b2"));
+        assert_eq!(image_state("set:abc", &images), ImageState::Built);
+        assert_eq!(not_ready(&json!({"customization": {"name": " "}})), Some("Its customization needs a name."));
+        assert_eq!(not_ready(&json!({"customization": {"name": "W"}})), None);
     }
 }

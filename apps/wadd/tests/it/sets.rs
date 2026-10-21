@@ -358,7 +358,7 @@ async fn an_old_base_another_machine_and_a_bad_wadspace_are_refused() {
     });
     let err = sets::build_installed(&e.here(), "iq").await.unwrap_err();
     assert_eq!(err.code, ErrorCode::Conflict);
-    assert!(err.message.contains("from before version 4"), "{}", err.message);
+    assert!(err.message.contains("from before sets"), "{}", err.message);
     let elsewhere = Here { machine: Some("laptop".into()), ..e.here() };
     let err = sets::install(&elsewhere, "iq", &iq(), None).await.err().unwrap();
     assert!(err.message.contains("another machine"), "{}", err.message);

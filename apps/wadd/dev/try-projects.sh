@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Tries projects for real on this laptop, as you: the wadspace clones and
 # copies them in itself, but for one the user chose to mount. wadd (with your
-# rootless podman) installs a stack whose projects are:
+# rootless podman) installs a wadspace whose projects are:
 #   - a GitHub repo (octocat/Hello-World: public and tiny), cloned inside;
 #   - a GitHub repo wadd had cloned on the machine (octocat/Spoon-Knife, with
 #     an uncommitted file), which moves in instead of being cloned again;
@@ -22,7 +22,7 @@ ulimit -c 0
 root=$(cd "$(dirname "$0")/../../.." && pwd)
 dir=$root/.build/wadd-try-projects
 sock=$dir/wadd.sock
-image=localhost/wadspaces-template-trypj:latest
+image=localhost/wadspaces-try-projects:latest
 rm -rf "$dir"
 mkdir -p "$dir/state" "$dir/projects" "$dir/signins" "$dir/home/Notes/drafts" "$dir/home/Photos" "$dir/home/Thesis"
 echo "my notes" >"$dir/home/Notes/todo.md"
@@ -99,11 +99,10 @@ echo "  $copy"
 copy_id=$(python3 -I -c 'import json,sys; d=json.loads(sys.argv[1]); print(d.get("id") or sys.exit(str(d)))' "$copy")
 printf '{"paths":["/etc/passwd"]}' | send POST /v1/copies | grep -q "isn't inside" || fail "a copy from outside the roots"
 
-echo "== install the stack"
-template='{"id":"trypj","owner":"me","name":"Try","description":"","apps":["wadbrowser"],"createdAt":"t","updatedAt":"t"}'
+echo "== install the wadspace"
 stack=$(cat <<JSON
-{"version":3,"id":"trypj","owner":"me","order":1,"template":"trypj",
- "customization":{"name":"Try projects","description":"","wallpaper":{"type":"color","value":"#203040"},"secrets":{"bySlot":{}},
+{"version":4,"id":"trypj","owner":"me","sharedWith":[],"machine":"local","order":1,"templates":[],
+ "customization":{"name":"Try projects","description":"","wallpaper":{"type":"texture","value":"stars"},"secrets":{"bySlot":{}},
   "projects":[
    {"id":"hello","kind":"github","repo":"octocat/Hello-World","as":"Hello"},
    {"id":"spoon","kind":"github","repo":"octocat/Spoon-Knife","as":"Spoon","setup":"echo set up > .setup-ran"},
@@ -113,13 +112,15 @@ stack=$(cat <<JSON
  "createdAt":"t","updatedAt":"t"}
 JSON
 )
-printf '{"wadspace":%s,"template":%s}' "$stack" "$template" | send PUT /v1/wadspaces/trypj >/dev/null
-# Draw on the headless sway, not your session's display.
+printf '{"wadspace":%s,"tz":"Etc/UTC"}' "$stack" | send PUT /v1/wadspaces/trypj >/dev/null
+# Draw on the headless sway, not your session's display; on this image (it
+# has no apps: the base's).
 api GET /v1/workspaces/trypj | python3 -I -c '
 import json, sys
 w = json.load(sys.stdin)
 w["env"] = [e for e in w["env"] if e[0] != "WADSPACES_WAYLAND"] + [["WADSPACES_WAYLAND", sys.argv[1] + "/wayland-1"]]
-print(json.dumps(w))' "$rt_name" | send PUT /v1/workspaces/trypj >/dev/null
+w["image"] = sys.argv[2]
+print(json.dumps(w))' "$rt_name" "$image" | send PUT /v1/workspaces/trypj >/dev/null
 grep -q "copies/hello:/run/wadspaces-copies/hello:ro" "$XDG_RUNTIME_DIR/containers/systemd/wad-trypj.container" ||
   fail "the unit doesn't mount the copies"
 grep -q "/config/Desktop" "$XDG_RUNTIME_DIR/containers/systemd/wad-trypj.container" &&

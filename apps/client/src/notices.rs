@@ -378,8 +378,8 @@ mod tests {
         );
         assert!(take(&[build("b1", BuildStatus::Done, None)], &[]).is_empty());
         // A layer's build: nothing to open.
-        take(&[build("b2", BuildStatus::Building, Some("template:dev"))], &[]);
-        let said = take(&[build("b2", BuildStatus::Error, Some("template:dev"))], &[]);
+        take(&[build("b2", BuildStatus::Building, Some("set:0123456789ab"))], &[]);
+        let said = take(&[build("b2", BuildStatus::Error, Some("set:0123456789ab"))], &[]);
         assert_eq!(said[0].as_ref().map(|s| (s.0.as_str(), s.2.is_none())), Some(("Site didn't build", true)));
     }
 }

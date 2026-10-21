@@ -155,16 +155,19 @@ async fn the_library_is_read_as_them_and_kept() {
     signed_in(&s).await;
     let doc = |name: &str, fields: serde_json::Value| json!({"name": format!("projects/wad-spaces/databases/(default)/documents/{name}"), "fields": fields});
     Mock::given(method("GET"))
-        .and(path(format!("{DOCS}/users/u1/templates")))
+        .and(path(format!("{DOCS}/users/u1/browsers")))
         .respond_with(ResponseTemplate::new(200).set_body_json(
-            json!({"documents": [doc("users/u1/templates/dev", json!({"name": {"stringValue": "Dev"}}))]}),
+            json!({"documents": [doc("users/u1/browsers/b1", json!({"name": {"stringValue": "Mail"}}))]}),
         ))
         .mount(&s)
         .await;
     Mock::given(method("POST"))
         .and(path(format!("{DOCS}:runQuery")))
         .and(body_partial_json(json!({"structuredQuery": {"where": {"fieldFilter": {"field": {"fieldPath": "owner"}, "value": {"stringValue": "u1"}}}}})))
-        .respond_with(ResponseTemplate::new(200).set_body_json(json!([{"document": doc("wadspaces/w1", json!({"version": {"integerValue": "3"}, "template": {"stringValue": "dev"}}))}])))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!([
+            {"document": doc("wadspaces/w1", json!({"version": {"integerValue": "3"}, "template": {"stringValue": "dev"}}))},
+            {"document": doc("wadspaces/w2", json!({"version": {"integerValue": "4"}, "machine": {"stringValue": "m1"}}))},
+        ])))
         .mount(&s)
         .await;
     Mock::given(method("GET")).respond_with(ResponseTemplate::new(200).set_body_json(json!({}))).mount(&s).await;
@@ -174,8 +177,8 @@ async fn the_library_is_read_as_them_and_kept() {
     let a = account(&s, None).await;
     a.sign_in_github("t").await.unwrap();
     let lib = a.library().await.unwrap();
-    assert_eq!(lib.templates, [json!({"name": "Dev", "id": "dev"})]);
-    assert_eq!(lib.wadspaces, [json!({"version": 3, "template": "dev", "id": "w1"})]);
+    assert_eq!(lib.browsers, [json!({"name": "Mail", "id": "b1"})]);
+    // An old (version 3) wadspace is never shown.
+    assert_eq!(lib.wadspaces, [json!({"version": 4, "machine": "m1", "id": "w2"})]);
     assert_eq!(a.cached_library(), Some(lib.clone()));
-    assert_eq!(lib.lib()["templates"][0]["id"], "dev");
 }

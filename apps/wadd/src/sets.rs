@@ -80,9 +80,7 @@ async fn base_for_sets(backend: &dyn Backend, base: &str) -> Result<ImageInfo, S
         return Err(format!("{base} is not on this machine — update the drive with host/build.sh update --bases"));
     };
     if !info.labels.contains_key(EXTRAS_LABEL) {
-        return Err(format!(
-            "{base} is from before version 4 wadspaces: update the base (images/build.sh, or the update drive)"
-        ));
+        return Err(format!("{base} is from before sets: update the base (images/build.sh, or the update drive)"));
     }
     Ok(info)
 }
@@ -378,9 +376,8 @@ fn plural(n: usize) -> &'static str {
 /// POST /v1/wadspaces/{id}/build: its set built, unless it's built on
 /// this base already or building (that build is the answer).
 pub async fn build_installed(h: &Here<'_>, id: &str) -> Result<SetBuild, ApiError> {
-    let w = installed_doc(h.state_dir, id).ok_or_else(|| {
-        ApiError::new(ErrorCode::NotFound, format!("{id:?} isn't installed here as a version 4 wadspace"))
-    })?;
+    let w = installed_doc(h.state_dir, id)
+        .ok_or_else(|| ApiError::new(ErrorCode::NotFound, format!("{id:?} isn't installed here")))?;
     h.registry.workspace(id)?;
     let base = wad_core::spec::DEFAULT_BASE_IMAGE;
     let conflict = |e: String| ApiError::new(ErrorCode::Conflict, e);

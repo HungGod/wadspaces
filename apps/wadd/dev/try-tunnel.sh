@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # A real stream through the real Cloudflare tunnel, from this laptop: for a
-# phone on cellular. wadd serve --user streams the Writing template behind
+# phone on cellular. wadd serve --user streams a wadspace on the base behind
 # its proxy on :8085 (the tunnel's route), at https://ws-<guid>.wadspaces.com.
 #
 #   sudo systemctl start cloudflared     # the laptop's connector, first
@@ -23,7 +23,7 @@ root=$(cd "$(dirname "$0")/../../.." && pwd)
 dir=$root/.build/wadd-try-tunnel
 sock=$XDG_RUNTIME_DIR/wadd-try-tunnel.sock
 ws=trytunnel
-image=localhost/wadspaces-template-writing:latest
+image=localhost/wadspaces-base:trixie
 rm -rf "$dir"
 mkdir -p "$dir/state" "$dir/projects" "$dir/signins"
 chmod 700 "$dir"

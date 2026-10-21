@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Streams on this laptop, as you: `wadd serve --user` streams a real
-# wadspace (the Writing template's image) on the real stream sidecar
+# wadspace (on the base image) on the real stream sidecar
 # (localhost/wadspaces-stream:trixie), rootless, behind its proxy on a spare
 # port (18085), asked for by Host as the tunnel would. No tunnel: the
 # trial's wadd doesn't need one (require_tunnel = false), and its streams
@@ -21,8 +21,7 @@
 # ending it takes the containers, the units and the password with it, and
 # the link 404s.
 #
-# Needs podman.socket, the images (images/build.sh, and a Writing template:
-# localhost/wadspaces-template-writing:latest) and, for the screenshot,
+# Needs podman.socket, the images (images/build.sh) and, for the screenshot,
 # playwright-core in .build/uitools. Everything it makes is removed.
 set -euo pipefail
 ulimit -c 0
@@ -31,7 +30,7 @@ dir=$root/.build/wadd-try-stream
 sock=$dir/wadd.sock
 proxy=18085
 ws=trystream
-image=localhost/wadspaces-template-writing:latest
+image=localhost/wadspaces-base:trixie
 rm -rf "$dir"
 mkdir -p "$dir/state" "$dir/projects" "$dir/signins"
 chmod 700 "$dir"

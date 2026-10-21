@@ -952,8 +952,8 @@ pub struct RemoteHello {
 pub struct RemoteWadspace {
     pub id: String,
     pub name: String,
-    /// Its layer's image key ("template:<id>" or "custom:<id>"), whether
-    /// that image is here, and the build making it now.
+    /// Its image's key ("set:<key>", or "base" with no apps), whether that
+    /// image is here, and the build making it now.
     pub layer: String,
     pub built: bool,
     #[serde(default)]
@@ -1486,8 +1486,7 @@ pub struct Build {
     pub restart_required: bool,
     pub skipped: Vec<Skipped>,
     pub line_count: u64,
-    /// A layer's build ("template:<id>", "custom:<id>" or a set's
-    /// "set:<key>"); none: a design's.
+    /// A set's build ("set:<key>"); none: a design's.
     #[serde(default)]
     pub layer: Option<String>,
 }
@@ -1711,8 +1710,8 @@ pub struct Storage {
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct StorageDelete {
-    /// Layers ("template:<id>", "custom:<id>"): each one's image and its
-    /// older builds. What's built on it stays (and keeps its files).
+    /// Sets ("set:<key>"): each one's image and its older builds. What's
+    /// built on it stays (and keeps its files).
     #[serde(default)]
     pub layers: Vec<String>,
     /// Wadspaces: off this machine, with their files here (home and the
@@ -1735,7 +1734,7 @@ pub struct StorageDelete {
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Freed {
-    /// The images removed: a layer's ("template:<id>"), or an old build's id.
+    /// The images removed: a set's ("set:<key>"), or an old build's id.
     pub removed: Vec<String>,
     /// Layers whose name went but whose files stay: an image here is built
     /// on them (they go with it).
@@ -1761,7 +1760,7 @@ pub struct ImageBytes {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LayerBytes {
-    /// "template:<id>" or "custom:<id>".
+    /// "set:<key>".
     pub layer: String,
     pub id: String,
     /// The image it was built on.

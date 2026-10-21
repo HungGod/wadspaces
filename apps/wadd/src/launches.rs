@@ -64,7 +64,7 @@ const KEEP_FINISHED: usize = 20;
 /// projects, and from which they take mounts.
 const PROJECTS_IN: u32 = 2;
 const MOUNTS_IN: u32 = 3;
-pub const OLD_BASE: &str = "this image was built on an older base; rebuild its template to have projects";
+pub const OLD_BASE: &str = "this image was built on an older base; build it again to have projects";
 
 fn now() -> f64 {
     SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs_f64()).unwrap_or(0.0)
@@ -670,7 +670,7 @@ impl Launches {
             if !labels.contains_key(crate::sets::EXTRAS_LABEL)
                 && crate::sets::installed_doc(&self.state_dir, id).is_some()
             {
-                return Err(format!("{} is on a base from before version 4 wadspaces: update the base", ws.name));
+                return Err(format!("{} is on a base from before sets: update the base", ws.name));
             }
             let level = labels.get(PROJECTS_LABEL).and_then(Value::as_str).and_then(|v| v.parse::<u32>().ok());
             let needs = if ws.projects.iter().any(|p| p.is_mounted()) {

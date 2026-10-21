@@ -1,15 +1,14 @@
 //! What WadSpaces takes on this machine's disk (the web app's
 //! MachineStorage, from wadd's /v1/storage): the disk (how full, by what),
-//! and the wadspaces as the tree their layers make. Layers are shared: the
-//! base under every template, a template under the templates and
-//! Extensions built on it. So each layer shows its own share (what it adds
-//! to the image under it), and a wadspace its own files (its home and what
-//! it copied in).
+//! and the wadspaces as the tree their images make: the base, the sets of
+//! apps put together on it (shared: wadspaces with the same apps run on the
+//! same one), and the wadspaces. So a set shows its own share (what it adds
+//! to the base), and a wadspace its own files (its home and what it copied
+//! in).
 //!
-//! Templates, Extensions and Customizations (a wadspace here, with its
-//! files) are picked in the tree and deleted from the disk, just what's
-//! picked: a layer something else is built on keeps its files until that
-//! goes too. Older builds nothing needs go on their own line. wadd hands
+//! Sets and wadspaces (with their files) are picked in the tree and deleted
+//! from the disk, just what's picked: a set a wadspace that stays runs on
+//! can't go. Older builds nothing needs go on their own line. wadd hands
 //! out its last count at once and counts again in the background; its
 //! `storage` event says when a new one is ready.
 
@@ -33,8 +32,7 @@ use crate::ui::{self, Size, Variant, bytes};
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Kind {
     Base,
-    Template,
-    Extensions,
+    Set,
     Wadspace,
 }
 
@@ -42,17 +40,15 @@ impl Kind {
     fn label(self) -> &'static str {
         match self {
             Kind::Base => "Base",
-            Kind::Template => "Template",
-            Kind::Extensions => "Extensions",
-            Kind::Wadspace => "Customization",
+            Kind::Set => "Apps",
+            Kind::Wadspace => "Wadspace",
         }
     }
 
     fn class(self) -> &'static str {
         match self {
             Kind::Base => "base",
-            Kind::Template => "template",
-            Kind::Extensions => "extensions",
+            Kind::Set => "template",
             Kind::Wadspace => "customization",
         }
     }
@@ -67,8 +63,8 @@ pub struct Node {
     pub bytes: Option<u64>,
     pub parent: Option<String>,
     pub col: usize,
-    /// A layer: "update available", "changed since", "building…". A
-    /// wadspace: running, installed, not built here.
+    /// A set: "update available", "building…". A wadspace: running,
+    /// installed, not built here.
     pub note: Option<&'static str>,
     /// "on", "dim" or "warn".
     pub tone: &'static str,
@@ -78,7 +74,7 @@ pub struct Node {
 }
 
 impl Node {
-    /// What can be picked to delete: a built layer (not the base), or a
+    /// What can be picked to delete: a built set (not the base), or a
     /// wadspace on this machine.
     pub fn pickable(&self) -> bool {
         match self.kind {
@@ -93,11 +89,10 @@ fn s<'a>(v: &'a Value, k: &str) -> &'a str {
     v.get(k).and_then(Value::as_str).unwrap_or("")
 }
 
-/// The nodes: the base, each template on the way to a wadspace (in its
-/// chain), its Extensions, the wadspaces. `stacks`: (wadspace, its name).
+/// The nodes: the base, the sets the wadspaces run on, the wadspaces (one
+/// with no apps right on the base). `stacks`: (wadspace, its name).
 pub fn tree_of(
     st: &Storage,
-    lib: &Value,
     stacks: &[(&Value, String)],
     containers: &[Container],
     note: impl Fn(&str) -> Option<(&'static str, &'static str)>,
@@ -111,27 +106,6 @@ pub fn tree_of(
             nodes.push(n);
         }
     };
-    let layer = |key: String, kind: Kind, name: &str, parent: String, col: usize| {
-        let (note, tone) = note(&key).map(|(n, t)| (Some(n), t)).unwrap_or((None, ""));
-        Node {
-            bytes: own.get(key.as_str()).copied(),
-            key,
-            kind,
-            name: name.to_string(),
-            parent: Some(parent),
-            col,
-            note,
-            tone,
-            wadspace_id: None,
-            installed: false,
-            running: false,
-        }
-    };
-    let chain = |w: &Value| match s(w, "template") {
-        "" => vec![],
-        t => wad_core::layers::chain_of(lib, t),
-    };
-    let depth = stacks.iter().map(|(w, _)| chain(w).len()).max().unwrap_or(0);
     add(Node {
         key: "base".into(),
         kind: Kind::Base,
@@ -146,24 +120,26 @@ pub fn tree_of(
         running: false,
     });
     for (w, name) in stacks {
-        let chain = chain(w);
-        if chain.is_empty() {
-            continue;
-        }
-        for (i, t) in chain.iter().enumerate() {
-            let parent = if i == 0 { "base".to_string() } else { format!("template:{}", s(&chain[i - 1], "id")) };
-            add(layer(format!("template:{}", s(t, "id")), Kind::Template, s(t, "name"), parent, i + 1));
-        }
-        let mut parent = format!("template:{}", s(chain.last().expect("a chain"), "id"));
-        let ext = lib["extensions"]
-            .as_array()
-            .into_iter()
-            .flatten()
-            .find(|e| !s(w, "extensions").is_empty() && s(e, "id") == s(w, "extensions"));
-        if let Some(e) = ext {
-            let key = format!("custom:{}", s(e, "id"));
-            add(layer(key.clone(), Kind::Extensions, s(e, "name"), parent, depth + 1));
-            parent = key;
+        let parent = wad_core::v4::image_key(w);
+        if parent != "base" {
+            let (note, tone) = note(&parent).map(|(n, t)| (Some(n), t)).unwrap_or((None, ""));
+            let apps: Vec<String> = wad_core::v4::apps_of(w)
+                .iter()
+                .map(|e| wad_core::catalog::app(s(e, "app")).map_or_else(|| s(e, "app").to_string(), |a| a.name))
+                .collect();
+            add(Node {
+                bytes: own.get(parent.as_str()).copied(),
+                key: parent.clone(),
+                kind: Kind::Set,
+                name: apps.join(", "),
+                parent: Some("base".into()),
+                col: 1,
+                note,
+                tone,
+                wadspace_id: None,
+                installed: false,
+                running: false,
+            });
         }
         let id = s(w, "id");
         let c = containers.iter().find(|c| c.id == id);
@@ -189,7 +165,7 @@ pub fn tree_of(
             name: name.clone(),
             bytes: (c.is_some() || home.is_some()).then(|| home.unwrap_or(0) + copied),
             parent: Some(parent),
-            col: depth + 2,
+            col: 2,
             note: Some(note),
             tone,
             wadspace_id: Some(id.to_string()),
@@ -329,8 +305,7 @@ pub fn picks<'a>(nodes: &'a [Node], st: &Storage, picked: &HashSet<String>) -> P
     }
     let tree: Vec<&Node> = nodes.iter().filter(|n| picked.contains(&n.key) && n.pickable()).collect();
     let extras: Vec<Other> = other_picks(st).into_iter().filter(|x| picked.contains(&x.key)).collect();
-    let layers: Vec<&Node> =
-        tree.iter().copied().filter(|n| matches!(n.kind, Kind::Template | Kind::Extensions)).collect();
+    let layers: Vec<&Node> = tree.iter().copied().filter(|n| n.kind == Kind::Set).collect();
     let wadspaces: Vec<&Node> = tree.iter().copied().filter(|n| n.kind == Kind::Wadspace).collect();
     let running = wadspaces.iter().copied().filter(|n| n.running).collect();
     let on_it = layers
@@ -419,8 +394,8 @@ pub fn view() -> gtk::Widget {
         "Storage",
         Some("hard-drive"),
         Some(
-            "What your wadspaces take on This machine's disk. Layers are shared: each shows what it adds to the one \
-             under it. Click templates, Extensions or Customizations to delete them from this machine.",
+            "What your wadspaces take on This machine's disk. Wadspaces with the same apps share their image: each \
+             shows what it adds to the base. Click apps or wadspaces to delete them from this machine.",
         ),
     );
     let refresh = ui::icon_button("refresh-cw", "Measure again", 16);
@@ -507,18 +482,19 @@ impl View {
     }
 
     fn nodes(&self, s: &AppState, st: &Storage) -> Vec<Node> {
-        let Some(lib) = s.library.as_ref().map(|l| l.lib()) else { return vec![] };
+        if s.library.is_none() {
+            return vec![];
+        }
         let stacks: Vec<(&Value, String)> = s.wadspaces().into_iter().map(|w| (w, s.wadspace_name(w))).collect();
         let containers = machine(s, THIS).map(|m| m.containers).unwrap_or_default();
         let images = self.images.borrow();
         let building = self.building.borrow();
-        tree_of(st, &lib, &stacks, &containers, |key| {
+        tree_of(st, &stacks, &containers, |key| {
             if building.iter().any(|b| b == key) {
                 return Some(("building…", "on"));
             }
-            match image_state(key, &lib, &images) {
-                ImageState::Update if images.contains_key(key) => Some(("update available", "warn")),
-                ImageState::Changed if images.contains_key(key) => Some(("changed since", "warn")),
+            match image_state(key, &images) {
+                ImageState::Update => Some(("update available", "warn")),
                 _ => None,
             }
         })
@@ -626,7 +602,7 @@ impl View {
             let row = gtk::Box::new(gtk::Orientation::Horizontal, 12);
             row.add_css_class("old-builds");
             let l = ui::wrapping(&format!(
-                "Old builds: {n} earlier build{} of layers nothing needs any more, {}.",
+                "Old builds: {n} earlier build{} of sets nothing needs any more, {}.",
                 if n == 1 { "" } else { "s" },
                 bytes(old)
             ));
@@ -902,7 +878,7 @@ impl View {
             let b = gtk::Box::new(gtk::Orientation::Vertical, 0);
             b.append(&overlay);
             if n.kind == Kind::Base {
-                b.set_tooltip_text(Some("The base every template builds on: it stays"));
+                b.set_tooltip_text(Some("The base every wadspace runs on: it stays"));
             } else if n.bytes.is_none() {
                 b.set_tooltip_text(Some("Not on this machine"));
             }
@@ -1109,22 +1085,13 @@ mod tests {
         Storage {
             disk: DiagDisk { path: "/".into(), free_bytes: 48_000_000_000, total_bytes: 120_000_000_000 },
             base: Some(ImageBytes { image_ref: "base".into(), id: "b".into(), bytes: 3_100_000_000 }),
-            layers: vec![
-                LayerBytes {
-                    layer: "template:dev".into(),
-                    id: "i1".into(),
-                    from: "b".into(),
-                    bytes: 0,
-                    own_bytes: 2_000_000_000,
-                },
-                LayerBytes {
-                    layer: "custom:vanua-dev".into(),
-                    id: "i2".into(),
-                    from: "i1".into(),
-                    bytes: 0,
-                    own_bytes: 500_000_000,
-                },
-            ],
+            layers: vec![LayerBytes {
+                layer: set("vscode"),
+                id: "i1".into(),
+                from: "b".into(),
+                bytes: 0,
+                own_bytes: 2_000_000_000,
+            }],
             leftovers: vec![],
             homes: vec![HomeBytes { workspace_id: "vanua".into(), volume: "v".into(), bytes: 900_000_000 }],
             copies: vec![],
@@ -1147,11 +1114,16 @@ mod tests {
         }
     }
 
-    fn lib() -> Value {
-        json!({
-            "templates": [{ "id": "dev", "name": "Dev" }, { "id": "writing", "name": "Writing" }],
-            "extensions": [{ "id": "vanua-dev", "name": "Vanua Dev", "templateId": "dev" }],
-        })
+    /// A wadspace with these apps in one template.
+    fn wadspace(id: &str, apps: &[&str]) -> Value {
+        let apps: Vec<Value> = apps.iter().map(|a| json!({ "app": a, "extras": [] })).collect();
+        json!({ "version": 4, "id": id, "machine": "m", "templates": [{ "id": "t", "name": "T", "apps": apps }],
+            "customization": { "name": id } })
+    }
+
+    /// The set those apps run on.
+    fn set(app: &str) -> String {
+        wad_core::v4::image_key(&wadspace("x", &[app]))
     }
 
     fn running(id: &str) -> Container {
@@ -1169,55 +1141,58 @@ mod tests {
     }
 
     #[test]
-    fn the_tree_runs_from_the_base_through_templates_and_extensions_to_the_wadspaces() {
-        let vanua = json!({ "id": "vanua", "template": "dev", "extensions": "vanua-dev", "customization": {} });
-        let cosmic = json!({ "id": "cosmic", "template": "writing", "customization": {} });
-        let stacks = vec![(&vanua, "Vanua".to_string()), (&cosmic, "Cosmic".to_string())];
-        let nodes = tree_of(&storage(), &lib(), &stacks, &[running("vanua")], |_| None);
+    fn the_tree_runs_from_the_base_through_the_sets_to_the_wadspaces() {
+        let vanua = wadspace("vanua", &["vscode"]);
+        let cosmic = wadspace("cosmic", &["obsidian"]);
+        let bare = wadspace("bare", &[]);
+        let stacks = vec![(&vanua, "Vanua".to_string()), (&cosmic, "Cosmic".to_string()), (&bare, "Bare".to_string())];
+        let nodes = tree_of(&storage(), &stacks, &[running("vanua")], |_| None);
         let keys: Vec<&str> = nodes.iter().map(|n| n.key.as_str()).collect();
-        assert_eq!(keys, vec!["base", "template:dev", "custom:vanua-dev", "ws:vanua", "template:writing", "ws:cosmic"]);
-        let ws = &nodes[3];
-        assert_eq!((ws.col, ws.bytes, ws.note, ws.running), (3, Some(900_000_000), Some("running"), true));
+        let (code, notes) = (set("vscode"), set("obsidian"));
+        assert_eq!(keys, vec!["base", &code, "ws:vanua", &notes, "ws:cosmic", "ws:bare"]);
+        assert_eq!((nodes[1].name.as_str(), nodes[1].bytes), ("VS Code", Some(2_000_000_000)));
+        let ws = &nodes[2];
+        assert_eq!((ws.col, ws.bytes, ws.note, ws.running), (2, Some(900_000_000), Some("running"), true));
         // Not built: no share, and nothing to pick.
-        let writing = &nodes[4];
-        assert_eq!(writing.bytes, None);
-        assert!(!writing.pickable() && !nodes[0].pickable() && !nodes[5].pickable());
+        assert_eq!(nodes[3].bytes, None);
+        assert!(!nodes[3].pickable() && !nodes[0].pickable() && !nodes[4].pickable());
+        // No apps: right on the base.
+        assert_eq!(nodes[5].parent.as_deref(), Some("base"));
         let (rows, n, cols) = layout(&nodes);
-        assert_eq!((n, cols), (2, 3));
-        // By name under each node (Dev before Writing); each layer level
-        // with what's built on it, the base between.
-        assert_eq!(rows["ws:vanua"], 0.0);
-        assert_eq!(rows["ws:cosmic"], 1.0);
-        assert_eq!(rows["base"], 0.5);
+        assert_eq!((n, cols), (3, 2));
+        assert_eq!(rows["ws:bare"], 0.0);
+        assert_eq!(rows["base"], 1.0);
     }
 
     #[test]
     fn picks_say_what_they_free_and_what_stops_them() {
-        let vanua = json!({ "id": "vanua", "template": "dev", "extensions": "vanua-dev", "customization": {} });
+        let vanua = wadspace("vanua", &["vscode"]);
         let stacks = vec![(&vanua, "Vanua".to_string())];
         let st = storage();
-        let nodes = tree_of(&st, &lib(), &stacks, &[running("vanua")], |_| None);
-        // The template: its Extensions are built on it (kept), Vanua runs on them.
-        let picked: HashSet<String> = ["template:dev".to_string(), "vol:wad-old-config".to_string()].into();
+        let code = set("vscode");
+        // Vanua stopped: its set and an old home go; Vanua could too.
+        let nodes = tree_of(&st, &stacks, &[Container { running: false, ..running("vanua") }], |_| None);
+        let picked: HashSet<String> = [code.clone(), "vol:wad-old-config".to_string()].into();
         let p = picks(&nodes, &st, &picked);
         assert_eq!(p.count(), 2);
-        assert_eq!(p.kept.len(), 1);
-        assert_eq!(p.frees, 1_900_000_000, "the template's files stay; the old home goes");
-        assert_eq!(p.more.iter().map(|n| n.key.as_str()).collect::<Vec<_>>(), vec!["custom:vanua-dev", "ws:vanua"]);
-        assert!(!p.blocked());
+        assert!(p.kept.is_empty());
+        assert_eq!(p.frees, 3_900_000_000);
+        assert_eq!(p.more.iter().map(|n| n.key.as_str()).collect::<Vec<_>>(), vec!["ws:vanua"]);
+        assert!(p.blocked(), "Vanua's installed on it: pick it too");
         // Vanua picked while it runs: blocked.
-        let picked: HashSet<String> = ["custom:vanua-dev".to_string(), "ws:vanua".to_string()].into();
+        let nodes = tree_of(&st, &stacks, &[running("vanua")], |_| None);
+        let picked: HashSet<String> = [code.clone(), "ws:vanua".to_string()].into();
         let p = picks(&nodes, &st, &picked);
         assert!(p.blocked());
-        assert_eq!(p.frees, 1_400_000_000);
+        assert_eq!(p.frees, 2_900_000_000);
         let r = p.request();
-        assert_eq!((r.layers, r.wadspaces), (vec!["custom:vanua-dev".to_string()], vec!["vanua".to_string()]));
+        assert_eq!((r.layers, r.wadspaces), (vec![code], vec!["vanua".to_string()]));
     }
 
     #[test]
     fn what_was_freed_reads_as_the_web_app_says_it() {
         let f = Freed {
-            removed: vec!["template:dev".into(), "x".into()],
+            removed: vec!["set:0123456789ab".into(), "x".into()],
             kept: vec!["Dev".into()],
             uninstalled: vec!["Vanua".into()],
             failed: vec![],

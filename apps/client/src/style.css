@@ -1324,16 +1324,7 @@ button.swatch-button.on { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--
   color: #ffffff;
   background: linear-gradient(to top, rgb(0 0 0 / 0.7), transparent);
 }
-button.swatch-choose {
-  all: unset;
-  min-height: 60px;
-  border-radius: 12px;
-  border: 1px dashed var(--line-strong);
-  font-size: 11px;
-  font-weight: 500;
-  color: var(--muted);
-}
-button.swatch-choose:hover { border-color: var(--accent); color: var(--fg); }
+
 button.choice {
   all: unset;
   padding: 12px;
@@ -1376,8 +1367,8 @@ button.text-accent:disabled { color: var(--faint); text-decoration: none; }
 .shared { font-size: 12px; color: var(--accent); }
 
 /* ------------------------------------------------------------- builder */
-/* The board (the web app's builder.css): its layers' colours (template
-   ice, Extensions acid, Customization pink) on --kc per module. */
+/* The Builder's shared parts (pages/builder/parts: keys, drag ghosts),
+   from the old board's look (the web app's builder.css). */
 .wb {
   --ok: #c6ff1f;
   --no: #ff5d7a;
@@ -1403,9 +1394,6 @@ window.theme-light .wb .screen, window.theme-light .wb .win, window.theme-light 
   --layer-customization: #ff3d81;
   color: var(--fg);
 }
-.wb .mod-template, .wb .add-template { --kc: var(--layer-template); }
-.wb .mod-extensions, .wb .add-extensions, .wb .chip-vscode, .wb .chip-wadbrowser, .wb .chip-tools { --kc: var(--layer-extensions); }
-.wb .mod-customization, .wb .add-customization, .wb .chip-look, .wb .chip-folders, .wb .chip-secrets { --kc: var(--layer-customization); }
 
 .wb .topbar {
   padding: 10px 18px;
@@ -1445,18 +1433,6 @@ window.theme-light .wb .board {
     var(--bg);
 }
 .wb .stacks { padding: 22px 50px 18px 28px; }
-button.stacks-nav {
-  all: unset;
-  min-width: 38px;
-  min-height: 64px;
-  border-radius: 12px;
-  border: 1px solid var(--line-strong);
-  background: rgb(20 13 34 / 0.85);
-  color: #f5f2fa;
-  box-shadow: 0 10px 30px -12px rgb(0 0 0 / 0.9);
-}
-button.stacks-nav > wad-icon { margin: 0 9px; }
-button.stacks-nav:hover { border-color: var(--fg); }
 
 .wb .stack {
   padding: 8px 4px;
@@ -1468,41 +1444,6 @@ button.stacks-nav:hover { border-color: var(--fg); }
 .wb .stack.drop-could { border-color: rgb(198 255 31 / 0.25); }
 .wb .stack.drop-ok { border-color: var(--ok); background: var(--accent-soft); }
 .wb .stack.drop-no { border-color: var(--no); background: rgb(255 93 122 / 0.08); }
-button.broken-banner {
-  all: unset;
-  margin: 0 4px 4px 4px;
-  padding: 7px 10px;
-  border-radius: 10px;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--danger);
-  background: color-mix(in srgb, var(--danger) 12%, transparent);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--danger) 45%, transparent);
-}
-button.broken-banner:hover { background: color-mix(in srgb, var(--danger) 18%, transparent); }
-.broken-fix {
-  padding: 1px 8px;
-  border-radius: 6px;
-  background: var(--danger);
-  color: #ffffff;
-}
-
-.wb .mod-tile { border-radius: 12px; transition: transform 120ms, opacity 120ms; }
-.wb .mod-tile:hover { transform: translateY(-2px); }
-.wb .mod-tile:hover .mod {
-  border-color: color-mix(in srgb, var(--kc) 70%, transparent);
-  box-shadow: 0 14px 34px -16px color-mix(in srgb, var(--kc) 55%, transparent);
-}
-.wb .mod-tile.blank .mod { border-style: dashed; opacity: 0.8; }
-.wb .mod-tile.blank:hover .mod { opacity: 1; }
-.wb .mod-tile.selected .mod {
-  outline: 2px solid var(--danger);
-  outline-offset: -2px;
-  box-shadow: inset 0 0 0 999px rgb(255 93 122 / 0.08);
-}
-.wb .mod-tile.drop-ok .mod { outline: 2px solid var(--ok); outline-offset: 2px; }
-.wb .mod-tile.drop-no .mod { outline: 2px solid var(--no); outline-offset: 2px; }
-.wb .mod-tile.drop-could .mod { outline: 1.5px dashed rgb(198 255 31 / 0.5); outline-offset: 2px; }
 
 .wb .mod {
   border-radius: 12px;
@@ -1511,89 +1452,12 @@ button.broken-banner:hover { background: color-mix(in srgb, var(--danger) 18%, t
   box-shadow: 0 12px 28px -18px rgb(0 0 0 / 0.9);
   transition: border-color 150ms, box-shadow 150ms;
 }
-.wb .mod-bar {
-  min-height: 30px;
-  padding: 0 4px 0 10px;
-  border-radius: 11px 11px 0 0;
-  background: color-mix(in srgb, var(--kc) 13%, var(--surface-2));
-  border-bottom: 1px solid color-mix(in srgb, var(--kc) 22%, transparent);
-}
-.wb .mod.compact { border-radius: 10px; }
-.wb .mod.compact .mod-bar { min-height: 32px; border-bottom: none; border-radius: 9px; }
-.wb .mod-layer {
-  color: var(--kc);
-  font-family: "Space Grotesk", sans-serif;
-  font-size: 10.5px;
-  font-weight: 600;
-  letter-spacing: 0.6px;
-}
-.wb .mod-name {
-  font-family: "Space Grotesk", sans-serif;
-  font-size: 13px;
-  font-weight: 600;
-}
-.wb .mod-name.faint { color: var(--faint); }
-.wb .mod-name.renamable { padding: 1px 4px; margin-left: -4px; border-radius: 5px; }
-.wb .mod-name.renamable:hover { background: rgb(255 255 255 / 0.08); box-shadow: inset 0 -1px 0 var(--kc); }
-entry.mod-name-input {
-  min-height: 22px;
-  padding: 0 6px;
-  border-radius: 5px;
-  border: 1px solid var(--kc);
-  background: var(--bg);
-  color: var(--fg);
-  font-family: "Space Grotesk", sans-serif;
-  font-size: 13px;
-  font-weight: 600;
-  box-shadow: none;
-  outline: none;
-}
-entry.mod-name-input.clash { border-color: var(--no); }
-.wb .mod-on { font-size: 10.5px; color: var(--faint); margin-right: 6px; }
-.wb .build-tag {
-  padding: 1px 7px;
-  border-radius: 99px;
-  background: rgb(255 179 107 / 0.18);
-  color: var(--unbuilt);
-  font-size: 10px;
-  font-weight: 700;
-}
-.wb .build-tag.building { background: rgb(198 255 31 / 0.16); color: var(--accent); }
-.wb .build-tag.update {
-  background: color-mix(in srgb, var(--layer-template) 16%, transparent);
-  color: var(--layer-template);
-}
+
 .wb .mod.unbuilt, .wb .mod.building { border: 1.5px dashed var(--unbuilt); }
-.wb .mod.unbuilt .mod-bar, .wb .mod.building .mod-bar {
-  background:
-    repeating-linear-gradient(135deg, rgb(255 179 107 / 0.16) 0px, rgb(255 179 107 / 0.16) 8px, transparent 8px, transparent 16px),
-    color-mix(in srgb, var(--kc) 10%, var(--surface-2));
-}
-.wb .mod.dim-screen .screen { filter: saturate(0.6) brightness(0.85); }
 
 .wb .screen { border-radius: 0 0 11px 11px; }
-.wb .screen-template {
-  background:
-    radial-gradient(circle 220px at 15% 0%, rgb(127 211 255 / 0.22), transparent 60%),
-    linear-gradient(160deg, #0d1a2b, #090d18);
-}
-.wb .screen-extensions {
-  background:
-    radial-gradient(circle 220px at 85% 0%, rgb(198 255 31 / 0.14), transparent 60%),
-    linear-gradient(160deg, #101a0c, #0a0d0f);
-}
-.wb .screen-customization { background-color: #0a0614; }
+
 .wb .desk { margin: 12px 10px 34px 10px; }
-.wb .desk-app { font-size: 10px; color: #f5f2fa; text-shadow: 0 1px 3px rgb(0 0 0 / 0.9); }
-.wb .desk-app.inherited { opacity: 0.4; }
-.wb .screen-empty { color: rgb(245 242 250 / 0.4); font-size: 11.5px; font-style: italic; }
-.wb .taskbar {
-  min-height: 26px;
-  padding: 0 8px;
-  background: rgb(10 6 20 / 0.8);
-}
-.wb .tray-bar { min-height: 30px; padding: 0 5px; }
-.wb .desk-small { margin: 9px 9px 36px 9px; }
 
 .wb .wins { margin: 8px; }
 .wb .win {
@@ -1604,42 +1468,15 @@ entry.mod-name-input.clash { border-color: var(--no); }
   color: var(--fg);
 }
 .wb .win.warn { border: 1px dashed var(--no); }
-.wb .win-bar {
-  min-height: 18px;
-  padding: 0 6px;
-  border-radius: 6px 6px 0 0;
-  background: var(--surface-3);
-  font-size: 10px;
-  font-weight: 600;
-}
-.wb .win-count { color: var(--faint); font-weight: 400; }
-.wb .win-body { padding: 5px 6px 6px 6px; min-height: 24px; }
-.wb .win-empty { font-size: 10px; color: var(--faint); font-style: italic; }
+
 .wb .ext { font-size: 10px; }
-.wb .ext-dot {
-  min-width: 11px;
-  min-height: 11px;
-  border-radius: 3px;
-  background: var(--surface-3);
-  font-size: 7.5px;
-  font-weight: 700;
-}
-.wb .ext-more { font-size: 10px; color: var(--faint); }
+
 .wb .term { font-family: monospace; font-size: 10px; color: #b9f56d; }
 .wb .win.blank {
   background: rgb(20 13 34 / 0.45);
   border: 1px dashed color-mix(in srgb, var(--layer-extensions) 40%, transparent);
   box-shadow: none;
 }
-.wb .win.blank .win-bar { background: transparent; color: var(--faint); }
-.wb .win.blank .win-empty { color: color-mix(in srgb, var(--layer-extensions) 70%, var(--faint)); font-style: normal; }
-.wb .mod.blank-mod { border-style: dashed; background: transparent; }
-.wb .mod.blank-mod .mod-bar { background: color-mix(in srgb, var(--layer-extensions) 6%, transparent); }
-.wb .mod.blank-mod.mod-customization .mod-bar { background: color-mix(in srgb, var(--layer-customization) 6%, transparent); }
-.wb .mod.blank-mod .screen-extensions { background: linear-gradient(160deg, rgb(16 26 12 / 0.45), rgb(10 13 15 / 0.45)); }
-window.theme-light .wb .mod.blank-mod .screen-extensions,
-window.theme-light .wb .mod.blank-mod .screen-customization { background: rgb(10 6 20 / 0.04); }
-window.theme-light .wb .mod.blank-mod .taskbar { background: rgb(10 6 20 / 0.06); }
 
 .wb .tray {
   padding: 2px 7px 2px 5px;
@@ -1649,16 +1486,14 @@ window.theme-light .wb .mod.blank-mod .taskbar { background: rgb(10 6 20 / 0.06)
   font-size: 10.5px;
   color: #f5f2fa;
 }
-.wb .tray-icon { color: var(--layer-customization); }
-.wb .tray-title { font-weight: 600; }
-.wb .tray-detail { color: rgb(245 242 250 / 0.62); }
+
 .wb .tray.prompt {
   border: 1px dashed color-mix(in srgb, var(--layer-customization) 55%, transparent);
   background: rgb(10 6 20 / 0.55);
   color: color-mix(in srgb, var(--layer-customization) 80%, #f5f2fa);
   font-weight: 600;
 }
-.wb .tray.prompt.bg-prompt { padding: 5px 12px; font-size: 11.5px; }
+
 .wb .swatch { min-width: 12px; min-height: 12px; border-radius: 3px; border: 1px solid rgb(255 255 255 / 0.3); }
 
 .wb .chip {
@@ -1669,23 +1504,7 @@ window.theme-light .wb .mod.blank-mod .taskbar { background: rgb(10 6 20 / 0.06)
   font-size: 11.5px;
   color: var(--fg);
 }
-.wb .chip-icon { color: var(--kc); }
-.wb .chip-title { font-weight: 600; }
-.wb .chip-detail { color: var(--muted); }
 
-.wb .strip-plus, .wb .strip-more { font-size: 11px; font-weight: 600; color: var(--layer-template); }
-.wb .stack-modules > .mod-tile + .mod-tile { margin-top: 0; }
-/* Room inside the column's scroller for a tile lifting on hover and for
-   the outlines drops and selection draw round it (it clips at its edges). */
-.wb .stack-modules { padding: 4px; }
-
-.wb .stack-foot { margin: 6px 4px 0 4px; min-height: 28px; padding: 0 2px; }
-.wb .stack-name {
-  font-family: "Space Grotesk", sans-serif;
-  font-size: 14px;
-  font-weight: 700;
-}
-.wb .stack-name.faint { color: var(--faint); }
 .wb .status {
   padding: 2px 8px;
   border-radius: 99px;
@@ -1693,50 +1512,9 @@ window.theme-light .wb .mod.blank-mod .taskbar { background: rgb(10 6 20 / 0.06)
   color: var(--muted);
   font-size: 11px;
 }
-.wb .status-ready, .wb .status-building { color: var(--accent); border-color: rgb(198 255 31 / 0.4); }
-window.theme-light .wb .status-ready { border-color: rgb(10 6 20 / 0.12); background: rgb(198 255 31 / 0.18); }
-.wb .status-unbuilt { color: var(--unbuilt); border-color: rgb(255 179 107 / 0.45); }
-.wb .status-no-template, .wb .status-broken { color: var(--danger); border-color: rgb(255 93 122 / 0.4); }
-button.status.status-update {
-  all: unset;
-  padding: 2px 8px;
-  border-radius: 99px;
-  font-size: 11px;
-  color: var(--layer-template);
-  border: 1px solid color-mix(in srgb, var(--layer-template) 50%, transparent);
-  background: color-mix(in srgb, var(--layer-template) 8%, transparent);
-}
-button.status.status-update:hover { background: color-mix(in srgb, var(--layer-template) 18%, transparent); }
-button.icon-button.btn-preview {
-  min-width: 28px;
-  min-height: 26px;
-  border-radius: 8px;
-  box-shadow: inset 0 0 0 1px var(--line-strong);
-}
-button.icon-button.btn-preview > wad-icon { margin: 6px 7px; }
-button.icon-button.btn-preview:hover { box-shadow: inset 0 0 0 1px var(--fg); }
 
-button.btn.add-btn {
-  min-height: 38px;
-  border-radius: 12px;
-  border: 1.5px dashed color-mix(in srgb, var(--kc) 50%, transparent);
-  background: color-mix(in srgb, var(--kc) 5%, transparent);
-  color: color-mix(in srgb, var(--kc) 85%, var(--fg));
-  font-size: 12px;
-}
-button.btn.add-btn:hover { border-color: var(--kc); background: color-mix(in srgb, var(--kc) 12%, transparent); }
-.panel-title-sm {
-  font-family: "Space Grotesk", sans-serif;
-  font-size: 15px;
-  font-weight: 700;
-}
 .rail-note { font-size: 12px; color: var(--muted); }
 
-.wb .bottom-buckets {
-  padding: 9px 12px;
-  border-top: 1px solid var(--line);
-}
-.wb > .bottom-buckets { background: var(--bg-2); }
 button.bucket {
   all: unset;
   min-width: 380px;
@@ -1748,63 +1526,14 @@ button.bucket {
   transition: background-color 150ms, border-color 150ms;
 }
 button.bucket:hover { border-color: color-mix(in srgb, var(--fg) 30%, transparent); }
-button.bucket .bucket-icon { color: var(--accent); }
-button.bucket-delete .bucket-icon { color: var(--accent-2); }
-.bucket-name { font-family: "Space Grotesk", sans-serif; font-size: 14px; font-weight: 700; color: var(--fg); }
-.bucket-small { font-size: 11.5px; color: var(--faint); }
-.bucket-count {
-  padding: 0 7px;
-  border-radius: 99px;
-  font-size: 11px;
-  font-weight: 700;
-  background: var(--accent);
-  color: var(--accent-fg);
-}
-.bucket-count.deleted-count { background: var(--accent-2); }
+
 button.bucket.armed {
   border-style: solid;
   border-color: var(--danger);
   background: rgb(255 93 122 / 0.14);
 }
-button.bucket.armed .bucket-icon { color: var(--danger); }
-button.bucket-build.armed { border-color: var(--accent); background: rgb(198 255 31 / 0.1); }
-button.bucket-build.armed .bucket-icon { color: var(--accent); }
-.deleted-item {
-  padding: 8px;
-  border-radius: 12px;
-  background: var(--surface-2);
-  box-shadow: inset 0 0 0 1px var(--line);
-}
-.empty-note { font-size: 11.5px; color: var(--faint); font-style: italic; }
-.fix-item {
-  padding: 10px 12px;
-  border-radius: 12px;
-  background: var(--surface-2);
-  box-shadow: inset 0 0 0 1px var(--line);
-}
-button.btn.danger-text { color: var(--danger); }
 
-/* In the light theme a blank module is a light placeholder (not a desktop
-   yet): its screen back on the page's colours. */
-window.theme-light .wb .mod.blank-mod .screen,
-window.theme-light .wb .mod.blank-mod .win {
-  --fg: #0a0614;
-  --muted: #5f5f5f;
-  --faint: #9a9a9a;
-  --line: rgb(10 6 20 / 0.09);
-  --line-strong: rgb(10 6 20 / 0.18);
-  --layer-template: #1679b8;
-  --layer-extensions: #4d7a00;
-  --layer-customization: #d81b60;
-  color: var(--fg);
-}
-window.theme-light .wb .mod.blank-mod .screen-extensions { background: color-mix(in srgb, #4d7a00 6%, #ffffff); }
-window.theme-light .wb .mod.blank-mod .screen-customization { background: color-mix(in srgb, #d81b60 5%, #ffffff); }
-window.theme-light .wb .mod.blank-mod wad-wallpaper.screen-wall { opacity: 0; }
-window.theme-light .wb .mod.blank-mod .taskbar { background: transparent; border-top: 1px dashed var(--line-strong); }
-window.theme-light .wb .mod.blank-mod .win.blank,
-window.theme-light .wb .mod.blank-mod .tray.prompt { background: rgb(255 255 255 / 0.7); }
-window.theme-light .wb .mod.blank-mod .tray.prompt { color: #d81b60; }
+.empty-note { font-size: 11.5px; color: var(--faint); font-style: italic; }
 
 /* ---------------------------------------------------------------- drag */
 .drag-ghost { opacity: 0.92; filter: drop-shadow(0 18px 30px rgb(0 0 0 / 0.55)); }
@@ -1823,44 +1552,16 @@ window.theme-light .drag-hint.ok { background: #ffffff; color: #0a0a0a; box-shad
 window.theme-light .drag-hint.no { background: #ededed; color: #3a3a3a; box-shadow: inset 0 0 0 1px #6e6e6e; }
 .wb .gap { transition: min-width 220ms; }
 .wb .gap.open { padding: 90px 0 60px 0; }
-.wb .gap-slot {
-  margin: 0 18px;
-  border-radius: 16px;
-  border: 1.5px dashed var(--accent);
-  background: var(--accent-soft);
-  color: var(--accent);
-  font-size: 12.5px;
-}
-.wb .stacks.drop-ok .gap.open .gap-slot { border-style: solid; background: rgb(198 255 31 / 0.24); }
+
 window.is-dragging button.bucket { min-height: 84px; background: rgb(20 10 24 / 0.94); }
 window.theme-light.is-dragging button.bucket { background: rgb(255 255 255 / 0.94); }
-window.is-dragging button.bucket-delete { border-color: rgb(255 61 129 / 0.5); }
-window.is-dragging button.bucket-build { border-color: rgb(198 255 31 / 0.4); }
+
 button.bucket.drop-ok { border-style: solid; }
-button.bucket-delete.drop-ok { border-color: var(--danger); background: rgb(90 16 38 / 0.96); }
-button.bucket-build.drop-ok { border-color: var(--accent); background: rgb(36 54 8 / 0.96); }
-window.theme-light button.bucket-delete.drop-ok { background: color-mix(in srgb, #d81b60 12%, #ffffff); }
-window.theme-light button.bucket-build.drop-ok { background: color-mix(in srgb, #4d7a00 14%, #ffffff); }
+
 button.bucket.drop-no { border-color: var(--no); opacity: 0.7; }
-.wb .stack-col > .stack.drop-ok { border-color: var(--ok); background: var(--accent-soft); }
-.deleted-pop {
-  padding: 12px;
-  border-radius: 16px;
-  border: 1px solid var(--line);
-  background: var(--surface);
-  color: var(--fg);
-  box-shadow: 0 20px 60px -20px var(--shadow);
-}
 
 /* ------------------------------------------------------------- editors */
-/* The Builder's editors (builder.css's editor parts): grown out of a
-   module to fill the window, its layer's colour along the top. */
-.editor-scrim { background: rgb(5 3 10 / 0.6); opacity: 0; transition: opacity 300ms; }
-.editor-scrim.shown { opacity: 1; }
-window.theme-light .editor-scrim { background: rgb(10 6 20 / 0.32); }
-.wb.editor-template { --kc: var(--layer-template); }
-.wb.editor-extensions { --kc: var(--layer-extensions); }
-.wb.editor-customization { --kc: var(--layer-customization); }
+
 .wb.editor {
   border-radius: 18px;
   background: var(--surface);
@@ -1869,28 +1570,8 @@ window.theme-light .editor-scrim { background: rgb(10 6 20 / 0.32); }
   transition: border-radius 320ms;
 }
 .wb.editor:not(.open) { border-radius: 12px; }
-.wb .editor-head { padding: 14px 16px 12px 20px; border-bottom: 1px solid var(--line); }
-.wb .editor-icon {
-  min-width: 38px;
-  min-height: 38px;
-  border-radius: 10px;
-  color: var(--kc);
-  background: color-mix(in srgb, var(--kc) 14%, transparent);
-}
-.wb .editor-kind {
-  font-family: "Space Grotesk", sans-serif;
-  font-size: 10.5px;
-  font-weight: 600;
-  letter-spacing: 0.07em;
-  color: var(--kc);
-}
-.wb .editor-title { font-family: "Space Grotesk", sans-serif; font-size: 20px; font-weight: 700; }
-.wb.editor:not(.open) .editor-title { font-size: 14px; }
-.wb .editor-body { opacity: 0; transition: opacity 180ms; }
-.wb.editor.open .editor-body { opacity: 1; }
+
 .wb .name-clash { color: var(--danger); font-size: 12px; }
-.wb .fork-note { color: var(--unbuilt); font-size: 12px; }
-.wb button.btn.btn-mini { box-shadow: inset 0 0 0 1px var(--unbuilt); color: var(--unbuilt); }
 
 .wb .panel {
   padding: 14px;
@@ -1898,44 +1579,16 @@ window.theme-light .editor-scrim { background: rgb(10 6 20 / 0.32); }
   border: 1px solid var(--line);
   background: var(--bg-2);
 }
-.wb .panel.focused { border-color: var(--kc); }
+
 .wb scrolledwindow.panel { padding: 0; }
 .wb scrolledwindow.panel > viewport > box { padding: 14px; }
 .wb .field { margin-bottom: 10px; }
-.wb .field-name { font-size: 11px; color: var(--faint); letter-spacing: 0.06em; }
+
 .wb .group-label { font-size: 11px; color: var(--faint); letter-spacing: 0.06em; font-weight: 600; }
-.wb scrolledwindow.textarea {
-  padding: 8px 12px;
-  border-radius: 12px;
-  background: var(--surface-2);
-  box-shadow: inset 0 0 0 1px var(--line);
-}
-.wb scrolledwindow.textarea textview, .wb scrolledwindow.textarea textview > text {
-  background: transparent;
-  color: var(--fg);
-  font-size: 14px;
-}
-.wb scrolledwindow.textarea:focus-within { box-shadow: inset 0 0 0 2px var(--accent); }
+
 .wb .faint { color: var(--faint); }
 .wb .small { font-size: 11.5px; }
-.wb .warn-note { color: #ffb36b; font-size: 12px; }
-window.theme-light .wb .warn-note { color: var(--unbuilt); }
-.wb .warn-note.block { margin-top: 12px; padding: 8px 10px; border: 1px dashed #ffb36b; border-radius: 10px; }
-.wb .chain-note { color: var(--layer-template); font-size: 12px; }
-window.theme-light .wb .chain-note { color: #1679b8; }
 
-/* The template editor: apps, the desktop, the picked app. */
-.wb .tpl-editor, .wb .ext-editor { padding: 14px; }
-.wb .palette-app {
-  padding: 8px 4px;
-  border-radius: 10px;
-  border: 1px solid var(--line);
-  background: var(--surface);
-  font-size: 11px;
-}
-.wb .palette-app:hover { border-color: var(--layer-template); }
-.wb .palette-app.on { opacity: 0.35; }
-.wb .palette-app.on:hover { border-color: var(--line); }
 .wb scrolledwindow.palette.drop-ok { outline: 2px solid var(--ok); outline-offset: -2px; }
 .wb scrolledwindow.palette.drop-no { outline: 2px solid var(--no); outline-offset: -2px; }
 .wb scrolledwindow.palette.drop-could { outline: 1.5px dashed rgb(198 255 31 / 0.45); outline-offset: -2px; }
@@ -1948,109 +1601,19 @@ window.theme-light .wb .chain-note { color: #1679b8; }
   color: #f5f2fa;
 }
 .wb .desktop.drop-ok { outline: 2px solid var(--layer-template); outline-offset: -2px; }
-.wb .desk-cell { border-radius: 10px; border: 1px dashed transparent; }
-window.is-dragging .wb .desk-cell { border-color: rgb(255 255 255 / 0.08); }
-.wb .desk-cell.drop-ok { box-shadow: inset 3px 0 0 var(--ok); background: rgb(198 255 31 / 0.06); }
-.wb .desk-cell.next-spot { opacity: 0; font-size: 11px; color: rgb(127 211 255 / 0.7); }
-window.is-dragging .wb .desk-cell.next-spot { opacity: 1; border: 1.5px dashed rgb(127 211 255 / 0.45); }
-window.is-dragging .wb .desktop.drop-ok .desk-cell.next-spot {
-  border-style: solid;
-  border-color: var(--layer-template);
-  background: rgb(127 211 255 / 0.12);
-  color: var(--layer-template);
-}
-.wb .desk-icon {
-  padding: 6px;
-  border-radius: 10px;
-  min-width: 80px;
-  font-size: 11.5px;
-  text-shadow: 0 1px 3px rgb(0 0 0 / 0.9);
-}
-.wb .desk-icon:hover, .wb .desk-icon.picked { background: rgb(255 255 255 / 0.12); }
-.wb .desk-icon.picked { box-shadow: inset 0 0 0 1.5px var(--layer-template); }
-.wb .desk-icon.locked { opacity: 0.5; }
-.wb .desk-icon.locked:hover { background: none; }
-.wb .desk-icon.ghosted { color: #f5f2fa; }
-.wb button.desk-x, .wb button.item-x {
-  all: unset;
-  min-width: 18px;
-  min-height: 18px;
-  border-radius: 99px;
-  background: var(--danger);
-  color: #fff;
-  opacity: 0;
-  transition: opacity 120ms;
-}
-.wb button.desk-x > wad-icon, .wb button.item-x > wad-icon { margin: 4px; }
-.wb .desk-cell:hover button.desk-x, .wb .win-item:hover button.item-x { opacity: 1; }
-.wb .desk-lock {
-  min-width: 17px;
-  min-height: 17px;
-  margin: 2px;
-  border-radius: 99px;
-  background: rgb(10 6 20 / 0.8);
-  color: var(--layer-template);
-}
-.wb .desk-lock > wad-icon { margin: 4px; }
-.wb .desk-taskbar {
-  min-height: 40px;
-  padding: 0 12px;
-  background: rgb(10 6 20 / 0.8);
-}
-.wb .tb-clock { color: rgb(245 242 250 / 0.62); font-size: 12px; }
-.wb .stage-notes { color: var(--faint); font-size: 12px; }
-.wb .app-detail .panel-title-sm { margin-top: 4px; }
-.wb .facts { margin: 6px 0 12px 0; font-size: 12px; }
-.wb .fact-name { color: var(--faint); }
 
-/* The Extensions editor: what to add, and the apps' windows. */
-.wb .pal-section { margin-top: 10px; }
-.wb flowbox.pal-items > flowboxchild, .wb flowbox.win-items > flowboxchild,
-.wb flowbox.members > flowboxchild, .wb flowbox.suggest > flowboxchild { padding: 0; }
-.wb .pal-item {
-  padding-right: 6px;
-  border-radius: 8px;
-  box-shadow: inset 0 0 0 1px var(--line-strong);
-  background: var(--surface-2);
-}
-.wb .pal-item:hover { box-shadow: inset 0 0 0 1px var(--layer-extensions); }
-.wb .pal-plus { color: var(--faint); }
-.wb .pal-item:hover .pal-plus { color: var(--layer-extensions); }
+.wb .facts { margin: 6px 0 12px 0; font-size: 12px; }
+
+.wb flowbox.members > flowboxchild,
+.wb flowbox.suggest > flowboxchild { padding: 0; }
+
 .wb .item { padding: 4px 6px; font-size: 12px; }
 .wb .drag-ghost .item, .drag-ghost .wb .item {
   border-radius: 8px;
   background: var(--surface-2);
   box-shadow: inset 0 0 0 1px var(--layer-extensions);
 }
-.wb .ext-main { padding-left: 2px; }
-.wb .big-win {
-  border-radius: 12px;
-  box-shadow: inset 0 0 0 1px var(--line-strong);
-  background: linear-gradient(160deg, #111a0d, #0b0d10);
-  color: #f5f2fa;
-}
-.wb .big-win.focused { box-shadow: inset 0 0 0 1.5px var(--layer-extensions); }
-.wb .big-win.drop-ok { box-shadow: inset 0 0 0 2px var(--ok); }
-.wb .big-win.drop-no { box-shadow: inset 0 0 0 2px var(--no); }
-.wb .big-win.drop-could { box-shadow: inset 0 0 0 1.5px rgb(198 255 31 / 0.45); }
-.wb .big-win-bar {
-  min-height: 36px;
-  padding: 0 8px 0 12px;
-  border-radius: 12px 12px 0 0;
-  background: #241a39;
-}
-.wb .big-win-app { font-weight: 600; }
-.wb .big-win .win-count { color: rgb(245 242 250 / 0.4); }
-.wb .big-win-body { padding: 12px; min-height: 40px; }
-.wb .big-win .empty-note { color: rgb(245 242 250 / 0.4); }
-.wb .win-item { border-radius: 9px; background: rgb(255 255 255 / 0.06); box-shadow: inset 0 0 0 1px rgb(240 234 250 / 0.09); }
-.wb .win-item button.item-x { margin: -6px -6px 0 0; min-width: 16px; min-height: 16px; }
-.wb .win-item button.item-x > wad-icon { margin: 3px; }
-.wb .segmented.small-seg > button { padding: 3px 8px; font-size: 11px; }
 
-/* The Customization editor: the look, projects and keys. */
-.wb .cz-editor { padding: 14px; }
-.wb .mini-desktop { box-shadow: inset 0 0 0 1px var(--line-strong); }
 .wb .cz-row { padding: 7px 9px; border-radius: 9px; border: 1px solid var(--line); background: var(--surface); }
 .wb .mount-face { font-size: 12px; }
 .wb .proj-name { font-weight: 600; }
@@ -2144,51 +1707,9 @@ popover.key-menu .group-label { font-size: 11px; color: var(--faint); letter-spa
 popover.key-menu .faint { color: var(--faint); }
 popover.key-menu button.menu-item { font-size: 12.5px; }
 
-/* Preview: the finished desktop, nothing launched. */
-.wb.preview {
-  border-radius: 16px;
-  background: var(--surface);
-  color: var(--fg);
-  box-shadow: inset 0 0 0 1px var(--line-strong), 0 30px 90px -20px rgb(0 0 0 / 0.9);
-}
-.wb .preview-head { padding: 10px 12px 10px 16px; border-bottom: 1px solid var(--line); }
-.wb .preview-title { font-family: "Space Grotesk", sans-serif; font-size: 16px; font-weight: 700; }
-.wb .preview-note { font-size: 12px; color: var(--faint); }
-.wb .preview-desktop { border-radius: 0 0 16px 16px; color: #f5f2fa; }
-.wb flowbox.pv-icons > flowboxchild { padding: 0; }
-.wb button.pv-icon {
-  all: unset;
-  padding: 8px 4px;
-  border-radius: 10px;
-  font-size: 12px;
-  color: #f5f2fa;
-  text-shadow: 0 1px 3px rgb(0 0 0 / 0.9);
-}
-.wb button.pv-icon:hover, .wb button.pv-icon.on { background: rgb(255 255 255 / 0.12); }
-.wb .pv-taskbar { min-height: 44px; padding: 0 14px; background: rgb(10 6 20 / 0.82); border-radius: 0 0 16px 16px; }
-.wb button.pv-tb-app { all: unset; padding: 3px; border-radius: 6px; }
-.wb button.pv-tb-app:hover { background: rgb(255 255 255 / 0.1); }
-.wb .pv-tray, .wb .pv-clock { font-size: 12px; color: rgb(245 242 250 / 0.62); }
-.wb .mock-window {
-  border-radius: 12px;
-  background: #140d22;
-  color: #f5f2fa;
-  box-shadow: inset 0 0 0 1px rgb(240 234 250 / 0.18), 0 24px 60px -16px rgb(0 0 0 / 0.9);
-}
-.wb .mw-bar { min-height: 34px; padding: 0 6px 0 12px; border-radius: 12px 12px 0 0; background: #241a39; font-weight: 600; }
-.wb .mw-body { padding: 12px 14px 14px 14px; font-size: 13px; }
-.wb .mw-body .faint { color: rgb(245 242 250 / 0.4); }
-.wb .mw-li { margin-left: 6px; }
-.wb .mw-url { font-family: monospace; font-size: 12px; padding: 6px 10px; border-radius: 8px; background: #0a0614; }
-
-/* Recently deleted: bins, Empty, wadspaces deleted before. */
-button.btn.sure { box-shadow: inset 0 0 0 1px var(--danger); }
-.deleted-name { font-weight: 600; font-size: 13px; }
-
 /* ---------------------------------------------------- the HUD's room */
 /* The HUD's bar is out along the bottom right: what's there sits above it. */
 window.hud-room .toaster { margin-bottom: 68px; }
-window.hud-room .wb > .bottom-buckets { padding-bottom: 61px; }
 
 /* ------------------------------------------------------------ notices */
 button.avatar-button { all: unset; border-radius: 999px; }
@@ -2309,8 +1830,6 @@ button:focus-visible, menubutton > button:focus-visible, checkbutton:focus-visib
 }
 window.theme-light button:focus-visible, window.theme-light menubutton > button:focus-visible,
 window.theme-light checkbutton:focus-visible, window.theme-light switch:focus-visible { outline-color: var(--fg); }
-.wb .stack.first-ws { border: 1.5px dashed var(--line-strong); border-radius: 18px; background: rgb(20 13 34 / 0.35); }
-window.theme-light .wb .stack.first-ws { background: rgb(10 6 20 / 0.03); }
 
 /* ------------------------------------------------------- machine chrome */
 /* A wadspace coming up: a pill along the bottom until it's on screen. */

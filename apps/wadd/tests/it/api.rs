@@ -387,8 +387,10 @@ async fn editing_workspaces_the_library_and_diagnostics() {
     assert!(get(&sock, "/v1/library/browsers/b1").await.1.contains("Mail"));
     assert!(get(&sock, "/v1/library/browsers").await.1.contains("Mail"));
     assert_eq!(send(&sock, "PUT", "/v1/library/secrets/x", "{}").await.0, 404);
-    // Drafts are gone from the Builder.
-    assert_eq!(send(&sock, "PUT", "/v1/library/drafts/d1", "{}").await.0, 404);
+    // The old Builder's are gone.
+    for c in ["drafts", "templates", "extensions", "wadspaces"] {
+        assert_eq!(send(&sock, "PUT", &format!("/v1/library/{c}/d1"), "{}").await.0, 404);
+    }
     assert_eq!(send(&sock, "PUT", "/v1/library/browsers/..", "{}").await.0, 400);
     assert_eq!(request(&sock, "DELETE", "/v1/library/browsers/b1").await.0, 204);
     // Load, diagnostics, logs.

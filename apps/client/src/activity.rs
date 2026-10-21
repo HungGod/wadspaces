@@ -172,7 +172,7 @@ fn draw(tray: &gtk::Box, s: &AppState, narrow: bool) {
             n.set_ellipsize(gtk::pango::EllipsizeMode::End);
             names.append(&n);
             if let Some(layer) = &b.layer {
-                let r = gtk::Label::new(Some(&wad_core::layers::image_ref(layer)));
+                let r = gtk::Label::new(Some(&wad_core::v4::image_ref(layer, wad_core::spec::DEFAULT_BASE_IMAGE)));
                 r.add_css_class("tray-ref");
                 r.set_xalign(0.0);
                 r.set_ellipsize(gtk::pango::EllipsizeMode::End);

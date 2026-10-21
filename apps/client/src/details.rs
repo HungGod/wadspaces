@@ -187,7 +187,7 @@ fn actions(st: &AppState, w: &Value, m: &Modal) -> gtk::Widget {
     grid.upcast()
 }
 
-/// Its templates (bottom first) and Extensions, and how its image stands.
+/// Its templates (top first), and how its image stands.
 fn built_on(st: &AppState, w: &Value) -> gtk::Widget {
     let sec = section("Built on");
     let card = gtk::Box::new(gtk::Orientation::Horizontal, 12);
@@ -197,18 +197,9 @@ fn built_on(st: &AppState, w: &Value) -> gtk::Widget {
     card.append(&i);
     let texts = gtk::Box::new(gtk::Orientation::Vertical, 4);
     texts.set_hexpand(true);
-    let lib = st.library.as_ref().map(|l| l.lib()).unwrap_or_default();
-    let r = wad_core::layers::resolve_stack(&lib, w);
-    let names = if r.is_null() {
-        "No template yet".to_string()
-    } else {
-        let mut n: Vec<String> =
-            r["chain"].as_array().into_iter().flatten().map(|t| s(t, "name").to_string()).collect();
-        if r["extensions"].is_object() {
-            n.push(s(&r["extensions"], "name").to_string());
-        }
-        n.join(" › ")
-    };
+    let r = wad_core::layers::resolve_stack(w);
+    let names: Vec<&str> = r["chain"].as_array().into_iter().flatten().map(|t| s(t, "name")).collect();
+    let names = if names.is_empty() { "No template yet".to_string() } else { names.join(" › ") };
     let l = gtk::Label::new(Some(&names));
     l.add_css_class("strong");
     l.set_xalign(0.0);
@@ -235,14 +226,14 @@ fn built_on(st: &AppState, w: &Value) -> gtk::Widget {
     sec.append(&card);
 
     let key = wad_core::layers::stack_image_key(w);
-    if !r.is_null() && !key.is_empty() {
+    if !key.is_empty() {
         let building = st.builds.iter().any(|(b, _)| !b.status.finished() && b.layer.as_deref() == Some(key.as_str()));
         let (rw, bw) = (state_row.downgrade(), build.downgrade());
         glib::spawn_future_local(async move {
             let rows = get::<Vec<ImageRow>>("/v1/images".into()).await.unwrap_or_default();
             let images: HashMap<String, ImageRow> = rows.into_iter().map(|r| (r.layer.clone(), r)).collect();
             let (Some(row), Some(build)) = (rw.upgrade(), bw.upgrade()) else { return };
-            let state = launch::image_state(&key, &lib, &images);
+            let state = launch::image_state(&key, &images);
             let text = if building {
                 "Building".to_string()
             } else {
@@ -254,7 +245,6 @@ fn built_on(st: &AppState, w: &Value) -> gtk::Widget {
                         _ => "Built".into(),
                     },
                     ImageState::Update => "Update available".into(),
-                    ImageState::Changed => "Changed since built".into(),
                     ImageState::Never => "Not built".into(),
                 }
             };
