@@ -1,8 +1,5 @@
-//! Builder B (design B: ../ui-mockup-pieces/src/spikes/B-Buckets.tsx), the
-//! Builder when it's chosen (Try design B on the old board, kept in
-//! ~/.config/wadspaces/builder; WADSPACES_BUILDER=b or =old wins) until it
-//! takes the old board's place:
-//! one machine's version 4 wadspaces in a row, each a Customizations bucket
+//! The Builder (design B, the UI spikes' buckets): one machine's version 4
+//! wadspaces in a row, each a Customizations bucket
 //! (its desktop: background, projects, keys) over a Templates bucket (its
 //! own templates: apps with what they take); the machines along the bottom;
 //! the open wadspace's sidebar on the right.
@@ -27,38 +24,6 @@ use self::state::{Standing, Tab};
 use crate::drag;
 use crate::store::{AppState, Topic, store};
 use crate::ui::{self, Size, Variant};
-
-/// Where the choice is kept (beside the theme).
-fn choice_file() -> std::path::PathBuf {
-    wad_gtk::theme::file().with_file_name("builder")
-}
-
-/// Builder B is the Builder: WADSPACES_BUILDER says (b or old), else the
-/// choice kept.
-pub fn enabled() -> bool {
-    match std::env::var("WADSPACES_BUILDER").as_deref() {
-        Ok("b") => true,
-        Ok("old") => false,
-        _ => std::fs::read_to_string(choice_file()).is_ok_and(|t| t.trim() == "b"),
-    }
-}
-
-/// Builder B chosen (or the old board again): kept, and shown at once.
-pub fn choose(on: bool) {
-    let file = choice_file();
-    let done = if on {
-        file.parent().map(std::fs::create_dir_all).transpose().and_then(|_| std::fs::write(&file, "b\n"))
-    } else {
-        match std::fs::remove_file(&file) {
-            Err(e) if e.kind() != std::io::ErrorKind::NotFound => Err(e),
-            _ => Ok(()),
-        }
-    };
-    if let Err(e) = done {
-        tracing::warn!("{}: {e}", file.display());
-    }
-    super::show_chosen();
-}
 
 thread_local! {
     /// The page's way to show the open wadspace (set when it's made).
@@ -173,6 +138,7 @@ pub fn page() -> gtk::Widget {
     row.set_valign(gtk::Align::Start);
     row.set_halign(gtk::Align::Start);
     let scroll = gtk::ScrolledWindow::new();
+    crate::tour::target("board", &scroll);
     scroll.add_css_class("wbb-board");
     scroll.set_vexpand(true);
     scroll.set_hexpand(true);
@@ -291,6 +257,7 @@ fn topbar() -> (gtk::Box, Page) {
     bar.append(&deleted);
 
     let build_all = ui::button("Build all", Some("hammer"), Variant::Ghost, Size::Sm);
+    crate::tour::target("build", &build_all);
     build_all.add_css_class("wb-ghost");
     build_all.connect_clicked(|_| {
         let ids = store().read_now(|s| {
@@ -321,10 +288,6 @@ fn topbar() -> (gtk::Box, Page) {
     undo.set_tooltip_text(Some("Undo (Ctrl+Z)"));
     undo.connect_clicked(|_| state::undo());
     bar.append(&undo);
-    let old = ui::button("Old Builder", None, Variant::Ghost, Size::Sm);
-    old.set_tooltip_text(Some("Back to the board of templates and Extensions (your version 3 wadspaces)"));
-    old.connect_clicked(|_| choose(false));
-    bar.append(&old);
     let p = Page {
         row: gtk::Box::new(gtk::Orientation::Horizontal, 0),
         machines: gtk::Box::new(gtk::Orientation::Vertical, 0),
@@ -538,14 +501,18 @@ fn draw_row(s: &AppState, row: &gtk::Box) {
     }
     // A machine with none: a blank one to fill in.
     if list.is_empty() {
-        row.append(&buckets::blank(&shown));
+        let blank = buckets::blank(&shown);
+        crate::tour::target("create", &blank);
+        row.append(&blank);
         return;
     }
     for w in &list {
         row.append(&buckets::gap(&shown, &w.id));
         row.append(&buckets::column(s, w));
     }
-    row.append(&buckets::open_board(&shown));
+    let open = buckets::open_board(&shown);
+    crate::tour::target("create", &open);
+    row.append(&open);
 }
 
 /// Drags made by hand (the snapshots).

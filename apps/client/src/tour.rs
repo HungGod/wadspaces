@@ -25,7 +25,7 @@ pub enum Step {
 /// What the Builder and the launcher tell the tour.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Event {
-    StackCreated,
+    WadspaceMade,
     BuildStarted,
     LauncherOpened,
 }
@@ -69,22 +69,22 @@ fn copy(s: Step, who: &str) -> (String, &'static str, Option<&'static str>) {
     match s {
         Step::Nav => (
             format!("Welcome to WadSpaces, {who}!"),
-            "Wadspaces are made in the Builder, as stacks of modules: a template (its apps), maybe Extensions (how they're set up), then its Customization (name, background, projects and keys). Let's make your first one.",
+            "Wadspaces are made in the Builder: each its Customizations (its background, projects and keys) over its Templates (its apps and what they take), on one machine. Let's make your first one.",
             None,
         ),
         Step::Board => (
             "The board".into(),
-            "Each stack is a wadspace. Drag a module (and what's on it) onto another stack to copy it there, Shift+drag to take just one, or drop it between stacks for a new one. Click a module to edit it.",
-            Some("A template can sit on another whose apps it all has: it builds on that one's image."),
+            "This machine's wadspaces, your other machines along the bottom. Drag a template (and those under it) onto another wadspace to copy it there, Shift+drag for just it, or onto a machine for a new wadspace there. Click a wadspace to open it in the sidebar.",
+            Some("Recently deleted (the clock, top right) keeps what's taken out, to put back."),
         ),
         Step::Create => (
-            "Make a stack".into(),
-            "+ Create puts a new stack at the end of the board with a blank template. Click it to pick its apps.",
+            "Make a wadspace".into(),
+            "Click the space at the end of the row for a new wadspace, with an empty template: then pick its apps in the sidebar.",
             None,
         ),
         Step::Build => (
             "Build it".into(),
-            "The Build bucket builds every stack that needs it (or drop one stack on it). Its images are built on your machine; a stack shows when it's out of date.",
+            "Build all builds every wadspace here that needs it (Ctrl+click picks some, for Build selected). A wadspace says when it's out of date.",
             None,
         ),
         Step::Launch => (
@@ -98,7 +98,7 @@ fn copy(s: Step, who: &str) -> (String, &'static str, Option<&'static str>) {
 #[derive(Default)]
 struct State {
     step: Option<Step>,
-    /// The step whose action was done (a stack made).
+    /// The step whose action was done (a wadspace made).
     created: bool,
     /// The tour's been started this run (it starts once by itself).
     started: bool,
@@ -222,10 +222,10 @@ pub fn finish() {
     });
 }
 
-/// The Builder made a stack, started a build, the launcher opened.
+/// The Builder made a wadspace, started a build, the launcher opened.
 pub fn signal(e: Event) {
     match (with(|s| s.step), e) {
-        (Some(Step::Create), Event::StackCreated) => {
+        (Some(Step::Create), Event::WadspaceMade) => {
             with(|s| s.created = true);
             next();
         }

@@ -314,7 +314,7 @@ fn fill_menu(menu: &gtk::Popover) {
         t.set_xalign(0.0);
         t.set_ellipsize(gtk::pango::EllipsizeMode::End);
         texts.append(&t);
-        let b = gtk::Label::new(Some(&format!("{} · {}", n.body, crate::pages::builder::state::time_ago(n.at))));
+        let b = gtk::Label::new(Some(&format!("{} · {}", n.body, crate::pages::ago_ms(n.at))));
         b.add_css_class("notice-body");
         b.set_xalign(0.0);
         b.set_ellipsize(gtk::pango::EllipsizeMode::End);

@@ -9,13 +9,11 @@ use std::rc::{Rc, Weak};
 use gtk::{glib, prelude::*};
 use serde_json::{Value, json};
 use wad_board::catalog::{BrowserItem, KeyApp, KeyLine};
-use wad_board::{KeyGroup, uid};
 use wad_gtk::Icon;
 use wad_wadd_client::Method;
 
+use super::{ghost, group_label, img, menu_opened};
 use crate::drag::{self, Mods, Payload, Target, Verdict};
-use crate::pages::builder::editor::{group_label, menu_opened};
-use crate::pages::builder::faces::{self, img};
 use crate::pages::machines::send;
 use crate::signins;
 use crate::store::store;
@@ -80,40 +78,6 @@ fn known() -> Vec<Value> {
 
 fn apps_word(n: usize) -> String {
     if n == 1 { "it".into() } else { format!("these {n}") }
-}
-
-/// WadBrowser's apps move to another group (or a new one). A group they
-/// leave empty goes; an empty group made with New group stays until it's
-/// filled or removed.
-pub fn regrouped(groups: &[KeyGroup], members: &[String], to: Option<&str>, new_id: &str) -> Vec<KeyGroup> {
-    let moved: Vec<KeyGroup> = groups
-        .iter()
-        .map(|g| KeyGroup {
-            members: g.members.iter().filter(|m| !members.contains(m)).cloned().collect(),
-            ..g.clone()
-        })
-        .collect();
-    let next: Vec<KeyGroup> = match to {
-        Some(to) => moved
-            .into_iter()
-            .map(|mut g| {
-                if g.id == to {
-                    g.members.extend(members.iter().cloned());
-                }
-                g
-            })
-            .collect(),
-        None => {
-            let mut m = moved;
-            m.push(KeyGroup { id: new_id.into(), members: members.to_vec(), key: None });
-            m
-        }
-    };
-    next.into_iter()
-        .enumerate()
-        .filter(|(i, g)| !g.members.is_empty() || groups.get(*i).is_some_and(|o| o.members.is_empty()))
-        .map(|(_, g)| g)
-        .collect()
 }
 
 fn regroup(host: &Rc<dyn Host>, keys: &Keys, members: &[String], to: Option<&str>) {
@@ -263,7 +227,7 @@ fn member(host: &Rc<dyn Host>, keys: &Rc<Keys>, m: &BrowserItem, group: &str) ->
     drag::draggable(&f, move |_| {
         let picked = k.picked.borrow().clone();
         let members = if picked.contains(&mm.id) { picked } else { vec![mm.id.clone()] };
-        let ghost = faces::ghost(&member_face(&mm, true, members.len()));
+        let ghost = ghost(&member_face(&mm, true, members.len()));
         Some((Payload::Member { members, group: g.clone() }, ghost))
     });
     let click = gtk::GestureClick::new();
@@ -615,41 +579,5 @@ impl Target for NewGroupTarget {
         if let Payload::Member { members, .. } = p {
             with(&self.host, |h| regroup(h, &self.keys, members, None));
         }
-    }
-}
-
-/// A new group's id (the old board's documents keep these).
-pub fn new_group_id() -> String {
-    uid("group")
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn g(id: &str, members: &[&str]) -> KeyGroup {
-        KeyGroup { id: id.into(), members: members.iter().map(|s| s.to_string()).collect(), key: None }
-    }
-
-    fn ids(gs: &[KeyGroup]) -> Vec<(String, Vec<String>)> {
-        gs.iter().map(|g| (g.id.clone(), g.members.clone())).collect()
-    }
-
-    #[test]
-    fn apps_move_between_key_groups() {
-        let groups = vec![g("a", &["browser", "web:gmail"]), g("b", &["web:github"]), g("empty", &[])];
-        // Into another group: the one it leaves empty goes; the empty one made by hand stays.
-        let r = regrouped(&groups, &["web:github".into()], Some("a"), "n");
-        assert_eq!(
-            ids(&r),
-            vec![
-                ("a".into(), vec!["browser".into(), "web:gmail".into(), "web:github".into()]),
-                ("empty".into(), vec![])
-            ]
-        );
-        // Into a new group of their own.
-        let r = regrouped(&groups, &["browser".into()], None, "n");
-        assert_eq!(r.last().map(|g| (g.id.as_str(), g.members.clone())), Some(("n", vec!["browser".to_string()])));
-        assert_eq!(r.len(), 4);
     }
 }

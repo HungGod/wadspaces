@@ -214,23 +214,6 @@ pub async fn set_onboarded() -> Result<(), String> {
     Ok(())
 }
 
-/// A document (`collection`: "templates", "extensions", "wadspaces") as
-/// the library here has it now.
-pub fn put_in_library(collection: &str, doc: serde_json::Value) {
-    store().update(|s| match s.library.as_mut() {
-        Some(l) => {
-            let list = match collection {
-                "templates" => &mut l.templates,
-                "extensions" => &mut l.extensions,
-                _ => l.wadspaces_for(&doc),
-            };
-            put(list, doc);
-            Topic::LIBRARY
-        }
-        None => Topic::NONE,
-    });
-}
-
 /// A file of the signed-in person's on this machine (None: no one's in).
 pub fn data_file(name: &str) -> Option<std::path::PathBuf> {
     account().and_then(|a| a.data_file(name))
@@ -447,9 +430,7 @@ pub fn sign_out() {
         Topic::ACCOUNT | Topic::LIBRARY
     });
     // Nothing of theirs stays for whoever signs in next.
-    crate::pages::builder::editor::cancel();
-    crate::pages::builder::preview::close();
-    crate::pages::builder::state::reset();
+    crate::pages::builder::b::state::reset();
     crate::pages::builder::b::state::reset();
     crate::tour::reset();
     crate::notices::reset();

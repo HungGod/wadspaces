@@ -17,8 +17,7 @@ use wad_gtk::Icon;
 use super::buckets::{self, act, extra_face, ghost};
 use super::state::{self, Tab};
 use crate::drag::{self, Payload};
-use crate::pages::builder::editor::extensions::{COMMON, site_webapp};
-use crate::pages::builder::faces::img;
+use crate::pages::builder::parts::img;
 use crate::pages::builder::parts::{keys, projects};
 use crate::store::AppState;
 use crate::ui;
@@ -183,6 +182,35 @@ fn web_apps(app: &AppState) -> Vec<Extra> {
         add(Extra { id: id.into(), name: Some(name.into()), url: Some(url.into()), icon_url: None });
     }
     out
+}
+
+/// Web apps worth offering even when no wadspace has them.
+const COMMON: [(&str, &str, &str); 5] = [
+    ("github", "GitHub", "https://github.com"),
+    ("gmail", "Gmail", "https://mail.google.com"),
+    ("google-drive", "Google Drive", "https://drive.google.com"),
+    ("claude", "Claude", "https://claude.ai"),
+    ("youtube", "YouTube", "https://youtube.com"),
+];
+
+/// A site typed in ("notion.so"): a web app named after it.
+fn site_webapp(text: &str) -> Option<Extra> {
+    let text = text.trim();
+    let url = if text.starts_with("http://") || text.starts_with("https://") {
+        text.to_string()
+    } else {
+        format!("https://{text}")
+    };
+    let rest = url.split_once("://")?.1;
+    let host = rest.split(['/', '?', '#']).next()?.rsplit('@').next()?.split(':').next()?.to_lowercase();
+    let host = host.strip_prefix("www.").unwrap_or(&host).to_string();
+    if host.is_empty() || host.contains(char::is_whitespace) {
+        return None;
+    }
+    let first = host.split('.').next()?;
+    let mut name: String = first.chars().take(1).flat_map(char::to_uppercase).collect();
+    name.push_str(&first.chars().skip(1).collect::<String>());
+    Some(Extra { id: catalog::webapp_id(&name), name: Some(name), url: Some(url), icon_url: None })
 }
 
 /// What each app can take, as the sidebar offers it.
@@ -420,7 +448,7 @@ fn new_web_app(ws: &str) -> gtk::Box {
         let (ws, e) = (ws.to_string(), e.downgrade());
         move || {
             let Some(e) = e.upgrade() else { return };
-            let Some(w) = site_webapp(&e.text()) else {
+            let Some(extra) = site_webapp(&e.text()) else {
                 crate::toast::show(
                     "That isn't a site",
                     Some("Type its address, like notion.so"),
@@ -428,7 +456,6 @@ fn new_web_app(ws: &str) -> gtk::Box {
                 );
                 return;
             };
-            let extra = Extra { id: w.id, name: Some(w.name), url: Some(w.url), icon_url: None };
             act(Op::Drop {
                 payload: Bp::CatalogExtra { app: "wadbrowser".into(), extra },
                 into: ws.clone(),

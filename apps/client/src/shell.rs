@@ -208,7 +208,7 @@ pub fn shell() -> gtk::Widget {
             Page::Home => crate::pages::home::page(),
             Page::Machines => crate::pages::machines::page(),
             Page::Secrets => crate::pages::secrets::page(),
-            Page::Builder => crate::pages::builder::page_either(),
+            Page::Builder => crate::pages::builder::b::page(),
         };
         stack.add_named(&page, Some(p.id()));
     }
@@ -228,7 +228,6 @@ pub fn shell() -> gtk::Widget {
 
     let mut centred: Vec<gtk::Widget> = rows.iter().map(|r| r.clone().upcast()).collect();
     centred.push(profile.clone().upcast());
-    frame.add_overlay(&crate::pages::builder::editor::layer());
     frame.add_overlay(&crate::modal::layer());
     frame.add_overlay(&crate::toast::host());
     frame.add_overlay(&crate::drag::layer());

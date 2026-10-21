@@ -17,8 +17,8 @@ use wad_gtk::Icon;
 
 use super::state::{self, Standing};
 use crate::drag::{self, Mods, Payload, Target, Verdict};
-use crate::pages::builder::faces::{self, img};
 use crate::pages::builder::parts::projects::project_icon;
+use crate::pages::builder::parts::{self, img};
 use crate::store::AppState;
 use crate::ui;
 
@@ -110,7 +110,7 @@ pub fn ghost(icon: &str, text: &str) -> gtk::Widget {
         b.append(&img(icon, 16));
     }
     b.append(&gtk::Label::new(Some(text)));
-    faces::ghost(&b)
+    parts::ghost(&b)
 }
 
 /// Templates in a pile, as they'd be carried.
@@ -124,7 +124,7 @@ fn pile_ghost(names: &[String]) -> gtk::Widget {
         bar.append(&gtk::Label::new(Some(n)));
         b.append(&bar);
     }
-    faces::ghost(&b)
+    parts::ghost(&b)
 }
 
 /// Picks `p` on Ctrl+click (and nothing under it hears the click).

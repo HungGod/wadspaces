@@ -14,43 +14,15 @@ use std::rc::Rc;
 use std::time::Duration;
 
 use gtk::{glib, graphene, prelude::*};
-use wad_board::board::{From, SubFrom};
-use wad_board::{AnySub, Module, WebApp};
 
 /// What's being dragged.
 #[derive(Debug, Clone)]
 pub enum Payload {
-    Modules {
-        modules: Vec<Module>,
-        from: From,
-    },
-    Sub {
-        sub: AnySub,
-        from: SubFrom,
-    },
-    /// A catalog app (the template editor); `at` when it's on the desktop.
-    App {
-        app_id: String,
-        at: Option<usize>,
-    },
-    /// One thing an app is set up with (the Extensions editor).
-    Item(Item),
     /// WadBrowser's apps (one, or several Ctrl+clicked) moving between key
-    /// groups (the Customization editor).
-    Member {
-        members: Vec<String>,
-        group: String,
-    },
-    /// Something of Builder B's board, or from its sidebar.
+    /// groups (a wadspace's keys).
+    Member { members: Vec<String>, group: String },
+    /// Something of the Builder's board, or from its sidebar.
     B(wad_board::b::Payload),
-}
-
-/// What an app is set up with: a web app, a VS Code extension, a tool.
-#[derive(Debug, Clone, PartialEq)]
-pub enum Item {
-    WebApp(WebApp),
-    Extension(String),
-    Tool(String),
 }
 
 /// What a drop here does ("Copy to VanuaAcademy"), or why it can't.
@@ -379,14 +351,6 @@ fn moved(p: (f64, f64), mods: Mods) {
     }
 }
 
-/// Asks the target under the pointer again (it changed its mind without
-/// the pointer moving: a gap opened).
-pub fn refresh() {
-    if let Some(a) = ACTIVE.with(|x| x.borrow().clone()) {
-        update(&a);
-    }
-}
-
 fn update(a: &Rc<Active>) {
     let Some(layer) = the_layer() else { return };
     let Some(frame) = layer.parent() else { return };
@@ -433,11 +397,8 @@ fn update(a: &Rc<Active>) {
         None => (
             None,
             match a.payload {
-                Payload::Modules { .. } | Payload::Sub { .. } => {
-                    "Drop on a stack to copy it there · right-click to cancel"
-                }
                 Payload::B(_) => "Drop on a wadspace, or on a machine below · right-click to cancel",
-                _ => "Right-click to cancel",
+                Payload::Member { .. } => "Right-click to cancel",
             },
         ),
     };

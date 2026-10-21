@@ -130,8 +130,8 @@ fn heading(st: &AppState, w: &Value) -> gtk::Widget {
     }
     let row = gtk::Box::new(gtk::Orientation::Horizontal, 6);
     row.set_margin_top(8);
-    if let Some(ms) = crate::pages::builder::state::iso_ms(s(w, "updatedAt")) {
-        row.append(&badge(&format!("Updated {}", crate::pages::builder::state::time_ago(ms)), false));
+    if let Some(ms) = crate::pages::iso_ms(s(w, "updatedAt")) {
+        row.append(&badge(&format!("Updated {}", crate::pages::ago_ms(ms)), false));
     }
     row.append(&badge(s(w, "id"), true));
     b.append(&row);
@@ -170,33 +170,20 @@ fn actions(st: &AppState, w: &Value, m: &Modal) -> gtk::Widget {
         mm.close();
         crate::launcher::customize(&i);
     });
-    let v4 = wad_core::v4::is_v4(w);
     let (i, mm) = (id.clone(), m.clone());
     edit.connect_clicked(move |_| {
         mm.close();
-        if v4 {
-            crate::pages::builder::b::show_wadspace(&i, false);
-        } else {
-            crate::pages::builder::show_stack(&i, false);
-        }
+        crate::pages::builder::b::show_wadspace(&i, false);
     });
     let (i, mm) = (id, m.clone());
     copy.connect_clicked(move |_| {
         mm.close();
-        if v4 {
-            crate::pages::builder::b::show_wadspace(&i, true);
-        } else {
-            crate::pages::builder::show_stack(&i, true);
-        }
+        crate::pages::builder::b::show_wadspace(&i, true);
     });
     grid.attach(&open, 0, 0, 1, 1);
     grid.attach(&customize, 1, 0, 1, 1);
-    // A version 4 wadspace is edited and copied on design B's board (the
-    // old one has version 3's).
-    if !v4 || crate::pages::builder::b::enabled() {
-        grid.attach(&edit, 0, 1, 1, 1);
-        grid.attach(&copy, 1, 1, 1, 1);
-    }
+    grid.attach(&edit, 0, 1, 1, 1);
+    grid.attach(&copy, 1, 1, 1, 1);
     grid.upcast()
 }
 
@@ -262,7 +249,7 @@ fn built_on(st: &AppState, w: &Value) -> gtk::Widget {
                 match state {
                     ImageState::Built => match images.get(&key) {
                         Some(i) if i.built_at > 0.0 => {
-                            format!("Built {}", crate::pages::builder::state::time_ago(i.built_at * 1000.0))
+                            format!("Built {}", crate::pages::ago_ms(i.built_at * 1000.0))
                         }
                         _ => "Built".into(),
                     },
@@ -414,19 +401,17 @@ fn confirm_delete(w: &Value, drawer: Option<&Modal>) {
     m.body().append(&row);
 }
 
-fn delete(mut w: Value, name: String) {
+/// Deleted on the board (it waits in Recently deleted), with Undo.
+fn delete(w: Value, name: String) {
+    use wad_board::b::{Op, Pick};
     let id = s(&w, "id").to_string();
-    let now = launch::now_iso();
-    w["deletedAt"] = now.clone().into();
-    w["updatedAt"] = now.into();
-    glib::spawn_future_local(async move {
-        if let Err(e) = crate::account::write_doc("wadspaces", w.clone()).await {
-            crate::toast::error("Can't delete it", &e);
-            return;
-        }
-        crate::account::put_in_library("wadspaces", w);
-        crate::toast::with_action(&format!("Deleted {name}"), crate::toast::Tone::Info, "Undo", move || {
-            crate::pages::builder::state::restore_wadspace(id.clone());
-        });
-    });
+    let state = crate::pages::builder::b::state::apply;
+    match state(Op::Delete { picks: vec![Pick::Wadspace { ws: id.clone() }] }) {
+        Err(e) => crate::toast::error("Can't delete it", &e),
+        Ok(()) => crate::toast::with_action(&format!("Deleted {name}"), crate::toast::Tone::Info, "Undo", move || {
+            if let Err(e) = state(Op::Restore { ws: id.clone() }) {
+                crate::toast::error("Couldn't restore it", &e);
+            }
+        }),
+    }
 }

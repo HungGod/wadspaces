@@ -18,7 +18,7 @@ use wad_proto::v1::{Browse, CopyMade, Project, ProjectSource};
 use wad_wadd_client::Method;
 
 use super::faint;
-use crate::pages::builder::editor::{group_label, note};
+use super::{group_label, note};
 use crate::pages::machines::{get, send};
 use crate::store::store;
 use crate::ui::{self, Size, Variant};

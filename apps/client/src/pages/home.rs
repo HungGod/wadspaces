@@ -629,7 +629,7 @@ fn wadspace_card(s: &AppState, w: &Value) -> gtk::Widget {
     let edit = half("pencil", "Edit", "card-edit");
     edit.set_tooltip_text(Some(&format!("Edit {name} in the Builder")));
     let i = id.clone();
-    edit.connect_clicked(move |_| crate::pages::builder::show_stack(&i, false));
+    edit.connect_clicked(move |_| crate::pages::builder::b::show_wadspace(&i, false));
     actions.append(&edit);
     pic.add_overlay(&actions);
     // Stream it to a browser: a small pill in its corner, shown with the

@@ -59,7 +59,7 @@ fn machines(s: &AppState) -> Vec<Shown> {
                 "Online".into()
             } else {
                 match m.last_seen {
-                    Some(t) => format!("Offline · seen {}", crate::pages::builder::state::time_ago(t * 1000.0)),
+                    Some(t) => format!("Offline · seen {}", crate::pages::ago_ms(t * 1000.0)),
                     None => "Offline".into(),
                 }
             },

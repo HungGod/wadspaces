@@ -175,12 +175,18 @@ pub fn apply(op: Op) -> Result<(), String> {
 /// Edits made as one (one Undo).
 pub fn apply_all(ops: Vec<Op>) -> Result<(), String> {
     let now = launch::now_iso();
-    let r = write(|s| {
+    let live = |s: &State| s.board.wadspaces.iter().filter(|w| !w.deleted()).count();
+    let (r, made) = write(|s| {
         s.board.now = now;
-        s.board.apply_all(&ops)
+        let before = live(s);
+        let r = s.board.apply_all(&ops);
+        (r, live(s) > before)
     });
     if r.is_ok() {
         save();
+        if made {
+            crate::tour::signal(crate::tour::Event::WadspaceMade);
+        }
     }
     changed();
     r
@@ -350,6 +356,7 @@ pub fn standing(s: &AppState, w: &Wadspace) -> Standing {
 /// as a command its relay runs (it reads the saved document, so after the
 /// board's writes).
 pub fn build(ids: Vec<String>) {
+    crate::tour::signal(crate::tour::Event::BuildStarted);
     glib::spawn_future_local(async move {
         for _ in 0..50 {
             if read(|s| s.pending == 0) {

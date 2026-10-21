@@ -13,7 +13,7 @@ use wad_gtk::Icon;
 use super::buckets::{self, act, app_icon, app_name, projects_of, texture_name, texture_of};
 use super::state;
 use crate::drag::{self, Payload};
-use crate::pages::builder::faces::img;
+use crate::pages::builder::parts::img;
 use crate::pages::builder::parts::projects::{project_icon, project_text};
 use crate::store::AppState;
 use crate::ui::{self, Size, Variant};
@@ -26,7 +26,7 @@ fn s<'a>(v: &'a Value, k: &str) -> &'a str {
 fn ago(iso: &str) -> String {
     glib::DateTime::from_iso8601(iso, None)
         .ok()
-        .map(|t| crate::pages::builder::state::time_ago(t.to_unix() as f64 * 1000.0))
+        .map(|t| crate::pages::ago_ms(t.to_unix() as f64 * 1000.0))
         .unwrap_or_default()
 }
 

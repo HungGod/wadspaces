@@ -72,7 +72,7 @@ fn window(app: &gtk::Application, args: &Args) -> gtk::ApplicationWindow {
     let keys = gtk::EventControllerKey::new();
     keys.set_propagation_phase(gtk::PropagationPhase::Capture);
     keys.connect_key_pressed(|_, key, _, _| {
-        if key == gtk::gdk::Key::Escape && (crate::modal::escape() || crate::pages::builder::editor::escape()) {
+        if key == gtk::gdk::Key::Escape && (crate::modal::escape() || crate::pages::builder::parts::escape()) {
             return glib::Propagation::Stop;
         }
         glib::Propagation::Proceed
@@ -325,9 +325,9 @@ fn snapshot(w: &gtk::ApplicationWindow, dir: std::path::PathBuf) {
         crate::tour::finish();
         crate::shell::go(crate::shell::Page::Home);
         crate::notices::notify(
-            "Cosmic Bodybuilding is built",
+            "IntelligenceQuest is built",
             "Its image is ready on the machine",
-            Some("cosmic-bodybuilding".into()),
+            Some("intelligencequest".into()),
         );
         settle(700).await;
         shot(&w, &dir.join("notice-dark.png"));
@@ -339,11 +339,9 @@ fn snapshot(w: &gtk::ApplicationWindow, dir: std::path::PathBuf) {
         }
         crate::modal::escape();
         // (A version 4 one's picker draws a dozen textures, in each theme.)
-        for (entry, name, ms) in [
-            ("w:vanua-academy", "launcher-customize", 900),
-            ("w:intelligencequest", "launcher-customize-v4", 2500),
-            ("b:wadbrowser", "launcher-browser", 900),
-        ] {
+        for (entry, name, ms) in
+            [("w:intelligencequest", "launcher-customize", 2500), ("b:wadbrowser", "launcher-browser", 900)]
+        {
             crate::launcher::customize(entry);
             for t in [wad_gtk::Theme::Dark, wad_gtk::Theme::Light] {
                 wad_gtk::theme::set(&display, t);
@@ -374,8 +372,8 @@ fn snapshot(w: &gtk::ApplicationWindow, dir: std::path::PathBuf) {
         crate::pages::machines::pick("m-desk");
         settle(800).await;
         shot(&w, &dir.join("machines-other-dark.png"));
-        // A wadspace's details, version 3's and version 4's.
-        for (id, name) in [("vanua-academy", "details"), ("intelligencequest", "details-v4")] {
+        // A wadspace's details.
+        for (id, name) in [("intelligencequest", "details")] {
             crate::details::open(id);
             for t in [wad_gtk::Theme::Dark, wad_gtk::Theme::Light] {
                 wad_gtk::theme::set(&display, t);
@@ -391,85 +389,7 @@ fn snapshot(w: &gtk::ApplicationWindow, dir: std::path::PathBuf) {
             settle(1000).await;
             shot(&w, &dir.join(format!("builder-{}.png", t.name())));
         }
-        if crate::pages::builder::b::enabled() {
-            builder_b(&w, &dir).await;
-        } else {
-            // A drag: over another stack, over Delete, then into a new stack.
-            wad_gtk::theme::set(&display, wad_gtk::Theme::Dark);
-            settle(300).await;
-            if crate::pages::builder::sim::pick_up("cosmic-bodybuilding") {
-                crate::pages::builder::sim::over_stack("vanua-academy");
-                settle(400).await;
-                shot(&w, &dir.join("builder-drag-stack-dark.png"));
-                crate::pages::builder::sim::over_delete();
-                settle(400).await;
-                shot(&w, &dir.join("builder-drag-delete-dark.png"));
-                crate::pages::builder::sim::drop_after_last();
-                settle(900).await;
-                shot(&w, &dir.join("builder-dropped-dark.png"));
-            }
-            // The editors: a template's, Extensions' (open on WadBrowser) and a
-            // Customization's; a Customization open on its keys; Extensions set
-            // up new.
-            use crate::pages::builder::editor;
-            use wad_board::Layer;
-            for (layer, focus, name) in [
-                (Layer::Template, None, "builder-template"),
-                (Layer::Extensions, Some("wadbrowser"), "builder-extensions"),
-                (Layer::Customization, None, "builder-customization"),
-            ] {
-                if editor::sim::open("vanua-academy", layer, focus) {
-                    for t in [wad_gtk::Theme::Dark, wad_gtk::Theme::Light] {
-                        wad_gtk::theme::set(&display, t);
-                        settle(1000).await;
-                        shot(&w, &dir.join(format!("{name}-{}.png", t.name())));
-                    }
-                    editor::sim::close();
-                    settle(700).await;
-                }
-            }
-            wad_gtk::theme::set(&display, wad_gtk::Theme::Dark);
-            for (stack, layer, focus, name) in [
-                ("vanua-academy", Layer::Customization, Some("secrets"), "builder-customization-keys"),
-                ("cosmic-bodybuilding", Layer::Extensions, None, "builder-extensions-new"),
-            ] {
-                if editor::sim::open(stack, layer, focus) {
-                    settle(1100).await;
-                    shot(&w, &dir.join(format!("{name}-dark.png")));
-                    editor::sim::close();
-                    settle(700).await;
-                }
-            }
-            // An app dragged onto a template's desktop, then saved.
-            if editor::sim::open("cosmic-bodybuilding", Layer::Template, None) {
-                settle(900).await;
-                if editor::template::sim::pick_up("vscode") {
-                    editor::template::sim::over_desktop();
-                    settle(400).await;
-                    shot(&w, &dir.join("builder-template-drag-dark.png"));
-                    crate::drag::sim::end(true);
-                    settle(600).await;
-                }
-                editor::sim::save();
-                settle(1200).await;
-                shot(&w, &dir.join("builder-template-saved-dark.png"));
-            }
-            // A stack previewed, VS Code's window open.
-            crate::pages::builder::preview::open("vanua-academy");
-            crate::pages::builder::preview::sim_show("app:vscode");
-            for t in [wad_gtk::Theme::Dark, wad_gtk::Theme::Light] {
-                wad_gtk::theme::set(&display, t);
-                settle(900).await;
-                shot(&w, &dir.join(format!("builder-preview-{}.png", t.name())));
-            }
-            crate::pages::builder::preview::close();
-            wad_gtk::theme::set(&display, wad_gtk::Theme::Dark);
-            // Recently deleted: a customization just deleted, a wadspace deleted before.
-            crate::pages::builder::sim::delete_customization("cosmic-bodybuilding");
-            crate::pages::builder::sim::show_deleted();
-            settle(900).await;
-            shot(&w, &dir.join("builder-deleted-dark.png"));
-        }
+        builder_b(&w, &dir).await;
         crate::shell::go(crate::shell::Page::Secrets);
         for t in [wad_gtk::Theme::Dark, wad_gtk::Theme::Light] {
             wad_gtk::theme::set(&display, t);

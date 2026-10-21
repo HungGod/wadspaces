@@ -231,11 +231,11 @@ fn actions_for(row: &gtk::Box, s: &AppState, w: &Value) {
             }),
             ("Edit in Builder", "pencil", false, {
                 let id = w["id"].as_str().unwrap_or_default().to_string();
-                Box::new(move || crate::pages::builder::show_stack(&id, false))
+                Box::new(move || crate::pages::builder::b::show_wadspace(&id, false))
             }),
             ("New from it", "copy", false, {
                 let id = w["id"].as_str().unwrap_or_default().to_string();
-                Box::new(move || crate::pages::builder::show_stack(&id, true))
+                Box::new(move || crate::pages::builder::b::show_wadspace(&id, true))
             }),
             ("Delete", "trash", true, {
                 let id = w["id"].as_str().unwrap_or_default().to_string();

@@ -73,6 +73,24 @@ pub fn time_ago(secs_ago: f64) -> String {
     format!("{}d ago", (h / 24.0).floor())
 }
 
+/// "5m ago" from Unix milliseconds (its date once it's a month old).
+pub fn ago_ms(ms: f64) -> String {
+    let secs = now() - ms / 1000.0;
+    if secs < 30.0 * 86_400.0 {
+        return time_ago(secs);
+    }
+    gtk::glib::DateTime::from_unix_local((ms / 1000.0) as i64)
+        .ok()
+        .and_then(|t| t.format("%x").ok())
+        .map(|t| t.to_string())
+        .unwrap_or_default()
+}
+
+/// An ISO time as Unix milliseconds.
+pub fn iso_ms(iso: &str) -> Option<f64> {
+    gtk::glib::DateTime::from_iso8601(iso, None).ok().map(|t| t.to_unix() as f64 * 1000.0)
+}
+
 /// "2h 5m" (the web app's uptime).
 pub fn uptime(secs: f64) -> String {
     let s = secs.max(0.0) as u64;

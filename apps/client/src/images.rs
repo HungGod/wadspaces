@@ -113,11 +113,6 @@ pub fn wallpaper(value: &str, on: impl FnOnce(gdk::Texture) + 'static) {
     wallpaper_at(value, 960, on);
 }
 
-/// A wallpaper that's a picture, the size of the screen (Preview).
-pub fn wallpaper_full(value: &str, on: impl FnOnce(gdk::Texture) + 'static) {
-    wallpaper_at(value, 1920, on);
-}
-
 /// A wallpaper that's a picture: a data: URL (the Builder keeps uploads so)
 /// or one of WadSpaces' own (/wallpapers/...), kept at most `max` wide.
 fn wallpaper_at(value: &str, max: u32, on: impl FnOnce(gdk::Texture) + 'static) {
