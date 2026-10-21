@@ -115,10 +115,39 @@ fn layer(docs: &str, dir: &str) -> Result<(), String> {
 /// The package tasks (see the module's docs).
 fn packages(args: &[String]) -> Result<(), String> {
     use wad_core::packages as p;
-    const USAGE: &str = "usage: cargo xtask packages waves [<id>…] | needs <id> | \
+    const USAGE: &str = "usage: cargo xtask packages waves [<id>…] | needs <id> | graph | \
                          containerfile <id> [--base <ref>] [--need <id>=<ref>]… [--token] | \
                          index <old index.json> <abi> <base digest> <result.json>…";
     match args {
+        // What the phone needs to name a wadspace's set as wadd does, and
+        // to name templates as the board does: each catalog app's package
+        // (null: the base has it) and name, the catalog's tools, the
+        // features in install order, and what each needs.
+        [cmd] if cmd == "graph" => {
+            let c = wad_core::catalog::catalog();
+            let apps: serde_json::Map<String, serde_json::Value> = c["apps"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .filter_map(|a| a["id"].as_str())
+                .map(|id| (id.to_string(), p::of_app(id).map(serde_json::Value::from).unwrap_or_default()))
+                .collect();
+            let needs: serde_json::Map<String, serde_json::Value> =
+                wad_core::spec::FEATURE_NEEDS.iter().map(|(f, n)| (f.to_string(), serde_json::json!(n))).collect();
+            let names: serde_json::Map<String, serde_json::Value> = c["apps"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .map(|a| (a["id"].as_str().unwrap_or_default().to_string(), a["name"].clone()))
+                .collect();
+            let tools: Vec<&str> =
+                c["tools"].as_array().into_iter().flatten().filter_map(|t| t["id"].as_str()).collect();
+            let graph = serde_json::json!({
+                "apps": apps, "names": names, "tools": tools, "features": wad_core::spec::FEATURES, "needs": needs,
+            });
+            println!("{}", serde_json::to_string_pretty(&graph).map_err(|e| e.to_string())?);
+            Ok(())
+        }
         [cmd, ids @ ..] if cmd == "waves" => {
             let ids = if ids.is_empty() { p::all() } else { ids.to_vec() };
             println!("{}", serde_json::to_string(&p::waves(&ids)).map_err(|e| e.to_string())?);
