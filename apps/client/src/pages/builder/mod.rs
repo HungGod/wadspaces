@@ -39,6 +39,33 @@ thread_local! {
 }
 
 thread_local! {
+    /// The Builder page: the old board and design B's, one shown.
+    static EITHER: glib::WeakRef<gtk::Stack> = Default::default();
+}
+
+/// The Builder page: the old board, or design B's when it's chosen
+/// (b::enabled), switched in place.
+pub fn page_either() -> gtk::Widget {
+    let s = gtk::Stack::new();
+    s.set_transition_type(gtk::StackTransitionType::Crossfade);
+    // Sized by the one shown (the other's bars don't widen it).
+    s.set_hhomogeneous(false);
+    s.set_vhomogeneous(false);
+    s.add_named(&page(), Some("old"));
+    s.add_named(&b::page(), Some("b"));
+    s.set_visible_child_name(if b::enabled() { "b" } else { "old" });
+    EITHER.with(|e| e.set(Some(&s)));
+    s.upcast()
+}
+
+/// The Builder chosen, shown.
+pub fn show_chosen() {
+    if let Some(s) = EITHER.with(|e| e.upgrade()) {
+        s.set_visible_child_name(if b::enabled() { "b" } else { "old" });
+    }
+}
+
+thread_local! {
     /// A stack asked for from elsewhere (and whether to copy it), handled
     /// once the board has it.
     static ASKED: std::cell::RefCell<Option<(String, bool)>> = const { std::cell::RefCell::new(None) };
@@ -300,6 +327,11 @@ fn topbar() -> gtk::Widget {
         state::edit(|b| b.undo());
     });
     bar.append(&undo);
+    let try_b = ui::button("Try design B", None, Variant::Ghost, Size::Sm);
+    try_b.add_css_class("wb-ghost");
+    try_b.set_tooltip_text(Some("The new Builder: wadspaces of their own templates, on one machine each"));
+    try_b.connect_clicked(|_| b::choose(true));
+    bar.append(&try_b);
     let create = ui::button("Create", Some("plus"), Variant::Primary, Size::Sm);
     create.set_tooltip_text(Some("A new stack on the right, with a blank template"));
     create.connect_clicked(|_| {

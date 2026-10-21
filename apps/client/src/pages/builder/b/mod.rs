@@ -1,5 +1,7 @@
 //! Builder B (design B: ../ui-mockup-pieces/src/spikes/B-Buckets.tsx), the
-//! Builder with WADSPACES_BUILDER=b until it takes the old board's place:
+//! Builder when it's chosen (Try design B on the old board, kept in
+//! ~/.config/wadspaces/builder; WADSPACES_BUILDER=b or =old wins) until it
+//! takes the old board's place:
 //! one machine's version 4 wadspaces in a row, each a Customizations bucket
 //! (its desktop: background, projects, keys) over a Templates bucket (its
 //! own templates: apps with what they take); the machines along the bottom;
@@ -25,9 +27,36 @@ use crate::drag;
 use crate::store::{AppState, Topic, store};
 use crate::ui::{self, Size, Variant};
 
-/// Builder B is the Builder (WADSPACES_BUILDER=b).
+/// Where the choice is kept (beside the theme).
+fn choice_file() -> std::path::PathBuf {
+    wad_gtk::theme::file().with_file_name("builder")
+}
+
+/// Builder B is the Builder: WADSPACES_BUILDER says (b or old), else the
+/// choice kept.
 pub fn enabled() -> bool {
-    std::env::var("WADSPACES_BUILDER").is_ok_and(|v| v == "b")
+    match std::env::var("WADSPACES_BUILDER").as_deref() {
+        Ok("b") => true,
+        Ok("old") => false,
+        _ => std::fs::read_to_string(choice_file()).is_ok_and(|t| t.trim() == "b"),
+    }
+}
+
+/// Builder B chosen (or the old board again): kept, and shown at once.
+pub fn choose(on: bool) {
+    let file = choice_file();
+    let done = if on {
+        file.parent().map(std::fs::create_dir_all).transpose().and_then(|_| std::fs::write(&file, "b\n"))
+    } else {
+        match std::fs::remove_file(&file) {
+            Err(e) if e.kind() != std::io::ErrorKind::NotFound => Err(e),
+            _ => Ok(()),
+        }
+    };
+    if let Err(e) = done {
+        tracing::warn!("{}: {e}", file.display());
+    }
+    super::show_chosen();
 }
 
 /// Opens a wadspace in the sidebar.
@@ -188,7 +217,6 @@ fn topbar() -> (gtk::Box, Page) {
     hints.add_css_class("hints");
     hints.set_selection_mode(gtk::SelectionMode::None);
     hints.set_max_children_per_line(2);
-    hints.set_min_children_per_line(2);
     hints.set_column_spacing(14);
     hints.set_row_spacing(4);
     hints.set_hexpand(false);
@@ -257,6 +285,10 @@ fn topbar() -> (gtk::Box, Page) {
     undo.set_tooltip_text(Some("Undo (Ctrl+Z)"));
     undo.connect_clicked(|_| state::undo());
     bar.append(&undo);
+    let old = ui::button("Old Builder", None, Variant::Ghost, Size::Sm);
+    old.set_tooltip_text(Some("Back to the board of templates and Extensions (your version 3 wadspaces)"));
+    old.connect_clicked(|_| choose(false));
+    bar.append(&old);
     let p = Page {
         row: gtk::Box::new(gtk::Orientation::Horizontal, 0),
         machines: gtk::Box::new(gtk::Orientation::Vertical, 0),
