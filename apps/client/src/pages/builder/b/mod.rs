@@ -664,6 +664,23 @@ pub mod sim {
         with_class(&column(ws)?, "wbb-tpl-name")
     }
 
+    /// A wadspace's first template renamed, then a click away from it:
+    /// whether that cancelled it (nothing renamed, the board drawn again).
+    pub fn rename_then_click_away(ws: &str) -> bool {
+        let Some(name) = template_name(ws).and_downcast::<gtk::Label>() else { return false };
+        let Some(slot) = name.parent().and_downcast::<gtk::Box>() else { return false };
+        let Some((tid, was)) =
+            state::read(|s| s.board.get(ws).and_then(|w| w.templates.first()).map(|t| (t.id.clone(), t.name.clone())))
+        else {
+            return false;
+        };
+        let Some(click) = buckets::rename(&name, &slot, ws, &tid, &was) else { return false };
+        let typing = state::read(|s| s.renaming);
+        click.emit_by_name::<()>("pressed", &[&1i32, &2f64, &2f64]);
+        let name_kept = state::read(|s| s.board.get(ws).and_then(|w| w.templates.first()).map(|t| t.name.clone()));
+        typing && !state::read(|s| s.renaming) && name_kept.as_deref() == Some(was.as_str())
+    }
+
     /// The sidebar scrolled to its end.
     pub fn scroll_side_to_end() -> bool {
         let Some(root) = gtk::Window::list_toplevels().into_iter().next() else { return false };

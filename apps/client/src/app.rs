@@ -169,6 +169,9 @@ async fn builder_b(w: &gtk::ApplicationWindow, dir: &std::path::Path) {
     settle(600).await;
     let kept = name.is_some_and(|n| n.root().is_some());
     tracing::info!("builder-b: template name kept across open: {kept}");
+    let cancelled = sim::rename_then_click_away(iq);
+    tracing::info!("builder-b: a click away cancels a rename: {cancelled}");
+    settle(600).await;
     b::open_on(iq, state::Tab::Customization);
     for t in [wad_gtk::Theme::Dark, wad_gtk::Theme::Light] {
         wad_gtk::theme::set(&display, t);

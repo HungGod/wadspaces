@@ -693,6 +693,16 @@ fn renamable(name: &gtk::Label, slot: &gtk::Box, ws: &str, template: &str, was: 
         }
         g.set_state(gtk::EventSequenceState::Claimed);
         let (Some(slot), Some(name)) = (ls.upgrade(), nw.upgrade()) else { return };
+        rename(&name, &slot, &ws, &template, &was);
+    });
+    name.add_controller(click);
+}
+
+/// The name typed over: Enter keeps it; Escape, or a click anywhere else,
+/// doesn't. The click that would cancel it, for the snapshots.
+pub fn rename(name: &gtk::Label, slot: &gtk::Box, ws: &str, template: &str, was: &str) -> Option<gtk::GestureClick> {
+    let (ws, template, was) = (ws.to_string(), template.to_string(), was.to_string());
+    {
         state::write(|s| s.renaming = true);
         name.set_visible(false);
         let e = gtk::Entry::new();
@@ -702,11 +712,19 @@ fn renamable(name: &gtk::Label, slot: &gtk::Box, ws: &str, template: &str, was: 
         slot.append(&e);
         e.grab_focus();
         let done = std::rc::Rc::new(std::cell::Cell::new(false));
+        // A click anywhere but the name cancels: most of the board takes no
+        // focus, so the entry wouldn't lose it. Gone once it's done.
+        let outside: std::rc::Rc<std::cell::RefCell<Option<(gtk::Widget, gtk::GestureClick)>>> = Default::default();
         let finish = {
-            let (ws, template, was, done) = (ws.clone(), template.clone(), was.clone(), done.clone());
+            let (ws, template, was, done, outside) =
+                (ws.clone(), template.clone(), was.clone(), done.clone(), outside.clone());
             std::rc::Rc::new(move |e: &gtk::Entry, keep: bool| {
                 if done.replace(true) {
                     return;
+                }
+                // Not inside the click's own handling.
+                if let Some((w, c)) = outside.borrow_mut().take() {
+                    glib::idle_add_local_once(move || w.remove_controller(&c));
                 }
                 state::write(|s| s.renaming = false);
                 let to = e.text().trim().to_string();
@@ -739,8 +757,24 @@ fn renamable(name: &gtk::Label, slot: &gtk::Box, ws: &str, template: &str, was: 
             }
         });
         e.add_controller(focus);
-    });
-    name.add_controller(click);
+        if let Some(root) = slot.root() {
+            let click = gtk::GestureClick::new();
+            click.set_propagation_phase(gtk::PropagationPhase::Capture);
+            let (f, ew) = (finish.clone(), e.downgrade());
+            click.connect_pressed(move |g, _, x, y| {
+                let (Some(e), Some(w)) = (ew.upgrade(), g.widget()) else { return };
+                let on_it = w.pick(x, y, gtk::PickFlags::DEFAULT).is_some_and(|p| p == e || p.is_ancestor(&e));
+                if !on_it {
+                    f(&e, false);
+                }
+            });
+            let root: gtk::Widget = root.upcast();
+            root.add_controller(click.clone());
+            outside.replace(Some((root, click.clone())));
+            return Some(click);
+        }
+        None
+    }
 }
 
 /// Between templates: templates dropped here land at that place.
