@@ -13,7 +13,9 @@
 //!   earlier ones.
 //! - `packages needs <id>`: what a package needs under it, one per line.
 //! - `packages containerfile <id> [--base <ref>] [--need <id>=<ref>]…
-//!   [--token]`: the Containerfile that captures it (wad-core's packages).
+//!   [--token]`: the Containerfile that captures it (wad-core's packages);
+//!   `--token`: a github_token secret is at hand (a build that asks GitHub's
+//!   API mounts it).
 //! - `packages index <old index.json> <abi> <base digest> <result.json>…`:
 //!   the index with these results in (CI's last step).
 //!

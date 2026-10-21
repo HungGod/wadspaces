@@ -55,7 +55,11 @@ jobs:
           done
           ./xtask packages containerfile "$ID" --base "$BASE" --token "${args[@]}" >Containerfile
           cat Containerfile
-          podman build --pull=newer --secret id=github_token,env=GH_TOKEN -t "localhost/pkg-$ID:capture" -f Containerfile .
+          # The token only for a build that asks GitHub's API (its RUN mounts
+          # it: spec::GITHUB_FEATURES); no other build is handed it at all.
+          secret=()
+          grep -q 'id=github_token' Containerfile && secret=(--secret id=github_token,env=GH_TOKEN)
+          podman build --pull=newer "${secret[@]}" -t "localhost/pkg-$ID:capture" -f Containerfile .
       - name: Label and push
         env:
           FORCE: ${{ inputs.force }}

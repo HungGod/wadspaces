@@ -27,7 +27,7 @@ use sha2::{Digest, Sha256};
 
 use crate::catalog::{self, Recipe};
 use crate::layers::is_extension_id;
-use crate::spec::{FEATURE_NEEDS, FEATURES};
+use crate::spec::{FEATURE_NEEDS, FEATURES, GITHUB_FEATURES};
 
 /// Where CI publishes packages: `<REGISTRY>/wadspaces-pkg-<id>:<abi>`.
 pub const REGISTRY: &str = "ghcr.io/hunggod";
@@ -100,6 +100,12 @@ pub fn name(id: &str) -> String {
             _ => id.to_string(),
         }
     })
+}
+
+/// Whether package `id`'s build asks GitHub's API (spec::GITHUB_FEATURES):
+/// only then does it get the github_token secret.
+pub fn uses_github(id: &str) -> bool {
+    GITHUB_FEATURES.contains(&id)
 }
 
 /// The packages `id` needs under it.
@@ -227,8 +233,8 @@ fn exec(words: &[String]) -> String {
 
 /// A package's Containerfile: the base, the packages under it (`needs`:
 /// (id, image ref) for everything it needs, theirs too, in WadSpaces'
-/// order), and the capture. `token`: the build gets the github_token secret
-/// (GitHub's API, unthrottled).
+/// order), and the capture. `token`: a github_token secret is at hand; only
+/// a build that asks GitHub's API ([`uses_github`]) gets it.
 pub fn package_containerfile(id: &str, base: &str, needs: &[(String, String)], token: bool) -> Result<String, String> {
     let src = source(id).ok_or_else(|| format!("WadSpaces doesn't know how to package {id}"))?;
     let want = closure(&self::needs(id));
@@ -262,7 +268,7 @@ pub fn package_containerfile(id: &str, base: &str, needs: &[(String, String)], t
     }
     capture.push("--".into());
     capture.extend(install_command(&src));
-    let mount = if token { "--mount=type=secret,id=github_token " } else { "" };
+    let mount = if token && uses_github(id) { "--mount=type=secret,id=github_token " } else { "" };
     lines.push(format!("RUN {mount}{}", exec(&capture)));
     lines.extend([
         String::new(),

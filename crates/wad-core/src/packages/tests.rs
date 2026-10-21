@@ -26,6 +26,31 @@ fn feature_needs_are_the_scripts_need_lines() {
 }
 
 #[test]
+fn only_the_scripts_that_ask_githubs_api_get_the_token() {
+    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../images/base/root/usr/local/lib/wadspaces/features");
+    let mut found: Vec<String> = std::fs::read_dir(&dir)
+        .expect("the feature scripts")
+        .map(|e| e.unwrap().path())
+        .filter(|p| std::fs::read_to_string(p).unwrap().contains("github_latest_asset"))
+        .map(|p| p.file_stem().unwrap().to_string_lossy().to_string())
+        .collect();
+    found.sort();
+    assert_eq!(found, GITHUB_FEATURES, "spec::GITHUB_FEATURES and the scripts that call github_latest_asset differ");
+    let mount = "--mount=type=secret,id=github_token";
+    assert!(
+        package_containerfile("obsidian", "b", &[("electron-deps".into(), "e".into())], true).unwrap().contains(mount)
+    );
+    let vscode = package_containerfile("vscode", "b", &[("electron-deps".into(), "e".into())], true).unwrap();
+    assert!(!vscode.contains(mount), "{vscode}");
+    assert!(
+        !package_containerfile("obsidian", "b", &[("electron-deps".into(), "e".into())], false)
+            .unwrap()
+            .contains(mount)
+    );
+}
+
+#[test]
 fn package_ids() {
     assert_eq!(of_app("vscode").as_deref(), Some("vscode"));
     assert_eq!(of_app("lmms").as_deref(), Some("apt-lmms"));
@@ -107,7 +132,8 @@ fn a_package_containerfile_captures_on_its_needs() {
     );
     assert!(f.contains("ARG BASE_IMAGE=localhost/wadspaces-base:trixie\nFROM ${BASE_IMAGE} AS build\n"), "{f}");
     assert!(f.contains("COPY --from=localhost/wadspaces-pkg-electron-deps:e1ab031adc3d / /\nCOPY --from=localhost/wadspaces-pkg-vscode:52e5f2a601a8 / /\nRUN wadspaces-pkg assemble\n"), "{f}");
-    assert!(f.contains(r#"RUN --mount=type=secret,id=github_token ["wadspaces-pkg","capture","ext-rust-lang.rust-analyzer","--out","/out","--needs","electron-deps,vscode","--probe","#), "{f}");
+    // A token at hand, but an extension's build doesn't ask GitHub: it doesn't get it.
+    assert!(f.contains(r#"RUN ["wadspaces-pkg","capture","ext-rust-lang.rust-analyzer","--out","/out","--needs","electron-deps,vscode","--probe","#), "{f}");
     assert!(f.contains(r#""--","wadspaces-vscode-extensions","rust-lang.rust-analyzer"]"#), "{f}");
     assert!(f.ends_with("FROM scratch\nCOPY --from=build /out/ /\nLABEL io.wadspaces.pkg=\"ext-rust-lang.rust-analyzer\" io.wadspaces.pkg.needs=\"electron-deps,vscode\"\n"), "{f}");
 

@@ -5,9 +5,12 @@
 # Containerfile (cargo xtask packages …); machines copy the packages onto
 # their base with COPY --link instead of installing anything.
 #
-# The base must be on ghcr first: images/build.sh --only base --push. A
-# package is pushed only when what it contains changed (its content label),
-# so the weekly run picks up new upstream releases and nothing else.
+# The base must be on ghcr first: images/build.sh --only base --push (as
+# :trixie and :trixie-built). Each run first takes Debian's updates into
+# :trixie (the `base` job), so no capture finds an app's install upgrading
+# one of the base's libraries. A package is pushed only when what it
+# contains changed (its content label), so the weekly run picks up new
+# upstream releases and nothing else.
 name: packages
 
 on:
@@ -46,7 +49,54 @@ env:
   BASE: ghcr.io/hunggod/wadspaces-base:trixie
 
 jobs:
+  # The base with Debian's updates as of today: from the base as
+  # images/build.sh pushed it (:trixie-built; the first time, :trixie as it
+  # is), one upgrade layer on top, the same ABI (its labels come along), so
+  # packages built on it fit every machine's base. Pushed as :trixie only
+  # when Debian has updates the one there lacks; machines' bases come from
+  # their drives and don't change.
+  base:
+    runs-on: ubuntu-24.04
+    container:
+      image: quay.io/podman/stable:latest
+      options: --privileged
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Tools
+        run: dnf -y -q install jq skopeo
+      - name: Sign in to ghcr
+        run: podman login ghcr.io -u "${{ github.actor }}" -p "${{ secrets.GITHUB_TOKEN }}"
+      - name: Debian's updates
+        env:
+          CREDS: ${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}
+        run: |
+          built="$BASE-built"
+          if ! skopeo inspect --creds "$CREDS" "docker://$built" >/dev/null 2>&1; then
+            echo "no $built yet: $BASE as it is stands for it"
+            skopeo copy -q --src-creds "$CREDS" --dest-creds "$CREDS" "docker://$BASE" "docker://$built"
+          fi
+          podman pull -q "$BASE" >/dev/null
+          waiting=$(podman run --rm --entrypoint bash "$BASE" -c \
+            'apt-get update -qq >/dev/null && apt list --upgradable 2>/dev/null | grep -c "upgradable from" || true')
+          if [ "$waiting" = 0 ]; then
+            echo "$BASE is up to date with Debian" >>"$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          podman pull -q "$built" >/dev/null
+          printf '%s\n' "FROM $built" \
+            "RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get -y --with-new-pkgs upgrade && apt-get clean && rm -rf /var/lib/apt/lists/*" \
+            "LABEL build_version=\"WadSpaces base version:- $(date -u +%Y%m%d) (Debian's updates) Build-date:- $(date -u +%FT%TZ)\"" |
+            podman build -t "$BASE" -f - .
+          podman push "$BASE"
+          echo "$BASE: Debian's updates taken in (${waiting:-some} waiting)" >>"$GITHUB_STEP_SUMMARY"
+
+  # Packages are built even when the base couldn't be refreshed (the run
+  # still shows the failure): most captures don't meet a stale library.
   plan:
+    needs: base
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-24.04
     outputs:
       waves: ${{ steps.plan.outputs.waves }}

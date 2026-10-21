@@ -6,7 +6,10 @@
 #   images/build.sh                  the base and the stream sidecar
 #   images/build.sh --only base      just one (base or stream)
 #   images/build.sh --no-cache       without podman's layer cache
-#   images/build.sh --push           also tag and push to ghcr.io/hunggod
+#   images/build.sh --push           also tag and push to ghcr.io/hunggod (the
+#                                    base as :trixie and :trixie-built: the
+#                                    packages workflow takes Debian's updates
+#                                    into :trixie from :trixie-built)
 #
 #   base    localhost/wadspaces-base:trixie    the lean desktop every workspace
 #           builds on; its window goes on the machine's screen.
@@ -31,7 +34,7 @@ ONLY=()
 NO_CACHE=false
 PUSH=false
 
-usage() { sed -n '2,24p' "$0" | sed 's/^# \{0,1\}//'; }
+usage() { sed -n '2,27p' "$0" | sed 's/^# \{0,1\}//'; }
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -123,6 +126,11 @@ for name in "${ONLY[@]}"; do
     if ${PUSH}; then
         podman tag "${img}" "${REGISTRY}/wadspaces-${name}:trixie"
         podman push "${REGISTRY}/wadspaces-${name}:trixie"
+        # The packages workflow refreshes :trixie with Debian's updates from this one.
+        if [[ "${name}" == base ]]; then
+            podman tag "${img}" "${REGISTRY}/wadspaces-base:trixie-built"
+            podman push "${REGISTRY}/wadspaces-base:trixie-built"
+        fi
     fi
 done
 echo ">> built: ${ONLY[*]}"

@@ -33,6 +33,11 @@ pub const FEATURES: &[&str] = &[
     "dolphin",
 ];
 
+/// The features whose scripts ask GitHub's API for their latest release
+/// (`github_latest_asset`): their package builds get the github_token
+/// secret (unthrottled), and no other build does.
+pub const GITHUB_FEATURES: &[&str] = &["audacity", "libresprite", "obsidian", "tiled"];
+
 /// The features each feature's script needs first (its `need` lines): a
 /// package carries only its own files, so these come along as packages.
 pub const FEATURE_NEEDS: &[(&str, &[&str])] = &[
