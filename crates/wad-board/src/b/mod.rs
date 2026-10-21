@@ -27,6 +27,8 @@ use crate::catalog::{self as cat, BrowserItem, KeyApp};
 use crate::model::KeyGroup;
 
 const UNDO_STEPS: usize = 40;
+/// What a wadspace's Recently deleted keeps: the newest this many.
+pub const KEEP_MOST: usize = 30;
 
 /// A new wadspace's name, and its one empty template's id and name (made
 /// by [`Op::Create`], to fill in).
@@ -65,6 +67,30 @@ pub struct Template {
     pub apps: Vec<Entry>,
 }
 
+/// Something taken out of a wadspace, kept in it (Recently deleted) until
+/// it's put back or forgotten.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Kept {
+    /// k1, k2…: its own among the wadspace's.
+    pub id: String,
+    /// When (the board's clock).
+    pub at: String,
+    #[serde(flatten)]
+    pub piece: Piece,
+}
+
+/// What's kept: a template and its place among the templates, an app off a
+/// template (with its extras), a project, or the background.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "camelCase")]
+pub enum Piece {
+    Template { template: Template, place: usize },
+    App { template: String, entry: Entry },
+    Project { project: Value },
+    Background { wallpaper: Value },
+}
+
 /// A version 4 wadspace document (its Firestore fields).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -91,6 +117,9 @@ pub struct Wadspace {
     pub updated_at: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub deleted_at: Option<String>,
+    /// What was taken out of it, oldest first (Recently deleted).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub trash: Vec<Kept>,
 }
 
 fn four() -> u64 {
@@ -250,6 +279,17 @@ pub enum Op {
     },
     Restore {
         ws: String,
+    },
+    /// Something from a wadspace's Recently deleted back where it was.
+    PutBack {
+        ws: String,
+        kept: String,
+    },
+    /// Something in a wadspace's Recently deleted gone for good (none: all of it).
+    Forget {
+        ws: String,
+        #[serde(default)]
+        kept: Option<String>,
     },
     Rename {
         ws: String,
@@ -482,6 +522,36 @@ impl Board {
                 self.get_mut(ws)?.deleted_at = None;
                 Ok(())
             }
+            Op::PutBack { ws, kept } => {
+                let w = self.get_mut(ws)?;
+                let i = w.trash.iter().position(|k| k.id == *kept).ok_or("that's not in Recently deleted")?;
+                let (got, place, onto) = match w.trash.remove(i).piece {
+                    Piece::Template { template, place } => {
+                        (Got { templates: Some(vec![template]), ..Got::default() }, Some(place), Where::default())
+                    }
+                    Piece::App { template, entry } => (
+                        Got { entry: Some(entry), ..Got::default() },
+                        None,
+                        Where { template: Some(template), ..Where::default() },
+                    ),
+                    Piece::Project { project } => {
+                        (Got { projects: vec![project], ..Got::default() }, None, Where::default())
+                    }
+                    Piece::Background { wallpaper } => {
+                        (Got { background: Some(wallpaper), ..Got::default() }, None, Where::default())
+                    }
+                };
+                Self::take(w, got, place, &onto);
+                Ok(())
+            }
+            Op::Forget { ws, kept } => {
+                let w = self.get_mut(ws)?;
+                match kept {
+                    Some(k) => w.trash.retain(|x| x.id != *k),
+                    None => w.trash.clear(),
+                }
+                Ok(())
+            }
             Op::Rename { ws, name } => {
                 self.get_mut(ws)?.customization.insert("name".into(), name.clone().into());
                 Ok(())
@@ -499,8 +569,9 @@ impl Board {
             Op::RemoveApp { ws, template, app } => {
                 let w = self.get_mut(ws)?;
                 let t = w.templates.iter_mut().find(|t| t.id == *template).ok_or("no such template")?;
-                t.apps.retain(|e| e.app != *app);
-                Ok(())
+                let Some(i) = t.apps.iter().position(|e| e.app == *app) else { return Ok(()) };
+                let entry = t.apps.remove(i);
+                self.keep(ws, Piece::App { template: template.clone(), entry })
             }
             Op::RemoveExtra { ws, template, app, id } => {
                 let w = self.get_mut(ws)?;
@@ -534,8 +605,12 @@ impl Board {
                 }
                 let w = self.get_mut(ws)?;
                 match texture {
-                    Some(t) => w.customization.insert("wallpaper".into(), json!({"type": "texture", "value": t})),
-                    None => w.customization.remove("wallpaper"),
+                    Some(t) => drop(w.customization.insert("wallpaper".into(), json!({"type": "texture", "value": t}))),
+                    None => {
+                        if let Some(wallpaper) = w.customization.remove("wallpaper") {
+                            self.keep(ws, Piece::Background { wallpaper })?;
+                        }
+                    }
                 };
                 Ok(())
             }
@@ -544,7 +619,10 @@ impl Board {
                 let list = w.customization.entry("projects").or_insert_with(|| json!([]));
                 let list = list.as_array_mut().ok_or("projects isn't a list")?;
                 match list.iter().position(|p| s(p, "id") == s(project, "id")) {
-                    Some(i) => drop(list.remove(i)),
+                    Some(i) => {
+                        let project = list.remove(i);
+                        self.keep(ws, Piece::Project { project })?;
+                    }
                     None => list.push(project.clone()),
                 }
                 Ok(())
@@ -807,6 +885,7 @@ impl Board {
             created_at: None,
             updated_at: None,
             deleted_at: None,
+            trash: vec![],
         }
     }
 
@@ -850,21 +929,45 @@ impl Board {
         Ok(id)
     }
 
+    /// Wadspaces deleted (they wait, deleted); templates, projects and
+    /// backgrounds taken out (they wait in their wadspace's Recently deleted).
     fn delete(&mut self, picks: &[Pick]) -> Result<(), String> {
         let now = self.now.clone();
         for pick in picks {
-            match pick {
-                Pick::Wadspace { ws } => self.get_mut(ws)?.deleted_at = Some(now.clone()),
-                Pick::Template { ws, id } => self.get_mut(ws)?.templates.retain(|t| t.id != *id),
-                Pick::Project { ws, id } => {
-                    if let Some(list) =
-                        self.get_mut(ws)?.customization.get_mut("projects").and_then(Value::as_array_mut)
-                    {
-                        list.retain(|p| s(p, "id") != id);
-                    }
+            let (ws, piece) = match pick {
+                Pick::Wadspace { ws } => {
+                    self.get_mut(ws)?.deleted_at = Some(now.clone());
+                    continue;
                 }
-                Pick::Background { ws } => drop(self.get_mut(ws)?.customization.remove("wallpaper")),
-            }
+                Pick::Template { ws, id } => {
+                    let w = self.get_mut(ws)?;
+                    let Some(place) = w.templates.iter().position(|t| t.id == *id) else { continue };
+                    (ws, Piece::Template { template: w.templates.remove(place), place })
+                }
+                Pick::Project { ws, id } => {
+                    let list = self.get_mut(ws)?.customization.get_mut("projects").and_then(Value::as_array_mut);
+                    let Some(list) = list else { continue };
+                    let Some(i) = list.iter().position(|p| s(p, "id") == id) else { continue };
+                    (ws, Piece::Project { project: list.remove(i) })
+                }
+                Pick::Background { ws } => {
+                    let Some(wallpaper) = self.get_mut(ws)?.customization.remove("wallpaper") else { continue };
+                    (ws, Piece::Background { wallpaper })
+                }
+            };
+            self.keep(ws, piece)?;
+        }
+        Ok(())
+    }
+
+    /// `piece` into `ws`'s Recently deleted (the newest KEEP_MOST stay).
+    fn keep(&mut self, ws: &str, piece: Piece) -> Result<(), String> {
+        let at = self.now.clone();
+        let w = self.get_mut(ws)?;
+        let id = (1..).map(|n| format!("k{n}")).find(|k| !w.trash.iter().any(|x| x.id == *k)).unwrap();
+        w.trash.push(Kept { id, at, piece });
+        if w.trash.len() > KEEP_MOST {
+            w.trash.remove(0);
         }
         Ok(())
     }

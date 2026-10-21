@@ -53,6 +53,8 @@ pub struct State {
     pub images: HashMap<String, ImageRow>,
     /// A name being typed: the board isn't drawn again under it.
     pub renaming: bool,
+    /// The sidebar shows Recently deleted (no wadspace open).
+    pub trash_open: bool,
     redraw: Vec<Box<dyn Fn()>>,
     scheduled: bool,
 }

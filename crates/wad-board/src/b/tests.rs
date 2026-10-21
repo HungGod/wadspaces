@@ -33,6 +33,7 @@ fn ws(id: &str, machine: &str, name: &str, templates: Vec<Template>, custom: Val
         created_at: Some("2026-10-20T00:00:00Z".into()),
         updated_at: Some("2026-10-20T00:00:00Z".into()),
         deleted_at: None,
+        trash: vec![],
     }
 }
 
@@ -461,4 +462,38 @@ fn the_top_template_decides_the_mode() {
     moved["templates"].as_array_mut().unwrap().swap(0, 1);
     assert!(browser(&moved).get("mode").is_none());
     assert_eq!(out["errors"][3], "C++ has no WadBrowser");
+}
+
+#[test]
+fn whats_taken_out_waits_in_its_wadspace() {
+    let all = made();
+    let out = case(&all, "Recently deleted: what's taken out waits in its wadspace");
+    let iq = out["wadspaces"].as_array().unwrap().iter().find(|w| w["id"] == "iq").unwrap();
+    let tpls: Vec<&str> = iq["templates"].as_array().unwrap().iter().map(|t| t["id"].as_str().unwrap()).collect();
+    assert_eq!(tpls, ["dev", "cpp", "art"], "Game art back where it was");
+    assert!(iq["templates"][1]["apps"].as_array().unwrap().iter().any(|e| e["app"] == "terminal"));
+    let trash: Vec<(&str, &str)> = iq["trash"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|k| (k["id"].as_str().unwrap(), k["kind"].as_str().unwrap()))
+        .collect();
+    assert_eq!(trash, [("k4", "background")], "the project forgotten, the background still waiting");
+    assert_eq!(out["errors"][7], "that's not in Recently deleted");
+}
+
+#[test]
+fn recently_deleted_keeps_the_newest() {
+    let mut b = board();
+    b.now = "2026-10-21T00:00:00Z".into();
+    let p = |n: usize| json!({"id": format!("p{n}"), "kind": "github", "repo": "o/r", "as": format!("r{n}")});
+    for n in 0..KEEP_MOST + 5 {
+        let op = Op::ToggleProject { ws: "iq".into(), project: p(n) };
+        b.apply(&op).unwrap();
+        b.apply(&op).unwrap();
+    }
+    let trash = &b.get("iq").unwrap().trash;
+    assert_eq!(trash.len(), KEEP_MOST);
+    assert_eq!(trash[0].piece, Piece::Project { project: p(5) });
+    assert_eq!(trash[KEEP_MOST - 1].piece, Piece::Project { project: p(KEEP_MOST + 4) });
 }

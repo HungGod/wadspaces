@@ -229,6 +229,27 @@ async fn builder_b(w: &gtk::ApplicationWindow, dir: &std::path::Path) {
         shot(w, &dir.join(format!("builder-b-picked-{}.png", t.name())));
     }
     state::write(|s| s.picked.clear());
+    // Recently deleted: a template and a project taken out of
+    // IntelligenceQuest, Desk Lab deleted (its parts to drag back out).
+    use wad_board::b::{Op, Pick};
+    let out =
+        vec![Pick::Template { ws: iq.into(), id: "art".into() }, Pick::Project { ws: iq.into(), id: "iq".into() }];
+    let _ = state::apply(Op::Delete { picks: out });
+    let _ = state::apply(Op::Delete { picks: vec![Pick::Wadspace { ws: "desk-lab".into() }] });
+    b::show_trash(true);
+    for t in [wad_gtk::Theme::Dark, wad_gtk::Theme::Light] {
+        wad_gtk::theme::set(&display, t);
+        settle(900).await;
+        shot(w, &dir.join(format!("builder-b-trash-{}.png", t.name())));
+    }
+    sim::board_to_top(iq);
+    settle(400).await;
+    sim::background_from("desk-lab", iq);
+    settle(900).await;
+    let wallpaper = |id: &str| state::read(|s| s.board.get(id).and_then(|w| w.customization.get("wallpaper").cloned()));
+    let took = wallpaper(iq).is_some() && wallpaper(iq) == wallpaper("desk-lab");
+    tracing::info!("builder-b: a deleted wadspace's part drags into another: {took}");
+    b::close();
     wad_gtk::theme::set(&display, wad_gtk::Theme::Dark);
 }
 

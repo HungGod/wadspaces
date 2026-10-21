@@ -17,6 +17,7 @@ pub mod buckets;
 pub mod carousel;
 pub mod sidebar;
 pub mod state;
+pub mod trash;
 
 use gtk::{glib, prelude::*};
 use wad_board::b::{Op, Pick};
@@ -68,10 +69,13 @@ thread_local! {
 /// its columns' marks and the sidebar: a double-click on a template's name
 /// finds the same name under its second click.
 pub fn open(id: &str) {
-    if state::read(|s| s.open.as_deref() == Some(id)) {
+    if state::read(|s| s.open.as_deref() == Some(id) && !s.trash_open) {
         return;
     }
-    state::write(|s| s.open = Some(id.to_string()));
+    state::write(|s| {
+        s.open = Some(id.to_string());
+        s.trash_open = false;
+    });
     let shown = SHOW_OPEN.with(|f| f.borrow().as_ref().map(|f| f()).is_some());
     if !shown {
         state::changed();
@@ -83,7 +87,22 @@ pub fn open_on(id: &str, tab: Tab) {
     state::write(|s| {
         s.open = Some(id.to_string());
         s.tab = tab;
+        s.trash_open = false;
     });
+    state::changed();
+}
+
+/// Recently deleted in the sidebar, or not.
+pub fn show_trash(on: bool) {
+    state::write(|s| {
+        s.trash_open = on;
+        if on {
+            s.open = None;
+        }
+    });
+    if on {
+        sidebar::closed();
+    }
     state::changed();
 }
 
@@ -112,12 +131,16 @@ pub fn show_wadspace(id: &str, copy: bool) {
     state::write(|s| {
         s.shown = (w.machine != here).then(|| w.machine.clone());
         s.open = Some(open);
+        s.trash_open = false;
     });
     state::changed();
 }
 
 pub fn close() {
-    state::write(|s| s.open = None);
+    state::write(|s| {
+        s.open = None;
+        s.trash_open = false;
+    });
     sidebar::closed();
     state::changed();
 }
@@ -130,7 +153,7 @@ struct Page {
     build_all: gtk::Button,
     build_picked: gtk::Button,
     delete_picked: gtk::Button,
-    deleted: gtk::MenuButton,
+    deleted: gtk::Button,
     not_saved: gtk::Button,
 }
 
@@ -257,16 +280,14 @@ fn topbar() -> (gtk::Box, Page) {
     not_saved.connect_clicked(|_| state::retry());
     bar.append(&not_saved);
 
-    let deleted = gtk::MenuButton::new();
+    let deleted = gtk::Button::new();
     deleted.add_css_class("wbb-deleted");
     deleted.set_child(Some(&Icon::new("rotate-ccw-clock", 15)));
-    deleted.set_tooltip_text(Some("Recently deleted: bring them back, or delete them for good"));
+    deleted.set_tooltip_text(Some(
+        "Recently deleted: wadspaces, and what was taken out of them, to bring back or delete for good",
+    ));
     deleted.update_property(&[gtk::accessible::Property::Label("Recently deleted")]);
-    let pop = gtk::Popover::new();
-    pop.add_css_class("wad-menu");
-    pop.set_has_arrow(false);
-    pop.connect_show(fill_deleted);
-    deleted.set_popover(Some(&pop));
+    deleted.connect_clicked(|_| show_trash(!state::read(|s| s.trash_open)));
     bar.append(&deleted);
 
     let build_all = ui::button("Build all", Some("hammer"), Variant::Ghost, Size::Sm);
@@ -316,72 +337,6 @@ fn topbar() -> (gtk::Box, Page) {
         not_saved,
     };
     (bar, p)
-}
-
-/// Recently deleted, newest first: each to bring back or delete for good.
-fn fill_deleted(pop: &gtk::Popover) {
-    let col = gtk::Box::new(gtk::Orientation::Vertical, 4);
-    col.add_css_class("wbb-deleted-list");
-    let gone: Vec<(String, String, String)> = store().read_now(|s| {
-        let names: Vec<(String, String)> = crate::pages::machines::machines(s)
-            .into_iter()
-            .map(|m| (if m.here { state::here(s) } else { m.id }, m.label))
-            .collect();
-        state::read(|st| {
-            st.board
-                .deleted()
-                .iter()
-                .map(|w| {
-                    let on = names.iter().find(|(id, _)| *id == w.machine).map(|(_, n)| n.clone()).unwrap_or_default();
-                    (w.id.clone(), w.name().to_string(), on)
-                })
-                .collect()
-        })
-    });
-    if gone.is_empty() {
-        let l = gtk::Label::new(Some("Nothing deleted lately."));
-        l.add_css_class("faint");
-        l.set_margin_top(6);
-        l.set_margin_bottom(6);
-        l.set_margin_start(8);
-        l.set_margin_end(8);
-        col.append(&l);
-    }
-    for (id, name, on) in gone {
-        let row = gtk::Box::new(gtk::Orientation::Horizontal, 8);
-        row.add_css_class("wbb-deleted-row");
-        let texts = gtk::Box::new(gtk::Orientation::Vertical, 0);
-        texts.set_hexpand(true);
-        let n = gtk::Label::new(Some(&name));
-        n.set_xalign(0.0);
-        texts.append(&n);
-        let m = gtk::Label::new(Some(&on));
-        m.add_css_class("faint");
-        m.add_css_class("tiny");
-        m.set_xalign(0.0);
-        texts.append(&m);
-        row.append(&texts);
-        let back = ui::button("Restore", None, Variant::Secondary, Size::Sm);
-        let (i, pw) = (id.clone(), pop.downgrade());
-        back.connect_clicked(move |_| {
-            buckets::act(Op::Restore { ws: i.clone() });
-            if let Some(p) = pw.upgrade() {
-                p.popdown();
-            }
-        });
-        row.append(&back);
-        let gone = ui::icon_button("trash", "Delete it for good", 13);
-        let pw = pop.downgrade();
-        gone.connect_clicked(move |_| {
-            state::delete_forever(id.clone());
-            if let Some(p) = pw.upgrade() {
-                p.popdown();
-            }
-        });
-        row.append(&gone);
-        col.append(&row);
-    }
-    pop.set_child(Some(&col));
 }
 
 /// Deletes what's picked (wadspaces go to Recently deleted), with Undo.
@@ -446,7 +401,7 @@ fn keys(root: &gtk::Box) {
                 state::changed();
                 glib::Propagation::Stop
             }
-            gtk::gdk::Key::Escape if state::read(|s| s.open.is_some()) => {
+            gtk::gdk::Key::Escape if state::read(|s| s.open.is_some() || s.trash_open) => {
                 close();
                 glib::Propagation::Stop
             }
@@ -477,7 +432,7 @@ fn render(p: &Page) {
                 st.picked.len(),
                 state::picked_wadspaces(st).len(),
                 st.save_error.clone(),
-                st.board.deleted().len(),
+                st.board.deleted().len() + st.board.wadspaces.iter().map(|w| w.trash.len()).sum::<usize>(),
             )
         });
         let unbuilt: Vec<String> = state::read(|st| {
@@ -510,7 +465,12 @@ fn render(p: &Page) {
             &p.delete_picked,
             &if picked > 0 { format!("Delete selected ({picked})") } else { "Delete selected".into() },
         );
-        p.deleted.set_sensitive(gone > 0);
+        p.deleted.set_sensitive(gone > 0 || state::read(|st| st.trash_open));
+        if state::read(|st| st.trash_open) {
+            p.deleted.add_css_class("on");
+        } else {
+            p.deleted.remove_css_class("on");
+        }
         p.not_saved.set_visible(err.is_some());
         if let Some(e) = err {
             p.not_saved.set_tooltip_text(Some(&format!("{e} Your changes are kept here. Click to try again.")));
@@ -521,6 +481,11 @@ fn render(p: &Page) {
 /// The open wadspace's sidebar, or none.
 fn draw_side(s: &AppState, p: &Page) {
     ui::clear(&p.side);
+    if state::read(|st| st.trash_open) {
+        p.side.append(&trash::panel(s));
+        p.side.set_visible(true);
+        return;
+    }
     let open = state::read(|st| st.open.as_ref().and_then(|o| st.board.get(o)).filter(|w| !w.deleted()).cloned());
     match open {
         Some(w) => {
@@ -679,6 +644,27 @@ pub mod sim {
         click.emit_by_name::<()>("pressed", &[&1i32, &2f64, &2f64]);
         let name_kept = state::read(|s| s.board.get(ws).and_then(|w| w.templates.first()).map(|t| t.name.clone()));
         typing && !state::read(|s| s.renaming) && name_kept.as_deref() == Some(was.as_str())
+    }
+
+    /// The board scrolled to its top.
+    pub fn board_to_top(ws: &str) {
+        if let Some(sw) = column(ws)
+            .and_then(|c| c.ancestor(gtk::ScrolledWindow::static_type()))
+            .and_downcast::<gtk::ScrolledWindow>()
+        {
+            sw.vadjustment().set_value(0.0);
+        }
+    }
+
+    /// A deleted wadspace's background (Recently deleted's part) dropped on
+    /// another's Customizations (it lands once the drop's drawn).
+    pub fn background_from(deleted: &str, ws: &str) -> bool {
+        let Some(customs) = column(ws).and_then(|c| with_class(&c, "wbb-bucket")) else { return false };
+        let p = crate::drag::Payload::B(Bp::Background { ws: deleted.into() });
+        crate::drag::sim::begin(&customs, p, buckets::ghost("", "background"));
+        crate::drag::sim::over(&customs, 20.0, 20.0);
+        crate::drag::sim::end(true);
+        true
     }
 
     /// The sidebar scrolled to its end.

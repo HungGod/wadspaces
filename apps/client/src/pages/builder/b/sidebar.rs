@@ -24,7 +24,7 @@ use crate::store::AppState;
 use crate::ui;
 
 /// The sidebar, wide.
-const SIDE_W: i32 = 360;
+pub(super) const SIDE_W: i32 = 360;
 
 /// What the open wadspace's parts keep while it stays open: their hosts
 /// (the parts hold them weakly) and their own state.
@@ -115,7 +115,7 @@ thread_local! {
 
 /// `body` in the sidebar's scroller: the one it had, on the same wadspace
 /// and tab, else a new one at the top.
-fn scroller(ws: &str, tab: Tab, body: &gtk::Box) -> gtk::ScrolledWindow {
+pub(super) fn scroller(ws: &str, tab: Tab, body: &gtk::Box) -> gtk::ScrolledWindow {
     let kept = SCROLLER.with(|s| {
         s.borrow().as_ref().filter(|(w, t, ..)| w == ws && *t == tab).map(|(_, _, sw, vp)| (sw.clone(), vp.clone()))
     });

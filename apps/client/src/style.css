@@ -2612,9 +2612,7 @@ entry.wbb-rename {
   font-weight: 600;
 }
 .wbb-ghost-pile .wbb-tpl-bar { box-shadow: inset 0 0 0 1px var(--tpl); color: var(--tpl); }
-.wbb-deleted-list { padding: 4px; min-width: 300px; }
-.wbb-deleted-row { padding: 4px 6px; border-radius: 8px; }
-.wbb menubutton.wbb-deleted > button {
+.wbb button.wbb-deleted {
   padding: 0 10px;
   min-height: 30px;
   border-radius: 10px;
@@ -2623,8 +2621,16 @@ entry.wbb-rename {
   box-shadow: inset 0 0 0 1px var(--line-strong);
   font-size: 13px;
 }
-.wbb menubutton.wbb-deleted > button:hover { background: var(--surface-2); }
-.wbb menubutton.wbb-deleted > button:disabled { color: var(--faint); box-shadow: inset 0 0 0 1px var(--line); }
+.wbb button.wbb-deleted:hover { background: var(--surface-2); }
+.wbb button.wbb-deleted.on { background: var(--surface-3); box-shadow: inset 0 0 0 1px var(--accent); }
+.wbb button.wbb-deleted:disabled { color: var(--faint); box-shadow: inset 0 0 0 1px var(--line); }
+/* Recently deleted, in the sidebar. */
+.wbb .wbb-kept-card { padding: 10px; border-radius: 12px; background: var(--surface); box-shadow: inset 0 0 0 1px var(--line); }
+.wbb .wbb-kept { padding: 4px 2px; }
+.wbb .wbb-kept-name { font-weight: 600; font-size: 13px; }
+.wbb .wbb-kept-from { font-size: 11.5px; color: var(--muted); font-weight: 600; }
+.wbb .wbb-kept-part { padding: 3px 8px; }
+.wbb .wbb-kept-part:hover { box-shadow: inset 0 0 0 1px var(--line-strong); }
 /* A machine with none: a blank wadspace, made when it's used. */
 .wbb .wbb-col.blank .wbb-bucket { border-style: dashed; box-shadow: none; }
 .wbb .wbb-col.blank .wbb-tpl { border-style: dashed; }
