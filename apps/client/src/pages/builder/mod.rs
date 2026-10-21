@@ -6,9 +6,11 @@
 //! documents (state.rs): changes are saved as they're made, and Undo takes
 //! them back.
 
+pub mod b;
 pub mod drops;
 pub mod editor;
 pub mod faces;
+pub mod parts;
 pub mod preview;
 pub mod state;
 

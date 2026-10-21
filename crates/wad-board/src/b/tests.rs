@@ -254,6 +254,61 @@ fn keys_and_web_apps_in_groups() {
 }
 
 #[test]
+fn its_keys_by_app_as_the_key_editor_shows_them() {
+    let b = board();
+    let map = b.key_map("iq");
+    let apps: Vec<&str> = map.iter().map(|a| a.id.as_str()).collect();
+    assert_eq!(apps, ["wadbrowser", "vscode"]);
+    let web = &map[0].lines[0];
+    assert_eq!(web.slot, "group:g1");
+    assert_eq!(web.group.as_ref().and_then(|g| g.key.as_ref()).map(|k| k["name"].clone()), Some(json!("hunggod")));
+    let members: Vec<&str> = web.members.iter().flatten().map(|m| m.name.as_str()).collect();
+    assert_eq!(members, ["WadBrowser", "GitHub"]);
+    let code: Vec<&str> = map[1].lines.iter().map(|l| l.slot.as_str()).collect();
+    assert_eq!(code, ["app:vscode", "ext:anthropic.claude-code"]);
+    // Obsidian keeps one; Cosmic's WadBrowser has a group of one, no key.
+    let cosmic: Vec<(String, usize)> = b.key_map("cosmic").iter().map(|a| (a.id.clone(), a.lines.len())).collect();
+    assert_eq!(cosmic, [("obsidian".to_string(), 1), ("wadbrowser".to_string(), 1)]);
+    // The board's keys, each once; a name another key has is taken.
+    let names: Vec<Value> = b.keys().iter().map(|k| k["name"].clone()).collect();
+    assert_eq!(names, [json!("IQ-claude"), json!("hunggod")]);
+    assert_eq!(b.key_clash("iq-claude", "HungGod", &[]).as_deref(), Some("Another key is already called hunggod"));
+    assert_eq!(b.key_clash("hunggod", "hunggod", &[]), None);
+    let known = [json!({"id": "work", "name": "Work", "kind": "web"})];
+    assert!(b.key_clash("hunggod", "work", &known).is_some());
+}
+
+#[test]
+fn a_new_wadspace_never_takes_another_documents_id() {
+    let mut b = board();
+    b.reserved = vec!["new-wadspace".into()];
+    b.apply(&Op::Fresh {
+        payload: Payload::CatalogApp { app: "obsidian".into() },
+        machine: "surface".into(),
+        before: None,
+    })
+    .unwrap();
+    assert!(b.get("new-wadspace-2").is_some(), "{:?}", b.wadspaces.iter().map(|w| &w.id).collect::<Vec<_>>());
+}
+
+#[test]
+fn edits_made_together_undo_as_one() {
+    let mut b = board();
+    let both = [
+        Op::Rename { ws: "iq".into(), name: "IQ".into() },
+        Op::Describe { ws: "iq".into(), description: "Rust".into() },
+    ];
+    b.apply_all(&both).unwrap();
+    assert_eq!((b.get("iq").unwrap().name(), b.can_undo()), ("IQ", true));
+    b.apply(&Op::Undo).unwrap();
+    assert_eq!((b.get("iq").unwrap().name(), b.can_undo()), ("IntelligenceQuest", false));
+    // One that can't be made: neither is.
+    let bad = [Op::Rename { ws: "iq".into(), name: "IQ".into() }, Op::Rename { ws: "gone".into(), name: "x".into() }];
+    assert!(b.apply_all(&bad).is_err());
+    assert_eq!(b.get("iq").unwrap().name(), "IntelligenceQuest");
+}
+
+#[test]
 fn saving_writes_what_changed_with_each_rows_order() {
     let saved = board().wadspaces;
     let mut b = board();

@@ -1,5 +1,5 @@
 {
-  "comment": "The native client's fake state (WADSPACES_FAKE=fixtures/desktop/sample.json): the web app's test sample (wadspaces-client's src/test/sample.ts), signed in, with Cosmic running here, linked as m-surface beside an offline Desk, and two version 4 wadspaces (IntelligenceQuest here, Desk Lab on the Desk); \"wadd\" is the made-up wadd's answers by path (Machines' storage, files, history, diagnostics).",
+  "comment": "The native client's fake state (WADSPACES_FAKE=fixtures/desktop/sample.json): the web app's test sample (wadspaces-client's src/test/sample.ts), signed in, with Cosmic running here, linked as m-surface beside an offline Desk, and two version 4 wadspaces (IntelligenceQuest here, Desk Lab built on the Desk), and a Laptop with none; \"wadd\" is the made-up wadd's answers by path (Machines' storage, files, history, diagnostics).",
   "user": { "uid": "me", "githubId": "4242", "login": "me", "displayName": "Me", "photoUrl": null },
   "profile": { "username": "me", "displayName": "Me", "color": "#c6ff1f" },
   "lastSession": { "kind": "wadspace", "wadspaceIds": ["vanua-academy"], "machineId": "local", "at": "2026-10-15T01:00:00.000Z" },
@@ -61,7 +61,10 @@
       { "id": "m-surface", "hostname": "surface", "name": "Surface", "daemonVersion": "0.1.0", "lastSeen": "2026-10-15T01:00:00.000Z", "workspaces": [] },
       { "id": "m-desk", "hostname": "desk", "name": "Desk", "daemonVersion": "0.1.0", "lastSeen": "2026-10-14T18:30:00.000Z", "view": "home",
         "metrics": { "cpu": 3.0, "mem": 22.0, "gpu": "AMD Radeon 780M" },
-        "workspaces": [{ "id": "vanua-academy", "container": "exited", "phase": "idle", "error": null, "hotkey": null, "port": null }] }
+        "workspaces": [{ "id": "vanua-academy", "container": "exited", "phase": "idle", "error": null, "hotkey": null, "port": null }],
+        "images": [{ "layer": "base", "ref": "localhost/wadspaces-base:trixie", "id": "base-desk", "dockerfileSha": "", "builtAt": 1791000000, "sizeMb": 1470, "from": "" },
+          { "layer": "set:eda3cf2abd20", "ref": "localhost/wadspaces-set-eda3cf2abd20:latest", "id": "img-desk-set", "dockerfileSha": "eda3cf2abd20", "builtAt": 1791500000, "sizeMb": 1900, "from": "base-desk" }] },
+      { "id": "m-laptop", "hostname": "laptop", "name": "Laptop", "daemonVersion": "0.1.0", "lastSeen": "2026-10-13T09:00:00.000Z", "workspaces": [] }
     ]
   },
   "workspaces": [

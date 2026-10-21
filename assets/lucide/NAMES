@@ -24,6 +24,7 @@ Copy copy
 Cpu cpu
 ExternalLink external-link
 Eye eye
+EyeOff eye-off
 File file
 FileSearch file-search
 FileText file-text
@@ -34,6 +35,7 @@ FolderSymlink folder-symlink
 Gamepad2 gamepad-2
 Globe globe
 GraduationCap graduation-cap
+GripVertical grip-vertical
 Hammer hammer
 HardDrive hard-drive
 HardDriveDownload hard-drive-download
@@ -55,6 +57,7 @@ LogIn log-in
 LogOut log-out
 MemoryStick memory-stick
 Minus minus
+Monitor monitor
 MonitorPlay monitor-play
 MonitorSmartphone monitor-smartphone
 Moon moon

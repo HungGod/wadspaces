@@ -170,21 +170,30 @@ fn actions(st: &AppState, w: &Value, m: &Modal) -> gtk::Widget {
         mm.close();
         crate::launcher::customize(&i);
     });
+    let v4 = wad_core::v4::is_v4(w);
     let (i, mm) = (id.clone(), m.clone());
     edit.connect_clicked(move |_| {
         mm.close();
-        crate::pages::builder::show_stack(&i, false);
+        if v4 {
+            crate::pages::builder::b::show_wadspace(&i, false);
+        } else {
+            crate::pages::builder::show_stack(&i, false);
+        }
     });
     let (i, mm) = (id, m.clone());
     copy.connect_clicked(move |_| {
         mm.close();
-        crate::pages::builder::show_stack(&i, true);
+        if v4 {
+            crate::pages::builder::b::show_wadspace(&i, true);
+        } else {
+            crate::pages::builder::show_stack(&i, true);
+        }
     });
     grid.attach(&open, 0, 0, 1, 1);
     grid.attach(&customize, 1, 0, 1, 1);
-    // The board here is version 3's: a version 4 wadspace is edited and
-    // copied on design B's.
-    if !wad_core::v4::is_v4(w) {
+    // A version 4 wadspace is edited and copied on design B's board (the
+    // old one has version 3's).
+    if !v4 || crate::pages::builder::b::enabled() {
         grid.attach(&edit, 0, 1, 1, 1);
         grid.attach(&copy, 1, 1, 1, 1);
     }

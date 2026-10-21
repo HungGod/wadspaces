@@ -41,6 +41,8 @@ pub enum Payload {
         members: Vec<String>,
         group: String,
     },
+    /// Something of Builder B's board, or from its sidebar.
+    B(wad_board::b::Payload),
 }
 
 /// What an app is set up with: a web app, a VS Code extension, a tool.
@@ -434,6 +436,7 @@ fn update(a: &Rc<Active>) {
                 Payload::Modules { .. } | Payload::Sub { .. } => {
                     "Drop on a stack to copy it there · right-click to cancel"
                 }
+                Payload::B(_) => "Drop on a wadspace, or on a machine below · right-click to cancel",
                 _ => "Right-click to cancel",
             },
         ),

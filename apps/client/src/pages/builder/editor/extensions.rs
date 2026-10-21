@@ -17,7 +17,7 @@ use crate::pages::builder::faces::{self, img};
 use crate::ui::{self, Size, Variant};
 
 /// Web apps worth offering even when no other wadspace has them.
-const COMMON: [(&str, &str, &str); 5] = [
+pub(crate) const COMMON: [(&str, &str, &str); 5] = [
     ("github", "GitHub", "https://github.com"),
     ("gmail", "Gmail", "https://mail.google.com"),
     ("google-drive", "Google Drive", "https://drive.google.com"),
@@ -128,7 +128,7 @@ fn remove(ed: &Rc<Editor>, i: &Item) {
 }
 
 /// A site typed in ("notion.so"): a web app named after it.
-fn site_webapp(text: &str) -> Option<WebApp> {
+pub(crate) fn site_webapp(text: &str) -> Option<WebApp> {
     let text = text.trim();
     let url = if text.starts_with("http://") || text.starts_with("https://") {
         text.to_string()

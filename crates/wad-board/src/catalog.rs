@@ -236,13 +236,26 @@ pub struct KeyApp {
 
 /// The keys a stack could have, by app, in desktop order.
 pub fn key_map(s: &Stack, sub: Option<&SecretsSub>) -> Vec<KeyApp> {
+    let extensions = s.vscode().map(|v| v.extensions.clone()).unwrap_or_default();
+    key_map_of(s.apps(), browser_items(s), &extensions, key_groups_of(s, sub))
+}
+
+/// The keys apps could have, by app in their order: WadBrowser's groups of
+/// `items` (`groups`, tidied), VS Code's settings and its extensions that
+/// sign in, and each other app that keeps a key (either board's wadspaces).
+pub fn key_map_of(
+    apps: &[String],
+    items: Vec<BrowserItem>,
+    extensions: &[String],
+    groups: Vec<KeyGroup>,
+) -> Vec<KeyApp> {
     let mut out = vec![];
-    for id in s.apps() {
+    for id in apps {
         let Some(a) = app(id) else { continue };
         if id == "wadbrowser" {
-            let items = browser_items(s);
-            let lines = key_groups_of(s, sub)
-                .into_iter()
+            let lines = groups
+                .iter()
+                .cloned()
                 .map(|g| {
                     let members: Vec<BrowserItem> =
                         g.members.iter().filter_map(|m| items.iter().find(|i| i.id == *m).cloned()).collect();
@@ -276,7 +289,7 @@ pub fn key_map(s: &Stack, sub: Option<&SecretsSub>) -> Vec<KeyApp> {
                 group: None,
                 members: None,
             }];
-            for x in s.vscode().map(|v| v.extensions.as_slice()).unwrap_or(&[]) {
+            for x in extensions {
                 let e = extension(x);
                 if let Some(kind) = e.secret {
                     lines.push(KeyLine {

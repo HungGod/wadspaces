@@ -208,6 +208,7 @@ pub fn shell() -> gtk::Widget {
             Page::Home => crate::pages::home::page(),
             Page::Machines => crate::pages::machines::page(),
             Page::Secrets => crate::pages::secrets::page(),
+            Page::Builder if crate::pages::builder::b::enabled() => crate::pages::builder::b::page(),
             Page::Builder => crate::pages::builder::page(),
         };
         stack.add_named(&page, Some(p.id()));

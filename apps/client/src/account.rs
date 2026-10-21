@@ -450,6 +450,7 @@ pub fn sign_out() {
     crate::pages::builder::editor::cancel();
     crate::pages::builder::preview::close();
     crate::pages::builder::state::reset();
+    crate::pages::builder::b::state::reset();
     crate::tour::reset();
     crate::notices::reset();
 }

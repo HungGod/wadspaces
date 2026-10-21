@@ -23,6 +23,8 @@ use serde_json::{Map, Value, json};
 use wad_core::{catalog, layers, spec, v4};
 
 use crate::board::copy_name;
+use crate::catalog::{self as cat, BrowserItem, KeyApp};
+use crate::model::KeyGroup;
 
 const UNDO_STEPS: usize = 40;
 
@@ -96,7 +98,8 @@ impl Wadspace {
     pub fn deleted(&self) -> bool {
         self.deleted_at.as_deref().is_some_and(|d| !d.is_empty())
     }
-    fn json(&self) -> Value {
+    /// Its document, as wad_core::v4 reads it.
+    pub fn doc(&self) -> Value {
         serde_json::to_value(self).unwrap_or(Value::Null)
     }
     fn secrets(&mut self) -> &mut Map<String, Value> {
@@ -329,6 +332,10 @@ pub struct Board {
     /// What a delete stamps (the caller's clock).
     #[serde(default)]
     pub now: String,
+    /// Ids taken by other documents in the same collection (version 3
+    /// wadspaces): a new wadspace never takes one.
+    #[serde(default)]
+    pub reserved: Vec<String>,
     #[serde(skip)]
     past: Vec<Vec<Wadspace>>,
 }
@@ -373,7 +380,16 @@ fn add_to(t: &mut Template, app: &str, extras: &[Extra]) {
 
 impl Board {
     pub fn new(machines: Vec<Machine>, wadspaces: Vec<Wadspace>, now: &str) -> Self {
-        Self { machines, wadspaces, now: now.into(), past: vec![] }
+        Self { machines, wadspaces, now: now.into(), reserved: vec![], past: vec![] }
+    }
+
+    /// The wadspaces as read (again); Undo keeps its steps when `keep`
+    /// (the board caught up with what it saved), else starts afresh.
+    pub fn load(&mut self, wadspaces: Vec<Wadspace>, keep: bool) {
+        self.wadspaces = wadspaces;
+        if !keep {
+            self.past.clear();
+        }
     }
 
     pub fn can_undo(&self) -> bool {
@@ -407,21 +423,30 @@ impl Board {
             self.wadspaces = last;
             return Ok(());
         }
+        self.apply_all(std::slice::from_ref(op))
+    }
+
+    /// Edits made together, one step to undo (WadBrowser's apps moved as
+    /// one); if one can't be made, none is.
+    pub fn apply_all(&mut self, ops: &[Op]) -> Result<(), String> {
         let before = self.wadspaces.clone();
-        match self.edit(op) {
-            Ok(()) if self.wadspaces != before => {
-                self.past.push(before);
-                if self.past.len() > UNDO_STEPS {
-                    self.past.remove(0);
-                }
-                Ok(())
-            }
-            Ok(()) => Ok(()),
-            Err(e) => {
+        for op in ops {
+            let done = match op {
+                Op::Undo => Err("undo goes on its own".to_string()),
+                op => self.edit(op),
+            };
+            if let Err(e) = done {
                 self.wadspaces = before;
-                Err(e)
+                return Err(e);
             }
         }
+        if self.wadspaces != before {
+            self.past.push(before);
+            if self.past.len() > UNDO_STEPS {
+                self.past.remove(0);
+            }
+        }
+        Ok(())
     }
 
     fn edit(&mut self, op: &Op) -> Result<(), String> {
@@ -749,7 +774,7 @@ impl Board {
                 copy_name(w.name(), &taken)
             }
         };
-        let taken: Vec<String> = self.wadspaces.iter().map(|w| w.id.clone()).collect();
+        let taken: Vec<String> = self.wadspaces.iter().map(|w| w.id.clone()).chain(self.reserved.clone()).collect();
         let id = free(&spec::slugify(&name), &taken);
         let at = match before.and_then(|b| self.wadspaces.iter().position(|w| w.id == b)) {
             Some(i) => i,
@@ -804,7 +829,7 @@ impl Board {
     /// each web app's).
     pub fn slots_of(&self, ws: &str) -> Vec<Value> {
         let Some(w) = self.get(ws) else { return vec![] };
-        let (t, setup) = v4::as_template_setup(&w.json());
+        let (t, setup) = v4::as_template_setup(&w.doc());
         layers::slots_for(&t, &setup)
     }
 
@@ -812,7 +837,7 @@ impl Board {
     /// browser and each web app (none without WadBrowser).
     pub fn groups_of(&self, ws: &str) -> Vec<Value> {
         let Some(w) = self.get(ws) else { return vec![] };
-        let apps = v4::apps_of(&w.json());
+        let apps = v4::apps_of(&w.doc());
         let Some(browser) = apps.iter().find(|e| s(e, "app") == "wadbrowser") else { return vec![] };
         let mut members = vec!["browser".to_string()];
         members.extend(browser["extras"].as_array().into_iter().flatten().map(|x| format!("web:{}", s(x, "id"))));
@@ -845,6 +870,63 @@ impl Board {
             }
         }
         groups
+    }
+
+    /// Its keys by app, as the client's key editor shows them (the old
+    /// board's [`cat::KeyApp`]s): WadBrowser's groups, VS Code's settings and
+    /// its extensions that sign in, each other app that keeps a key.
+    pub fn key_map(&self, ws: &str) -> Vec<KeyApp> {
+        let Some(w) = self.get(ws) else { return vec![] };
+        let apps = v4::apps_of(&w.doc());
+        let ids: Vec<String> = apps.iter().map(|e| s(e, "app").to_string()).collect();
+        let extras = |app: &str| -> Vec<Value> {
+            apps.iter().find(|e| s(e, "app") == app).and_then(|e| e["extras"].as_array().cloned()).unwrap_or_default()
+        };
+        let mut items = vec![];
+        if ids.iter().any(|a| a == "wadbrowser") {
+            items.push(BrowserItem { id: "browser".into(), name: "WadBrowser".into(), icon: cat::BROWSER_ICON.into() });
+            for x in extras("wadbrowser") {
+                let icon = match s(&x, "iconUrl") {
+                    "" => cat::site_icon(s(&x, "url")),
+                    i => i.to_string(),
+                };
+                items.push(BrowserItem { id: format!("web:{}", s(&x, "id")), name: s(&x, "name").into(), icon });
+            }
+        }
+        let extensions: Vec<String> = extras("vscode").iter().map(|x| s(x, "id").to_string()).collect();
+        let groups: Vec<KeyGroup> =
+            self.groups_of(ws).into_iter().filter_map(|g| serde_json::from_value(g).ok()).collect();
+        cat::key_map_of(&ids, items, &extensions, groups)
+    }
+
+    /// Every key the board's wadspaces keep, each once (`{id, name, kind}`).
+    pub fn keys(&self) -> Vec<Value> {
+        let mut out: Vec<Value> = vec![];
+        for w in &self.wadspaces {
+            let sec = w.customization.get("secrets");
+            let by = sec.and_then(|x| x.get("bySlot")).and_then(Value::as_object).into_iter().flat_map(|o| o.values());
+            let groups = sec.and_then(|x| x.get("groups")).and_then(Value::as_array).into_iter().flatten();
+            for k in by.chain(groups.filter_map(|g| g.get("key"))) {
+                if k.is_object() && !out.iter().any(|o| s(o, "id") == s(k, "id")) {
+                    out.push(k.clone());
+                }
+            }
+        }
+        out
+    }
+
+    /// Why key `id` can't be called `name` (another key is), or None.
+    pub fn key_clash(&self, id: &str, name: &str, known: &[Value]) -> Option<String> {
+        let name = name.trim();
+        if name.is_empty() {
+            return Some("Give it a name".into());
+        }
+        let used = self.keys();
+        known
+            .iter()
+            .chain(&used)
+            .find(|k| s(k, "id") != id && s(k, "name").eq_ignore_ascii_case(name))
+            .map(|o| format!("Another key is already called {}", s(o, "name")))
     }
 
     fn set_groups(&mut self, ws: &str, f: impl FnOnce(&mut Vec<Value>)) -> Result<(), String> {
@@ -912,7 +994,7 @@ impl Board {
             }
             w.created_at = was.and_then(|x| x.created_at.clone()).or_else(|| Some(now.into()));
             w.updated_at = Some(now.into());
-            out.push(w.json());
+            out.push(w.doc());
         }
         out
     }

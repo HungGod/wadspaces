@@ -90,6 +90,8 @@ pub fn tokens(t: Theme) -> &'static str {
   --layer-template: #7fd3ff;
   --layer-extensions: #c6ff1f;
   --layer-customization: #ff3d81;
+  --tpl: #7fd3ff;
+  --unbuilt: #ffb36b;
   --glow-ring: rgb(198 255 31 / 0.35);
   --glow-haze: rgb(198 255 31 / 0.25);
   --shadow: rgb(3 2 8 / 0.85);
@@ -105,27 +107,29 @@ pub fn tokens(t: Theme) -> &'static str {
   --surface: #ffffff;
   --surface-2: #f6f6f6;
   --surface-3: #ebebeb;
-  --line: rgb(10 6 20 / 0.09);
-  --line-strong: rgb(10 6 20 / 0.18);
-  --fg: #0a0614;
+  --line: rgb(0 0 0 / 0.09);
+  --line-strong: rgb(0 0 0 / 0.18);
+  --fg: #0a0a0a;
   --muted: #5f5f5f;
   --faint: #9a9a9a;
-  --accent: #0a0614;
+  --accent: #0a0a0a;
   --accent-fg: #ffffff;
-  --accent-soft: rgb(10 6 20 / 0.07);
+  --accent-soft: rgb(0 0 0 / 0.07);
   --accent-2: #d9d9d9;
-  --accent-2-fg: #0a0614;
-  --accent-2-soft: rgb(10 6 20 / 0.05);
+  --accent-2-fg: #0a0a0a;
+  --accent-2-soft: rgb(0 0 0 / 0.05);
   --danger: #3a3a3a;
-  --brand: #0a0614;
-  --brand-rule: #0a0614;
-  --layer-template: #1679b8;
-  --layer-extensions: #4d7a00;
-  --layer-customization: #d81b60;
-  --glow-ring: rgb(10 6 20 / 0.25);
-  --glow-haze: rgb(10 6 20 / 0.25);
-  --shadow: rgb(10 6 20 / 0.28);
-  --dim: rgb(10 6 20 / 0.35);
+  --brand: #0a0a0a;
+  --brand-rule: #0a0a0a;
+  --layer-template: #3d3d3d;
+  --layer-extensions: #0a0a0a;
+  --layer-customization: #7a7a7a;
+  --tpl: #0a0a0a;
+  --unbuilt: #6e6e6e;
+  --glow-ring: rgb(0 0 0 / 0.25);
+  --glow-haze: rgb(0 0 0 / 0.25);
+  --shadow: rgb(0 0 0 / 0.28);
+  --dim: rgb(0 0 0 / 0.35);
 }
 "
         }
