@@ -113,8 +113,10 @@ pub fn page() -> gtk::Widget {
     let pp = p.clone();
     state::on_change(move || render(&pp));
     let builds_seen: std::rc::Rc<std::cell::RefCell<String>> = Default::default();
+    let machines_seen: std::rc::Rc<std::cell::RefCell<String>> = Default::default();
+    // Drawn again only when something it shows changed (state::take_library).
     store().watch(&root, Topic::LIBRARY | Topic::ACTIVITY | Topic::WADD | Topic::CLOUD | Topic::MACHINE, move |s| {
-        state::take_library(s);
+        let mut redraw = state::take_library(s);
         // Builds starting or ending change what's built.
         let key: String = s.builds.iter().map(|(b, _)| format!("{}:{:?};", b.id, b.status)).collect();
         if *builds_seen.borrow() != key {
@@ -123,6 +125,14 @@ pub fn page() -> gtk::Widget {
             if ended {
                 state::refresh_images();
             }
+            redraw = true;
+        }
+        let key = carousel::key(s);
+        if *machines_seen.borrow() != key {
+            machines_seen.replace(key);
+            redraw = true;
+        }
+        if redraw {
             state::changed();
         }
     });

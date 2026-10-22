@@ -68,6 +68,17 @@ fn machines(s: &AppState) -> Vec<Shown> {
         .collect()
 }
 
+/// What the bar shows of the machines, and what each says it has built (its
+/// wadspaces' tags): the board's drawn again when it changes.
+pub fn key(s: &AppState) -> String {
+    let mut k: String =
+        machines(s).iter().map(|m| format!("{}:{}:{}:{}:{};", m.id, m.name, m.detail, m.up, m.here)).collect();
+    for m in s.library.iter().flat_map(|l| l.machines.iter()) {
+        k.push_str(&m["images"].to_string());
+    }
+    k
+}
+
 pub fn bar(s: &AppState) -> gtk::Widget {
     let root = gtk::Box::new(gtk::Orientation::Horizontal, 4);
     root.add_css_class("wbb-machines");

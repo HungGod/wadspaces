@@ -52,6 +52,8 @@ pub struct State {
     pub save_error: Option<String>,
     /// After a failed write, until the library's read back.
     stale: bool,
+    /// Writes failed in a row (each waits longer before it's tried again).
+    fails: u32,
     /// The machine whose wadspaces are shown (None: this one).
     pub shown: Option<String>,
     /// Wadspaces selected, the sidebar's last (one is, whatever this says:
@@ -151,32 +153,37 @@ fn from_library(s: &AppState) -> Vec<Wadspace> {
 }
 
 /// The library read (or read again): the board from it, unless the board's
-/// own writes are out or it has work not saved yet.
-pub fn take_library(s: &AppState) {
+/// own writes are out or it has work not saved yet. Whether the board
+/// changed: the store says something changed many times a second while a
+/// build's on, and drawing the board again each time takes the hover off
+/// what's under the pointer (and a click pressed on one button and released
+/// on its new copy is no click).
+pub fn take_library(s: &AppState) -> bool {
     if s.library.is_none() {
-        return;
+        return false;
     }
     let machines = machines(s);
     let docs = from_library(s);
     let reserved = s.library.as_ref().map(|l| l.reserved.clone()).unwrap_or_default();
     write(|st| {
+        let news = st.board.machines != machines || st.board.reserved != reserved;
         st.board.machines = machines;
         st.board.reserved = reserved;
         if st.pending > 0 || st.stale {
-            return;
+            return news;
         }
         if st.loaded && unsaved(st) {
-            return;
+            return news;
         }
         // What it saved, read back: nothing to take (Undo keeps its steps).
         if st.loaded && by_id(&docs) == by_id(&st.saved) {
-            return;
+            return news;
         }
         st.board.load(docs.clone(), false);
         st.saved = docs;
         st.loaded = true;
-    });
-    changed();
+        true
+    })
 }
 
 /// Wadspaces in id order (the library's order isn't the board's).
@@ -277,12 +284,19 @@ pub fn save() {
             Ok::<(), String>(())
         };
         match writes.await {
-            Ok(()) => write(|s| {
-                s.pending = s.pending.saturating_sub(1);
-                if s.pending == 0 {
-                    s.save_error = None;
+            Ok(()) => {
+                // Saved again after it couldn't: the Not saved chip goes.
+                let cleared = write(|s| {
+                    s.pending = s.pending.saturating_sub(1);
+                    if s.pending == 0 {
+                        s.fails = 0;
+                    }
+                    s.pending == 0 && s.save_error.take().is_some()
+                });
+                if cleared {
+                    changed();
                 }
-            }),
+            }
             Err(why) => {
                 if read(|s| s.save_error.is_none()) {
                     crate::toast::error(
@@ -290,17 +304,25 @@ pub fn save() {
                         &format!("{why} Your changes are kept here and saved when they can be."),
                     );
                 }
-                write(|s| {
+                let fails = write(|s| {
                     s.save_error = Some(why);
                     s.stale = true;
                     s.pending = 0;
                     // What's saved is the library's, read back next.
                     s.saved.clear();
+                    s.fails += 1;
+                    s.fails
                 });
+                changed();
                 crate::account::refresh_library().await;
                 write(|s| s.stale = false);
                 store().read_now(take_saved);
-                save();
+                // Tried again in a while (5 s, then longer, up to a minute),
+                // not at once: a write that's refused (offline, or rules that
+                // don't take it) would go round and round, drawing the board
+                // each time. Retry, or the next edit, tries it now.
+                let secs = (5u32 << (fails - 1).min(4)).min(60);
+                glib::timeout_add_seconds_local_once(secs, save);
             }
         }
         changed();
