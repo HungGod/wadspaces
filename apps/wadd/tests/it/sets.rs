@@ -190,7 +190,7 @@ fn with(mut w: Value, f: impl FnOnce(&mut Value)) -> Value {
 }
 
 fn set_ref(w: &Value) -> String {
-    wad_core::v4::image_ref(&wad_core::v4::image_key(w), BASE)
+    wad_core::v5::image_ref(&wad_core::v5::image_key(w), BASE)
 }
 
 #[tokio::test]
@@ -199,10 +199,10 @@ async fn a_set_is_its_packages_stacked_on_the_base_then_put_together() {
     let log = e.install_and_build(&iq()).await.expect("a build");
     assert_eq!(log.build.status, BuildStatus::Done, "{:?}", log.lines);
     let set = set_ref(&iq());
-    let key = wad_core::v4::image_key(&iq());
+    let key = wad_core::v5::image_key(&iq());
     assert_eq!(log.build.ws_id, key);
     // One chain image per package, bottom first, then the set on the top one.
-    let want = wad_core::v4::packages_of(&iq());
+    let want = wad_core::v5::packages_of(&iq());
     assert_eq!(want, ["cpp", "rust", "electron-deps", "vscode", "ext-rust-lang.rust-analyzer"]);
     let built = e.built();
     assert_eq!(built.len(), want.len() + 1, "{built:?}");
@@ -231,7 +231,7 @@ async fn a_set_is_its_packages_stacked_on_the_base_then_put_together() {
     let ws = e.reg.workspace("iq").unwrap();
     assert_eq!(ws.image, set);
     assert_eq!(ws.name, "IntelligenceQuest");
-    assert!(wad_core::v4::state(&iq(), &serde_json::to_value(&rows).unwrap().as_array().unwrap()[..]) == "built");
+    assert!(wad_core::v5::state(&iq(), &serde_json::to_value(&rows).unwrap().as_array().unwrap()[..]) == "built");
 }
 
 #[tokio::test]
@@ -454,7 +454,7 @@ async fn a_set_nothing_runs_on_goes_after_the_next_build_with_what_only_it_neede
     let s = wadd::storage::Storage::new(&e.state, false, Arc::new(e.fake.clone()), e.reg.clone(), bus);
     let r = s.report(true).await;
     assert!(r.leftovers.is_empty(), "{:?}", r.leftovers);
-    let key = wad_core::v4::image_key(&no_ext);
+    let key = wad_core::v5::image_key(&no_ext);
     let mut names: Vec<(&str, &str, &[String])> =
         r.packages.iter().map(|p| (p.id.as_str(), p.name.as_str(), p.sets.as_slice())).collect();
     names.sort();

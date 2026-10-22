@@ -206,7 +206,7 @@ fn built_on(st: &AppState, w: &Value) -> gtk::Widget {
     l.set_xalign(0.0);
     l.set_ellipsize(gtk::pango::EllipsizeMode::End);
     texts.append(&l);
-    let pkgs: Vec<String> = wad_core::v4::packages_of(w).iter().map(|p| wad_core::packages::name(p)).collect();
+    let pkgs: Vec<String> = wad_core::v5::packages_of(w).iter().map(|p| wad_core::packages::name(p)).collect();
     let adds = if pkgs.is_empty() {
         "Its image is the base: it adds nothing to it".to_string()
     } else {

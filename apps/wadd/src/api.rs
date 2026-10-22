@@ -79,7 +79,7 @@ pub struct AppState {
 }
 
 impl AppState {
-    /// What installing and building version 4 wadspaces needs.
+    /// What installing and building wadspaces needs.
     pub fn here(&self) -> crate::sets::Here<'_> {
         crate::sets::Here {
             registry: &self.registry,
@@ -962,14 +962,15 @@ async fn wadspace_install(
     Path(id): Path<String>,
     Json(req): Json<crate::images::Install>,
 ) -> Result<Json<WorkspaceSaved>, Failure> {
-    if !wad_core::v4::is_v4(&req.wadspace) {
-        return Err(ApiError::new(ErrorCode::BadRequest, "only a version 4 wadspace installs").into());
+    let w = &req.wadspace;
+    if !(wad_core::v5::is_v5(w) || wad_core::v5::is_v4(w)) {
+        return Err(ApiError::new(ErrorCode::BadRequest, "only a version 5 (or 4) wadspace installs").into());
     }
     let i = crate::sets::install(&app.here(), &id, &req.wadspace, req.tz.as_deref()).await?;
     Ok(Json(i.saved))
 }
 
-/// A version 4 wadspace's image (its set), built unless it's up to date.
+/// A wadspace's image (its set), built unless it's up to date.
 async fn wadspace_build(
     State(app): State<Arc<AppState>>,
     Path(id): Path<String>,
@@ -977,7 +978,7 @@ async fn wadspace_build(
     Ok(Json(crate::sets::build_installed(&app.here(), &id).await?))
 }
 
-/// The theme version 4 wadspaces take at their next start.
+/// The theme wadspaces take at their next start.
 async fn machine_theme(
     State(app): State<Arc<AppState>>,
     Json(t): Json<wad_proto::v1::MachineTheme>,

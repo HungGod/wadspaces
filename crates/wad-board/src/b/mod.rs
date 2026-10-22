@@ -1,4 +1,4 @@
-//! Design B's board: the Builder's version 4 wadspaces (wad_core::v4). Each
+//! Design B's board: the Builder's version 4 wadspaces (wad_core::v5 reads them). Each
 //! wadspace is on one machine, with its Templates bucket (its own templates,
 //! each apps with their extras) and its Customizations bucket (background,
 //! projects, keys). The edits are the design's spike's (B-Buckets):
@@ -19,7 +19,10 @@
 
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value, json};
-use wad_core::{catalog, layers, spec, v4};
+use wad_core::{catalog, layers, spec, v5};
+
+/// The version of the documents this board writes.
+pub const VERSION: u64 = 4;
 
 use crate::catalog::{self as cat, BrowserItem, KeyApp};
 use crate::model::KeyGroup;
@@ -121,7 +124,7 @@ pub struct Wadspace {
 }
 
 fn four() -> u64 {
-    v4::VERSION
+    VERSION
 }
 
 impl Wadspace {
@@ -131,7 +134,7 @@ impl Wadspace {
     pub fn deleted(&self) -> bool {
         self.deleted_at.as_deref().is_some_and(|d| !d.is_empty())
     }
-    /// Its document, as wad_core::v4 reads it.
+    /// Its document, as wad_core::v5 reads it.
     pub fn doc(&self) -> Value {
         serde_json::to_value(self).unwrap_or(Value::Null)
     }
@@ -314,7 +317,7 @@ pub enum Op {
         id: String,
     },
     /// WadBrowser's mode in `template` (none: wherever it is in the
-    /// wadspace). The top template with WadBrowser decides (v4::apps_of).
+    /// wadspace). The top template with WadBrowser decides (v5::apps_of).
     SetMode {
         ws: String,
         mode: String,
@@ -626,7 +629,7 @@ impl Board {
                 Ok(())
             }
             Op::SetBackground { ws, texture } => {
-                if let Some(t) = texture.as_deref().filter(|t| !v4::TEXTURES.contains(t)) {
+                if let Some(t) = texture.as_deref().filter(|t| !v5::TEXTURES.contains(t)) {
                     return Err(format!("there's no texture {t}"));
                 }
                 let w = self.get_mut(ws)?;
@@ -900,7 +903,7 @@ impl Board {
         let mut c = Map::new();
         c.insert("name".into(), name.into());
         Wadspace {
-            version: v4::VERSION,
+            version: VERSION,
             id,
             owner,
             shared_with: vec![],
@@ -1004,7 +1007,7 @@ impl Board {
     /// each web app's).
     pub fn slots_of(&self, ws: &str) -> Vec<Value> {
         let Some(w) = self.get(ws) else { return vec![] };
-        let (t, setup) = v4::as_template_setup(&w.doc());
+        let (t, setup) = v5::as_template_setup(&w.doc());
         layers::slots_for(&t, &setup)
     }
 
@@ -1012,7 +1015,7 @@ impl Board {
     /// browser and each web app (none without WadBrowser).
     pub fn groups_of(&self, ws: &str) -> Vec<Value> {
         let Some(w) = self.get(ws) else { return vec![] };
-        let apps = v4::apps_of(&w.doc());
+        let apps = v5::apps_of(&w.doc());
         let Some(browser) = apps.iter().find(|e| s(e, "app") == "wadbrowser") else { return vec![] };
         let mut members = vec!["browser".to_string()];
         members.extend(browser["extras"].as_array().into_iter().flatten().map(|x| format!("web:{}", s(x, "id"))));
@@ -1052,7 +1055,7 @@ impl Board {
     /// its extensions that sign in, each other app that keeps a key.
     pub fn key_map(&self, ws: &str) -> Vec<KeyApp> {
         let Some(w) = self.get(ws) else { return vec![] };
-        let apps = v4::apps_of(&w.doc());
+        let apps = v5::apps_of(&w.doc());
         let ids: Vec<String> = apps.iter().map(|e| s(e, "app").to_string()).collect();
         let extras = |app: &str| -> Vec<Value> {
             apps.iter().find(|e| s(e, "app") == app).and_then(|e| e["extras"].as_array().cloned()).unwrap_or_default()

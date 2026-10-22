@@ -31,7 +31,7 @@ pub fn thumb(st: &AppState, w: &Value) -> DesktopThumb {
         Paint::Texture(id) => images::textured(&t, id, 960),
         Paint::Layers(_) => {}
     }
-    let items = wad_core::v4::desktop(w);
+    let items = wad_core::v5::desktop(w);
     t.set_icons(
         items
             .iter()

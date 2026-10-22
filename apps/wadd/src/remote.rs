@@ -176,7 +176,7 @@ fn wadspace(app: &AppState, id: &str) -> Result<Workspace, Failure> {
 }
 
 /// The layer an installed wadspace runs: one of the Builder's, "base" (a
-/// version 4 wadspace with no packages), or "" for none.
+/// wadspace with no packages), or "" for none.
 fn layer_of(image: &str) -> String {
     match crate::images::layer_of(image) {
         Some(l) => l,

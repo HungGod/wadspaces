@@ -454,7 +454,7 @@ fn the_top_template_decides_the_mode() {
     let all = made();
     let out = case(&all, "WadBrowser's mode per template: the top one decides");
     let iq = out["wadspaces"].as_array().unwrap().iter().find(|w| w["id"] == "iq").unwrap();
-    let browser = |w: &Value| wad_core::v4::apps_of(w).into_iter().find(|a| a["app"] == "wadbrowser").unwrap();
+    let browser = |w: &Value| wad_core::v5::apps_of(w).into_iter().find(|a| a["app"] == "wadbrowser").unwrap();
     // Game art (focus) went on top of Dev (an address bar): focus.
     assert_eq!(browser(iq)["mode"], "focus");
     // Dev back on top: its address bar, Game art's focus kept but not used.

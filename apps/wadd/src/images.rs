@@ -6,7 +6,7 @@
 //!   as it is now to show Built, Update, or Not built.
 //! - `DELETE /v1/images/{layer}`: a set nothing needs. Refused while a
 //!   workspace here runs on it.
-//! - `PUT /v1/wadspaces/{id}`: a version 4 wadspace installed, or updated,
+//! - `PUT /v1/wadspaces/{id}`: a version 5 wadspace installed, or updated,
 //!   as a workspace on its set (sets.rs).
 //! - `PUT /v1/workspaces/{id}/wallpaper`: the wallpaper it's started with,
 //!   kept in its extra folder (mounted at /run/wadspaces-extra).
@@ -43,7 +43,7 @@ pub fn layer_ok(layer: &str) -> bool {
 
 /// The image a layer's name points at.
 pub fn layer_ref(layer: &str) -> String {
-    wad_core::v4::image_ref(layer, wad_core::spec::DEFAULT_BASE_IMAGE)
+    wad_core::v5::image_ref(layer, wad_core::spec::DEFAULT_BASE_IMAGE)
 }
 
 /// The set a workspace's image is ("set:<key>"), if it's one.
@@ -377,7 +377,7 @@ async fn old_bases(backend: &dyn Backend) -> Vec<ImageInfo> {
         .collect()
 }
 
-/// PUT /v1/wadspaces/{id}: a version 4 wadspace (sets.rs installs it).
+/// PUT /v1/wadspaces/{id}: a version 5 wadspace (sets.rs installs it).
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Install {

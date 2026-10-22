@@ -770,7 +770,7 @@ impl Flow {
         let c = w["customization"].clone();
         let cname = s(&c, "name").to_string();
         let wadspaces = store().read_now(|st| st.wadspaces().into_iter().cloned().collect::<Vec<_>>());
-        let (template, setup) = wad_core::v4::as_template_setup(&w);
+        let (template, setup) = wad_core::v5::as_template_setup(&w);
         let slots: Vec<Value> =
             layers::slots_for(&template, &setup).into_iter().filter(|sl| !s(sl, "key").starts_with("web:")).collect();
         let draft = Rc::new(RefCell::new(Draft {
@@ -1311,7 +1311,7 @@ fn draw_webapps(sec: &gtk::Box, webapps: &Rc<RefCell<Vec<Value>>>, again: Option
     let known: Vec<Value> = store().read_now(|st| {
         let lib = st.library.clone().unwrap_or_default();
         let setups: Vec<Value> =
-            lib.wadspaces.iter().filter(|x| alive(x)).map(|w| wad_core::v4::as_template_setup(w).1).collect();
+            lib.wadspaces.iter().filter(|x| alive(x)).map(|w| wad_core::v5::as_template_setup(w).1).collect();
         let br: Vec<Value> = lib.browsers.iter().filter(|x| alive(x)).cloned().collect();
         layers::known_webapps(&setups, &br)
     });

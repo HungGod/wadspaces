@@ -1,5 +1,5 @@
 //! WadSpaces' core logic, shared by wadd (native) and the UI (WebAssembly, via
-//! wad-wasm): version 4 wadspaces (their templates, customization and set
+//! wad-wasm): version 5 wadspaces (their apps, add-ons, customization and set
 //! image), the catalog, projects, saved sign-ins, and the units wadd writes.
 //!
 //! fixtures/core/goldens.json holds what it returns for a wide corpus, which
@@ -19,7 +19,7 @@ pub mod signins;
 pub mod spec;
 pub mod tar;
 mod url;
-pub mod v4;
+pub mod v5;
 
 use base64::Engine;
 use base64::engine::general_purpose::STANDARD as B64;
@@ -103,22 +103,23 @@ pub fn call(name: &str, args: &[Value]) -> Result<Value, String> {
         "wallpaperExt" => layers::wallpaper_ext(a(0)).into(),
         "knownWebapps" => Value::Array(layers::known_webapps(list(0), list(1))),
         "named" => layers::named(s(0), list(1), opt_s(2)).into(),
-        // version 4 wadspaces (design B's Builder: v4.rs)
-        "textures" => json!(v4::TEXTURES),
-        "v4Check" => match v4::check(a(0)) {
+        // version 5 wadspaces (the Builder's cards: v5.rs)
+        "textures" => json!(v5::TEXTURES),
+        "v5Check" => match v5::check(a(0)) {
             Ok(()) => Value::Null,
             Err(e) => e.into(),
         },
-        "v4Apps" => Value::Array(v4::apps_of(a(0))),
-        "v4Packages" => json!(v4::packages_of(a(0))),
-        "v4ImageKey" => v4::image_key(a(0)).into(),
-        "v4TemplateSetup" => {
-            let (t, s) = v4::as_template_setup(a(0));
+        "v5Upgrade" => v5::upgrade(a(0)),
+        "v5Apps" => Value::Array(v5::apps_of(a(0))),
+        "v5Packages" => json!(v5::packages_of(a(0))),
+        "v5ImageKey" => v5::image_key(a(0)).into(),
+        "v5TemplateSetup" => {
+            let (t, s) = v5::as_template_setup(a(0));
             json!([t, s])
         }
-        "v4WorkspaceFor" => v4::workspace_for(a(0), a(1)),
-        "v4State" => v4::state(a(0), list(1)).into(),
-        "v4View" => v4::view(a(0)),
+        "v5WorkspaceFor" => v5::workspace_for(a(0), a(1)),
+        "v5State" => v5::state(a(0), list(1)).into(),
+        "v5View" => v5::view(a(0)),
         // tar
         "tar" => {
             let owned: Vec<(String, Vec<u8>)> = list(0)

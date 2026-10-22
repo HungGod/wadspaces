@@ -14095,93 +14095,69 @@
   ]
  },
  {
-  "fn": "v4Check",
+  "fn": "v5Check",
   "args": [
    {
-    "version": 4,
+    "version": 5,
     "id": "iq",
     "owner": "u1",
     "machine": "surface",
     "order": 1,
-    "templates": [
+    "apps": [
      {
-      "id": "dev",
-      "name": "Dev",
-      "apps": [
-       {
-        "app": "wadbrowser",
-        "mode": "focus",
-        "extras": [
-         {
-          "id": "github",
-          "name": "GitHub",
-          "url": "https://github.com"
-         }
-        ]
-       },
-       {
-        "app": "vscode",
-        "extras": [
-         {
-          "id": "anthropic.claude-code"
-         }
-        ]
-       }
-      ]
+      "app": "wadbrowser"
      },
      {
-      "id": "lang",
-      "name": "C++ and Rust",
-      "apps": [
-       {
-        "app": "vscode",
-        "extras": [
-         {
-          "id": "ms-vscode.cpptools"
-         },
-         {
-          "id": "rust-lang.rust-analyzer"
-         },
-         {
-          "id": "anthropic.claude-code"
-         }
-        ]
-       },
-       {
-        "app": "terminal",
-        "extras": [
-         {
-          "id": "cpp"
-         },
-         {
-          "id": "rust"
-         }
-        ]
-       },
-       {
-        "app": "wadbrowser",
-        "extras": [
-         {
-          "id": "learnopengl",
-          "name": "LearnOpenGL",
-          "url": "https://learnopengl.com",
-          "iconUrl": "/i.png"
-         }
-        ]
-       }
-      ]
+      "app": "vscode"
      },
      {
-      "id": "art",
-      "name": "Game art",
-      "apps": [
-       {
-        "app": "libresprite"
-       },
-       {
-        "app": "tiled"
-       }
-      ]
+      "app": "terminal"
+     },
+     {
+      "app": "libresprite"
+     },
+     {
+      "app": "tiled"
+     }
+    ],
+    "exts": [
+     {
+      "app": "wadbrowser",
+      "id": "focus",
+      "name": "Focus"
+     },
+     {
+      "app": "wadbrowser",
+      "id": "github",
+      "name": "GitHub",
+      "url": "https://github.com"
+     },
+     {
+      "app": "wadbrowser",
+      "id": "learnopengl",
+      "name": "LearnOpenGL",
+      "url": "https://learnopengl.com",
+      "iconUrl": "/i.png"
+     },
+     {
+      "app": "vscode",
+      "id": "anthropic.claude-code"
+     },
+     {
+      "app": "vscode",
+      "id": "ms-vscode.cpptools"
+     },
+     {
+      "app": "vscode",
+      "id": "rust-lang.rust-analyzer"
+     },
+     {
+      "app": "terminal",
+      "id": "cpp"
+     },
+     {
+      "app": "terminal",
+      "id": "rust"
      }
     ],
     "customization": {
@@ -14231,14 +14207,15 @@
   "out": null
  },
  {
-  "fn": "v4Check",
+  "fn": "v5Check",
   "args": [
    {
-    "version": 4,
+    "version": 5,
     "id": "bare",
     "owner": "u1",
     "machine": "laptop",
-    "templates": [],
+    "apps": [],
+    "exts": [],
     "customization": {
      "name": "Bare"
     }
@@ -14247,10 +14224,10 @@
   "out": null
  },
  {
-  "fn": "v4Check",
+  "fn": "v5Check",
   "args": [
    {
-    "version": 3,
+    "version": 4,
     "id": "iq",
     "owner": "u1",
     "machine": "surface",
@@ -14380,96 +14357,185 @@
     }
    }
   ],
-  "out": "it isn't a version 4 wadspace"
+  "out": "it isn't a version 5 wadspace"
  },
  {
-  "fn": "v4Check",
+  "fn": "v5Check",
   "args": [
    {
-    "version": 4,
+    "version": 5,
+    "id": "iq",
+    "owner": "u1",
+    "machine": "surface",
+    "order": 1,
+    "apps": [
+     {
+      "app": "wadbrowser"
+     },
+     {
+      "app": "vscode"
+     },
+     {
+      "app": "terminal"
+     },
+     {
+      "app": "libresprite"
+     },
+     {
+      "app": "tiled"
+     }
+    ],
+    "exts": [
+     {
+      "app": "wadbrowser",
+      "id": "focus",
+      "name": "Focus"
+     },
+     {
+      "app": "wadbrowser",
+      "id": "github",
+      "name": "GitHub",
+      "url": "https://github.com"
+     },
+     {
+      "app": "wadbrowser",
+      "id": "learnopengl",
+      "name": "LearnOpenGL",
+      "url": "https://learnopengl.com",
+      "iconUrl": "/i.png"
+     },
+     {
+      "app": "vscode",
+      "id": "anthropic.claude-code"
+     },
+     {
+      "app": "vscode",
+      "id": "ms-vscode.cpptools"
+     },
+     {
+      "app": "vscode",
+      "id": "rust-lang.rust-analyzer"
+     },
+     {
+      "app": "terminal",
+      "id": "cpp"
+     },
+     {
+      "app": "terminal",
+      "id": "rust"
+     }
+    ],
+    "customization": {
+     "name": "IntelligenceQuest",
+     "description": "A game.",
+     "wallpaper": {
+      "type": "texture",
+      "value": "stars"
+     },
+     "autostart": [
+      "app:vscode"
+     ],
+     "projects": [
+      {
+       "id": "project-iq",
+       "kind": "github",
+       "repo": "HungGod/IntelligenceQuest",
+       "as": "IntelligenceQuest"
+      }
+     ],
+     "secrets": {
+      "bySlot": {
+       "ext:anthropic.claude-code": {
+        "id": "iq-claude",
+        "name": "IQ Claude",
+        "kind": "vscode-claude-code"
+       }
+      },
+      "groups": [
+       {
+        "id": "g1",
+        "members": [
+         "browser",
+         "web:github"
+        ],
+        "key": {
+         "id": "hunggod",
+         "name": "hunggod",
+         "kind": "web"
+        }
+       }
+      ]
+     }
+    },
+    "templates": []
+   }
+  ],
+  "out": "it still has version 4's templates"
+ },
+ {
+  "fn": "v5Check",
+  "args": [
+   {
+    "version": 5,
     "id": "iq",
     "owner": "u1",
     "machine": "",
     "order": 1,
-    "templates": [
+    "apps": [
      {
-      "id": "dev",
-      "name": "Dev",
-      "apps": [
-       {
-        "app": "wadbrowser",
-        "mode": "focus",
-        "extras": [
-         {
-          "id": "github",
-          "name": "GitHub",
-          "url": "https://github.com"
-         }
-        ]
-       },
-       {
-        "app": "vscode",
-        "extras": [
-         {
-          "id": "anthropic.claude-code"
-         }
-        ]
-       }
-      ]
+      "app": "wadbrowser"
      },
      {
-      "id": "lang",
-      "name": "C++ and Rust",
-      "apps": [
-       {
-        "app": "vscode",
-        "extras": [
-         {
-          "id": "ms-vscode.cpptools"
-         },
-         {
-          "id": "rust-lang.rust-analyzer"
-         },
-         {
-          "id": "anthropic.claude-code"
-         }
-        ]
-       },
-       {
-        "app": "terminal",
-        "extras": [
-         {
-          "id": "cpp"
-         },
-         {
-          "id": "rust"
-         }
-        ]
-       },
-       {
-        "app": "wadbrowser",
-        "extras": [
-         {
-          "id": "learnopengl",
-          "name": "LearnOpenGL",
-          "url": "https://learnopengl.com",
-          "iconUrl": "/i.png"
-         }
-        ]
-       }
-      ]
+      "app": "vscode"
      },
      {
-      "id": "art",
-      "name": "Game art",
-      "apps": [
-       {
-        "app": "libresprite"
-       },
-       {
-        "app": "tiled"
-       }
-      ]
+      "app": "terminal"
+     },
+     {
+      "app": "libresprite"
+     },
+     {
+      "app": "tiled"
+     }
+    ],
+    "exts": [
+     {
+      "app": "wadbrowser",
+      "id": "focus",
+      "name": "Focus"
+     },
+     {
+      "app": "wadbrowser",
+      "id": "github",
+      "name": "GitHub",
+      "url": "https://github.com"
+     },
+     {
+      "app": "wadbrowser",
+      "id": "learnopengl",
+      "name": "LearnOpenGL",
+      "url": "https://learnopengl.com",
+      "iconUrl": "/i.png"
+     },
+     {
+      "app": "vscode",
+      "id": "anthropic.claude-code"
+     },
+     {
+      "app": "vscode",
+      "id": "ms-vscode.cpptools"
+     },
+     {
+      "app": "vscode",
+      "id": "rust-lang.rust-analyzer"
+     },
+     {
+      "app": "terminal",
+      "id": "cpp"
+     },
+     {
+      "app": "terminal",
+      "id": "rust"
      }
     ],
     "customization": {
@@ -14519,229 +14585,69 @@
   "out": "it isn't on a machine"
  },
  {
-  "fn": "v4Check",
+  "fn": "v5Check",
   "args": [
    {
-    "version": 4,
+    "version": 5,
     "id": "iq",
     "owner": "u1",
     "machine": "surface",
     "order": 1,
-    "templates": [
+    "apps": [
      {
-      "id": "dev",
-      "name": "Dev",
-      "apps": [
-       {
-        "app": "wadbrowser",
-        "mode": "focus",
-        "extras": [
-         {
-          "id": "github",
-          "name": "GitHub",
-          "url": "https://github.com"
-         }
-        ]
-       },
-       {
-        "app": "vscode",
-        "extras": [
-         {
-          "id": "anthropic.claude-code"
-         }
-        ]
-       }
-      ]
+      "app": "wadbrowser"
      },
      {
-      "id": "dev",
-      "name": "C++ and Rust",
-      "apps": [
-       {
-        "app": "vscode",
-        "extras": [
-         {
-          "id": "ms-vscode.cpptools"
-         },
-         {
-          "id": "rust-lang.rust-analyzer"
-         },
-         {
-          "id": "anthropic.claude-code"
-         }
-        ]
-       },
-       {
-        "app": "terminal",
-        "extras": [
-         {
-          "id": "cpp"
-         },
-         {
-          "id": "rust"
-         }
-        ]
-       },
-       {
-        "app": "wadbrowser",
-        "extras": [
-         {
-          "id": "learnopengl",
-          "name": "LearnOpenGL",
-          "url": "https://learnopengl.com",
-          "iconUrl": "/i.png"
-         }
-        ]
-       }
-      ]
+      "app": "vscode"
      },
      {
-      "id": "art",
-      "name": "Game art",
-      "apps": [
-       {
-        "app": "libresprite"
-       },
-       {
-        "app": "tiled"
-       }
-      ]
+      "app": "terminal"
+     },
+     {
+      "app": "photoshop"
+     },
+     {
+      "app": "tiled"
      }
     ],
-    "customization": {
-     "name": "IntelligenceQuest",
-     "description": "A game.",
-     "wallpaper": {
-      "type": "texture",
-      "value": "stars"
-     },
-     "autostart": [
-      "app:vscode"
-     ],
-     "projects": [
-      {
-       "id": "project-iq",
-       "kind": "github",
-       "repo": "HungGod/IntelligenceQuest",
-       "as": "IntelligenceQuest"
-      }
-     ],
-     "secrets": {
-      "bySlot": {
-       "ext:anthropic.claude-code": {
-        "id": "iq-claude",
-        "name": "IQ Claude",
-        "kind": "vscode-claude-code"
-       }
-      },
-      "groups": [
-       {
-        "id": "g1",
-        "members": [
-         "browser",
-         "web:github"
-        ],
-        "key": {
-         "id": "hunggod",
-         "name": "hunggod",
-         "kind": "web"
-        }
-       }
-      ]
-     }
-    }
-   }
-  ],
-  "out": "a template's id \"dev\" is missing or used twice"
- },
- {
-  "fn": "v4Check",
-  "args": [
-   {
-    "version": 4,
-    "id": "iq",
-    "owner": "u1",
-    "machine": "surface",
-    "order": 1,
-    "templates": [
+    "exts": [
      {
-      "id": "dev",
-      "name": "Dev",
-      "apps": [
-       {
-        "app": "wadbrowser",
-        "mode": "focus",
-        "extras": [
-         {
-          "id": "github",
-          "name": "GitHub",
-          "url": "https://github.com"
-         }
-        ]
-       },
-       {
-        "app": "vscode",
-        "extras": [
-         {
-          "id": "anthropic.claude-code"
-         }
-        ]
-       }
-      ]
+      "app": "wadbrowser",
+      "id": "focus",
+      "name": "Focus"
      },
      {
-      "id": "lang",
-      "name": "C++ and Rust",
-      "apps": [
-       {
-        "app": "vscode",
-        "extras": [
-         {
-          "id": "ms-vscode.cpptools"
-         },
-         {
-          "id": "rust-lang.rust-analyzer"
-         },
-         {
-          "id": "anthropic.claude-code"
-         }
-        ]
-       },
-       {
-        "app": "terminal",
-        "extras": [
-         {
-          "id": "cpp"
-         },
-         {
-          "id": "rust"
-         }
-        ]
-       },
-       {
-        "app": "wadbrowser",
-        "extras": [
-         {
-          "id": "learnopengl",
-          "name": "LearnOpenGL",
-          "url": "https://learnopengl.com",
-          "iconUrl": "/i.png"
-         }
-        ]
-       }
-      ]
+      "app": "wadbrowser",
+      "id": "github",
+      "name": "GitHub",
+      "url": "https://github.com"
      },
      {
-      "id": "art",
-      "name": "Game art",
-      "apps": [
-       {
-        "app": "photoshop"
-       },
-       {
-        "app": "tiled"
-       }
-      ]
+      "app": "wadbrowser",
+      "id": "learnopengl",
+      "name": "LearnOpenGL",
+      "url": "https://learnopengl.com",
+      "iconUrl": "/i.png"
+     },
+     {
+      "app": "vscode",
+      "id": "anthropic.claude-code"
+     },
+     {
+      "app": "vscode",
+      "id": "ms-vscode.cpptools"
+     },
+     {
+      "app": "vscode",
+      "id": "rust-lang.rust-analyzer"
+     },
+     {
+      "app": "terminal",
+      "id": "cpp"
+     },
+     {
+      "app": "terminal",
+      "id": "rust"
      }
     ],
     "customization": {
@@ -14791,98 +14697,180 @@
   "out": "there's no app \"photoshop\""
  },
  {
-  "fn": "v4Check",
+  "fn": "v5Check",
   "args": [
    {
-    "version": 4,
+    "version": 5,
     "id": "iq",
     "owner": "u1",
     "machine": "surface",
     "order": 1,
-    "templates": [
+    "apps": [
      {
-      "id": "dev",
-      "name": "Dev",
-      "apps": [
-       {
-        "app": "wadbrowser",
-        "mode": "focus",
-        "extras": [
-         {
-          "id": "github",
-          "name": "GitHub",
-          "url": "https://github.com"
-         }
-        ]
-       },
-       {
-        "app": "vscode",
-        "extras": [
-         {
-          "id": "anthropic.claude-code"
-         }
-        ]
-       }
-      ]
+      "app": "wadbrowser"
      },
      {
-      "id": "lang",
-      "name": "C++ and Rust",
-      "apps": [
-       {
-        "app": "vscode",
-        "extras": [
-         {
-          "id": "ms-vscode.cpptools"
-         },
-         {
-          "id": "rust-lang.rust-analyzer"
-         },
-         {
-          "id": "anthropic.claude-code"
-         }
-        ]
-       },
-       {
-        "app": "terminal",
-        "extras": [
-         {
-          "id": "cpp"
-         },
-         {
-          "id": "rust"
-         }
-        ]
-       },
-       {
-        "app": "wadbrowser",
-        "extras": [
-         {
-          "id": "learnopengl",
-          "name": "LearnOpenGL",
-          "url": "https://learnopengl.com",
-          "iconUrl": "/i.png"
-         }
-        ]
-       }
-      ]
+      "app": "vscode"
      },
      {
-      "id": "art",
-      "name": "Game art",
-      "apps": [
+      "app": "terminal"
+     },
+     {
+      "app": "libresprite"
+     },
+     {
+      "app": "libresprite"
+     }
+    ],
+    "exts": [
+     {
+      "app": "wadbrowser",
+      "id": "focus",
+      "name": "Focus"
+     },
+     {
+      "app": "wadbrowser",
+      "id": "github",
+      "name": "GitHub",
+      "url": "https://github.com"
+     },
+     {
+      "app": "wadbrowser",
+      "id": "learnopengl",
+      "name": "LearnOpenGL",
+      "url": "https://learnopengl.com",
+      "iconUrl": "/i.png"
+     },
+     {
+      "app": "vscode",
+      "id": "anthropic.claude-code"
+     },
+     {
+      "app": "vscode",
+      "id": "ms-vscode.cpptools"
+     },
+     {
+      "app": "vscode",
+      "id": "rust-lang.rust-analyzer"
+     },
+     {
+      "app": "terminal",
+      "id": "cpp"
+     },
+     {
+      "app": "terminal",
+      "id": "rust"
+     }
+    ],
+    "customization": {
+     "name": "IntelligenceQuest",
+     "description": "A game.",
+     "wallpaper": {
+      "type": "texture",
+      "value": "stars"
+     },
+     "autostart": [
+      "app:vscode"
+     ],
+     "projects": [
+      {
+       "id": "project-iq",
+       "kind": "github",
+       "repo": "HungGod/IntelligenceQuest",
+       "as": "IntelligenceQuest"
+      }
+     ],
+     "secrets": {
+      "bySlot": {
+       "ext:anthropic.claude-code": {
+        "id": "iq-claude",
+        "name": "IQ Claude",
+        "kind": "vscode-claude-code"
+       }
+      },
+      "groups": [
        {
-        "app": "libresprite",
-        "extras": [
-         {
-          "id": "x"
-         }
-        ]
-       },
-       {
-        "app": "tiled"
+        "id": "g1",
+        "members": [
+         "browser",
+         "web:github"
+        ],
+        "key": {
+         "id": "hunggod",
+         "name": "hunggod",
+         "kind": "web"
+        }
        }
       ]
+     }
+    }
+   }
+  ],
+  "out": "libresprite is in it twice"
+ },
+ {
+  "fn": "v5Check",
+  "args": [
+   {
+    "version": 5,
+    "id": "iq",
+    "owner": "u1",
+    "machine": "surface",
+    "order": 1,
+    "apps": [
+     {
+      "app": "wadbrowser"
+     },
+     {
+      "app": "vscode"
+     },
+     {
+      "app": "terminal"
+     },
+     {
+      "app": "libresprite"
+     },
+     {
+      "app": "tiled"
+     }
+    ],
+    "exts": [
+     {
+      "app": "libresprite",
+      "id": "x"
+     },
+     {
+      "app": "wadbrowser",
+      "id": "github",
+      "name": "GitHub",
+      "url": "https://github.com"
+     },
+     {
+      "app": "wadbrowser",
+      "id": "learnopengl",
+      "name": "LearnOpenGL",
+      "url": "https://learnopengl.com",
+      "iconUrl": "/i.png"
+     },
+     {
+      "app": "vscode",
+      "id": "anthropic.claude-code"
+     },
+     {
+      "app": "vscode",
+      "id": "ms-vscode.cpptools"
+     },
+     {
+      "app": "vscode",
+      "id": "rust-lang.rust-analyzer"
+     },
+     {
+      "app": "terminal",
+      "id": "cpp"
+     },
+     {
+      "app": "terminal",
+      "id": "rust"
      }
     ],
     "customization": {
@@ -14932,93 +14920,69 @@
   "out": "nothing is added to libresprite"
  },
  {
-  "fn": "v4Check",
+  "fn": "v5Check",
   "args": [
    {
-    "version": 4,
+    "version": 5,
     "id": "iq",
     "owner": "u1",
     "machine": "surface",
     "order": 1,
-    "templates": [
+    "apps": [
      {
-      "id": "dev",
-      "name": "Dev",
-      "apps": [
-       {
-        "app": "wadbrowser",
-        "mode": "focus",
-        "extras": [
-         {
-          "id": "github",
-          "name": "GitHub",
-          "url": "https://github.com"
-         }
-        ]
-       },
-       {
-        "app": "vscode",
-        "extras": [
-         {
-          "id": "anthropic.claude-code"
-         }
-        ]
-       }
-      ]
+      "app": "wadbrowser"
      },
      {
-      "id": "lang",
-      "name": "C++ and Rust",
-      "apps": [
-       {
-        "app": "vscode",
-        "extras": [
-         {
-          "id": "ms-vscode.cpptools"
-         },
-         {
-          "id": "rust-lang.rust-analyzer"
-         },
-         {
-          "id": "anthropic.claude-code"
-         }
-        ]
-       },
-       {
-        "app": "terminal",
-        "extras": [
-         {
-          "id": "java"
-         },
-         {
-          "id": "rust"
-         }
-        ]
-       },
-       {
-        "app": "wadbrowser",
-        "extras": [
-         {
-          "id": "learnopengl",
-          "name": "LearnOpenGL",
-          "url": "https://learnopengl.com",
-          "iconUrl": "/i.png"
-         }
-        ]
-       }
-      ]
+      "app": "vscode"
      },
      {
-      "id": "art",
-      "name": "Game art",
-      "apps": [
-       {
-        "app": "libresprite"
-       },
-       {
-        "app": "tiled"
-       }
-      ]
+      "app": "terminal"
+     },
+     {
+      "app": "libresprite"
+     },
+     {
+      "app": "tiled"
+     }
+    ],
+    "exts": [
+     {
+      "app": "wadbrowser",
+      "id": "focus",
+      "name": "Focus"
+     },
+     {
+      "app": "wadbrowser",
+      "id": "github",
+      "name": "GitHub",
+      "url": "https://github.com"
+     },
+     {
+      "app": "wadbrowser",
+      "id": "learnopengl",
+      "name": "LearnOpenGL",
+      "url": "https://learnopengl.com",
+      "iconUrl": "/i.png"
+     },
+     {
+      "app": "vscode",
+      "id": "anthropic.claude-code"
+     },
+     {
+      "app": "vscode",
+      "id": "ms-vscode.cpptools"
+     },
+     {
+      "app": "vscode",
+      "id": "rust-lang.rust-analyzer"
+     },
+     {
+      "app": "terminal",
+      "id": "java"
+     },
+     {
+      "app": "terminal",
+      "id": "rust"
      }
     ],
     "customization": {
@@ -15068,7 +15032,2288 @@
   "out": "there's no command-line tool \"java\""
  },
  {
-  "fn": "v4Check",
+  "fn": "v5Check",
+  "args": [
+   {
+    "version": 5,
+    "id": "iq",
+    "owner": "u1",
+    "machine": "surface",
+    "order": 1,
+    "apps": [
+     {
+      "app": "wadbrowser"
+     },
+     {
+      "app": "vscode"
+     },
+     {
+      "app": "terminal"
+     },
+     {
+      "app": "libresprite"
+     },
+     {
+      "app": "tiled"
+     }
+    ],
+    "exts": [
+     {
+      "app": "wadbrowser",
+      "id": "focus",
+      "name": "Focus"
+     },
+     {
+      "app": "wadbrowser",
+      "id": "github",
+      "name": "GitHub",
+      "url": "github.com"
+     },
+     {
+      "app": "wadbrowser",
+      "id": "learnopengl",
+      "name": "LearnOpenGL",
+      "url": "https://learnopengl.com",
+      "iconUrl": "/i.png"
+     },
+     {
+      "app": "vscode",
+      "id": "anthropic.claude-code"
+     },
+     {
+      "app": "vscode",
+      "id": "ms-vscode.cpptools"
+     },
+     {
+      "app": "vscode",
+      "id": "rust-lang.rust-analyzer"
+     },
+     {
+      "app": "terminal",
+      "id": "cpp"
+     },
+     {
+      "app": "terminal",
+      "id": "rust"
+     }
+    ],
+    "customization": {
+     "name": "IntelligenceQuest",
+     "description": "A game.",
+     "wallpaper": {
+      "type": "texture",
+      "value": "stars"
+     },
+     "autostart": [
+      "app:vscode"
+     ],
+     "projects": [
+      {
+       "id": "project-iq",
+       "kind": "github",
+       "repo": "HungGod/IntelligenceQuest",
+       "as": "IntelligenceQuest"
+      }
+     ],
+     "secrets": {
+      "bySlot": {
+       "ext:anthropic.claude-code": {
+        "id": "iq-claude",
+        "name": "IQ Claude",
+        "kind": "vscode-claude-code"
+       }
+      },
+      "groups": [
+       {
+        "id": "g1",
+        "members": [
+         "browser",
+         "web:github"
+        ],
+        "key": {
+         "id": "hunggod",
+         "name": "hunggod",
+         "kind": "web"
+        }
+       }
+      ]
+     }
+    }
+   }
+  ],
+  "out": "the web app github needs an http(s) address"
+ },
+ {
+  "fn": "v5Check",
+  "args": [
+   {
+    "version": 5,
+    "id": "iq",
+    "owner": "u1",
+    "machine": "surface",
+    "order": 1,
+    "apps": [
+     {
+      "app": "wadbrowser"
+     },
+     {
+      "app": "vscode"
+     },
+     {
+      "app": "terminal"
+     },
+     {
+      "app": "libresprite"
+     },
+     {
+      "app": "tiled"
+     }
+    ],
+    "exts": [
+     {
+      "app": "wadbrowser",
+      "id": "focus",
+      "name": "Focus",
+      "url": "https://focus.app"
+     },
+     {
+      "app": "wadbrowser",
+      "id": "github",
+      "name": "GitHub",
+      "url": "https://github.com"
+     },
+     {
+      "app": "wadbrowser",
+      "id": "learnopengl",
+      "name": "LearnOpenGL",
+      "url": "https://learnopengl.com",
+      "iconUrl": "/i.png"
+     },
+     {
+      "app": "vscode",
+      "id": "anthropic.claude-code"
+     },
+     {
+      "app": "vscode",
+      "id": "ms-vscode.cpptools"
+     },
+     {
+      "app": "vscode",
+      "id": "rust-lang.rust-analyzer"
+     },
+     {
+      "app": "terminal",
+      "id": "cpp"
+     },
+     {
+      "app": "terminal",
+      "id": "rust"
+     }
+    ],
+    "customization": {
+     "name": "IntelligenceQuest",
+     "description": "A game.",
+     "wallpaper": {
+      "type": "texture",
+      "value": "stars"
+     },
+     "autostart": [
+      "app:vscode"
+     ],
+     "projects": [
+      {
+       "id": "project-iq",
+       "kind": "github",
+       "repo": "HungGod/IntelligenceQuest",
+       "as": "IntelligenceQuest"
+      }
+     ],
+     "secrets": {
+      "bySlot": {
+       "ext:anthropic.claude-code": {
+        "id": "iq-claude",
+        "name": "IQ Claude",
+        "kind": "vscode-claude-code"
+       }
+      },
+      "groups": [
+       {
+        "id": "g1",
+        "members": [
+         "browser",
+         "web:github"
+        ],
+        "key": {
+         "id": "hunggod",
+         "name": "hunggod",
+         "kind": "web"
+        }
+       }
+      ]
+     }
+    }
+   }
+  ],
+  "out": "Focus is WadBrowser's own: it has no address"
+ },
+ {
+  "fn": "v5Check",
+  "args": [
+   {
+    "version": 5,
+    "id": "iq",
+    "owner": "u1",
+    "machine": "surface",
+    "order": 1,
+    "apps": [
+     {
+      "app": "wadbrowser"
+     },
+     {
+      "app": "vscode"
+     },
+     {
+      "app": "terminal"
+     },
+     {
+      "app": "libresprite"
+     },
+     {
+      "app": "tiled"
+     }
+    ],
+    "exts": [
+     {
+      "app": "wadbrowser",
+      "id": "focus",
+      "name": "Focus"
+     },
+     {
+      "app": "wadbrowser",
+      "id": "github",
+      "name": "GitHub",
+      "url": "https://github.com"
+     },
+     {
+      "app": "wadbrowser",
+      "id": "learnopengl",
+      "name": "LearnOpenGL",
+      "url": "https://learnopengl.com",
+      "iconUrl": "/i.png"
+     },
+     {
+      "app": "vscode",
+      "id": "anthropic.claude-code"
+     },
+     {
+      "app": "vscode",
+      "id": "anthropic.claude-code"
+     },
+     {
+      "app": "vscode",
+      "id": "rust-lang.rust-analyzer"
+     },
+     {
+      "app": "terminal",
+      "id": "cpp"
+     },
+     {
+      "app": "terminal",
+      "id": "rust"
+     }
+    ],
+    "customization": {
+     "name": "IntelligenceQuest",
+     "description": "A game.",
+     "wallpaper": {
+      "type": "texture",
+      "value": "stars"
+     },
+     "autostart": [
+      "app:vscode"
+     ],
+     "projects": [
+      {
+       "id": "project-iq",
+       "kind": "github",
+       "repo": "HungGod/IntelligenceQuest",
+       "as": "IntelligenceQuest"
+      }
+     ],
+     "secrets": {
+      "bySlot": {
+       "ext:anthropic.claude-code": {
+        "id": "iq-claude",
+        "name": "IQ Claude",
+        "kind": "vscode-claude-code"
+       }
+      },
+      "groups": [
+       {
+        "id": "g1",
+        "members": [
+         "browser",
+         "web:github"
+        ],
+        "key": {
+         "id": "hunggod",
+         "name": "hunggod",
+         "kind": "web"
+        }
+       }
+      ]
+     }
+    }
+   }
+  ],
+  "out": "vscode's anthropic.claude-code is in it twice"
+ },
+ {
+  "fn": "v5Check",
+  "args": [
+   {
+    "version": 5,
+    "id": "iq",
+    "owner": "u1",
+    "machine": "surface",
+    "order": 1,
+    "apps": [
+     {
+      "app": "wadbrowser"
+     },
+     {
+      "app": "vscode"
+     },
+     {
+      "app": "terminal"
+     },
+     {
+      "app": "libresprite"
+     },
+     {
+      "app": "tiled"
+     }
+    ],
+    "exts": [
+     {
+      "app": "wadbrowser",
+      "id": "focus",
+      "name": "Focus"
+     },
+     {
+      "app": "wadbrowser",
+      "id": "github",
+      "name": "GitHub",
+      "url": "https://github.com"
+     },
+     {
+      "app": "wadbrowser",
+      "id": "learnopengl",
+      "name": "LearnOpenGL",
+      "url": "https://learnopengl.com",
+      "iconUrl": "/i.png"
+     },
+     {
+      "app": "vscode",
+      "id": "anthropic.claude-code"
+     },
+     {
+      "app": "vscode",
+      "id": "ms-vscode.cpptools"
+     },
+     {
+      "app": "vscode",
+      "id": "rust-lang.rust-analyzer"
+     },
+     {
+      "app": "terminal",
+      "id": "cpp"
+     },
+     {
+      "app": "terminal",
+      "id": "rust"
+     }
+    ],
+    "customization": {
+     "name": "IntelligenceQuest",
+     "description": "A game.",
+     "wallpaper": {
+      "type": "image",
+      "value": "x.jpg"
+     },
+     "autostart": [
+      "app:vscode"
+     ],
+     "projects": [
+      {
+       "id": "project-iq",
+       "kind": "github",
+       "repo": "HungGod/IntelligenceQuest",
+       "as": "IntelligenceQuest"
+      }
+     ],
+     "secrets": {
+      "bySlot": {
+       "ext:anthropic.claude-code": {
+        "id": "iq-claude",
+        "name": "IQ Claude",
+        "kind": "vscode-claude-code"
+       }
+      },
+      "groups": [
+       {
+        "id": "g1",
+        "members": [
+         "browser",
+         "web:github"
+        ],
+        "key": {
+         "id": "hunggod",
+         "name": "hunggod",
+         "kind": "web"
+        }
+       }
+      ]
+     }
+    }
+   }
+  ],
+  "out": "its background is one of WadSpaces' textures, not {\"type\":\"image\",\"value\":\"x.jpg\"}"
+ },
+ {
+  "fn": "v5Check",
+  "args": [
+   {
+    "version": 5,
+    "id": "iq",
+    "owner": "u1",
+    "machine": "surface",
+    "order": 1,
+    "apps": [
+     {
+      "app": "wadbrowser"
+     },
+     {
+      "app": "vscode"
+     },
+     {
+      "app": "terminal"
+     },
+     {
+      "app": "libresprite"
+     },
+     {
+      "app": "tiled"
+     }
+    ],
+    "exts": [
+     {
+      "app": "wadbrowser",
+      "id": "focus",
+      "name": "Focus"
+     },
+     {
+      "app": "wadbrowser",
+      "id": "github",
+      "name": "GitHub",
+      "url": "https://github.com"
+     },
+     {
+      "app": "wadbrowser",
+      "id": "learnopengl",
+      "name": "LearnOpenGL",
+      "url": "https://learnopengl.com",
+      "iconUrl": "/i.png"
+     },
+     {
+      "app": "vscode",
+      "id": "anthropic.claude-code"
+     },
+     {
+      "app": "vscode",
+      "id": "ms-vscode.cpptools"
+     },
+     {
+      "app": "vscode",
+      "id": "rust-lang.rust-analyzer"
+     },
+     {
+      "app": "terminal",
+      "id": "cpp"
+     },
+     {
+      "app": "terminal",
+      "id": "rust"
+     }
+    ],
+    "customization": {
+     "name": "IntelligenceQuest",
+     "description": "A game.",
+     "wallpaper": {
+      "type": "texture",
+      "value": "stars"
+     },
+     "autostart": [
+      "app:vscode"
+     ],
+     "projects": [
+      {
+       "id": "project-iq",
+       "kind": "github",
+       "repo": "HungGod/IntelligenceQuest",
+       "as": "IntelligenceQuest"
+      }
+     ],
+     "secrets": {
+      "bySlot": {
+       "ext:anthropic.claude-code": {
+        "id": "iq-claude",
+        "name": "IQ Claude",
+        "kind": "vscode-claude-code"
+       }
+      },
+      "groups": [
+       {
+        "id": "g1",
+        "members": [
+         "browser",
+         "web:github"
+        ],
+        "key": {
+         "id": "hunggod",
+         "name": "hunggod",
+         "kind": "web"
+        }
+       }
+      ]
+     }
+    },
+    "trash": [
+     {
+      "id": "k1",
+      "at": "2026-10-22T00:00:00Z",
+      "kind": "template"
+     }
+    ]
+   }
+  ],
+  "out": "its Recently deleted can't keep \"template\""
+ },
+ {
+  "fn": "v5Apps",
+  "args": [
+   {
+    "version": 5,
+    "id": "iq",
+    "owner": "u1",
+    "machine": "surface",
+    "order": 1,
+    "apps": [
+     {
+      "app": "wadbrowser"
+     },
+     {
+      "app": "vscode"
+     },
+     {
+      "app": "terminal"
+     },
+     {
+      "app": "libresprite"
+     },
+     {
+      "app": "tiled"
+     }
+    ],
+    "exts": [
+     {
+      "app": "wadbrowser",
+      "id": "focus",
+      "name": "Focus"
+     },
+     {
+      "app": "wadbrowser",
+      "id": "github",
+      "name": "GitHub",
+      "url": "https://github.com"
+     },
+     {
+      "app": "wadbrowser",
+      "id": "learnopengl",
+      "name": "LearnOpenGL",
+      "url": "https://learnopengl.com",
+      "iconUrl": "/i.png"
+     },
+     {
+      "app": "vscode",
+      "id": "anthropic.claude-code"
+     },
+     {
+      "app": "vscode",
+      "id": "ms-vscode.cpptools"
+     },
+     {
+      "app": "vscode",
+      "id": "rust-lang.rust-analyzer"
+     },
+     {
+      "app": "terminal",
+      "id": "cpp"
+     },
+     {
+      "app": "terminal",
+      "id": "rust"
+     }
+    ],
+    "customization": {
+     "name": "IntelligenceQuest",
+     "description": "A game.",
+     "wallpaper": {
+      "type": "texture",
+      "value": "stars"
+     },
+     "autostart": [
+      "app:vscode"
+     ],
+     "projects": [
+      {
+       "id": "project-iq",
+       "kind": "github",
+       "repo": "HungGod/IntelligenceQuest",
+       "as": "IntelligenceQuest"
+      }
+     ],
+     "secrets": {
+      "bySlot": {
+       "ext:anthropic.claude-code": {
+        "id": "iq-claude",
+        "name": "IQ Claude",
+        "kind": "vscode-claude-code"
+       }
+      },
+      "groups": [
+       {
+        "id": "g1",
+        "members": [
+         "browser",
+         "web:github"
+        ],
+        "key": {
+         "id": "hunggod",
+         "name": "hunggod",
+         "kind": "web"
+        }
+       }
+      ]
+     }
+    }
+   }
+  ],
+  "out": [
+   {
+    "app": "wadbrowser",
+    "mode": "focus",
+    "extras": [
+     {
+      "id": "github",
+      "name": "GitHub",
+      "url": "https://github.com"
+     },
+     {
+      "id": "learnopengl",
+      "name": "LearnOpenGL",
+      "url": "https://learnopengl.com",
+      "iconUrl": "/i.png"
+     }
+    ]
+   },
+   {
+    "app": "vscode",
+    "extras": [
+     {
+      "id": "anthropic.claude-code"
+     },
+     {
+      "id": "ms-vscode.cpptools"
+     },
+     {
+      "id": "rust-lang.rust-analyzer"
+     }
+    ]
+   },
+   {
+    "app": "terminal",
+    "extras": [
+     {
+      "id": "cpp"
+     },
+     {
+      "id": "rust"
+     }
+    ]
+   },
+   {
+    "app": "libresprite",
+    "extras": []
+   },
+   {
+    "app": "tiled",
+    "extras": []
+   }
+  ]
+ },
+ {
+  "fn": "v5Packages",
+  "args": [
+   {
+    "version": 5,
+    "id": "iq",
+    "owner": "u1",
+    "machine": "surface",
+    "order": 1,
+    "apps": [
+     {
+      "app": "wadbrowser"
+     },
+     {
+      "app": "vscode"
+     },
+     {
+      "app": "terminal"
+     },
+     {
+      "app": "libresprite"
+     },
+     {
+      "app": "tiled"
+     }
+    ],
+    "exts": [
+     {
+      "app": "wadbrowser",
+      "id": "focus",
+      "name": "Focus"
+     },
+     {
+      "app": "wadbrowser",
+      "id": "github",
+      "name": "GitHub",
+      "url": "https://github.com"
+     },
+     {
+      "app": "wadbrowser",
+      "id": "learnopengl",
+      "name": "LearnOpenGL",
+      "url": "https://learnopengl.com",
+      "iconUrl": "/i.png"
+     },
+     {
+      "app": "vscode",
+      "id": "anthropic.claude-code"
+     },
+     {
+      "app": "vscode",
+      "id": "ms-vscode.cpptools"
+     },
+     {
+      "app": "vscode",
+      "id": "rust-lang.rust-analyzer"
+     },
+     {
+      "app": "terminal",
+      "id": "cpp"
+     },
+     {
+      "app": "terminal",
+      "id": "rust"
+     }
+    ],
+    "customization": {
+     "name": "IntelligenceQuest",
+     "description": "A game.",
+     "wallpaper": {
+      "type": "texture",
+      "value": "stars"
+     },
+     "autostart": [
+      "app:vscode"
+     ],
+     "projects": [
+      {
+       "id": "project-iq",
+       "kind": "github",
+       "repo": "HungGod/IntelligenceQuest",
+       "as": "IntelligenceQuest"
+      }
+     ],
+     "secrets": {
+      "bySlot": {
+       "ext:anthropic.claude-code": {
+        "id": "iq-claude",
+        "name": "IQ Claude",
+        "kind": "vscode-claude-code"
+       }
+      },
+      "groups": [
+       {
+        "id": "g1",
+        "members": [
+         "browser",
+         "web:github"
+        ],
+        "key": {
+         "id": "hunggod",
+         "name": "hunggod",
+         "kind": "web"
+        }
+       }
+      ]
+     }
+    }
+   }
+  ],
+  "out": [
+   "cpp",
+   "rust",
+   "electron-deps",
+   "vscode",
+   "tiled",
+   "libresprite",
+   "ext-anthropic.claude-code",
+   "ext-ms-vscode.cpptools",
+   "ext-rust-lang.rust-analyzer"
+  ]
+ },
+ {
+  "fn": "v5Packages",
+  "args": [
+   {
+    "version": 5,
+    "id": "writing",
+    "owner": "u1",
+    "machine": "laptop",
+    "order": 2,
+    "apps": [
+     {
+      "app": "obsidian"
+     },
+     {
+      "app": "wadbrowser"
+     }
+    ],
+    "exts": [],
+    "customization": {
+     "name": "Writing",
+     "wallpaper": {
+      "type": "texture",
+      "value": "seigaiha"
+     }
+    }
+   }
+  ],
+  "out": [
+   "electron-deps",
+   "obsidian"
+  ]
+ },
+ {
+  "fn": "v5ImageKey",
+  "args": [
+   {
+    "version": 5,
+    "id": "iq",
+    "owner": "u1",
+    "machine": "surface",
+    "order": 1,
+    "apps": [
+     {
+      "app": "wadbrowser"
+     },
+     {
+      "app": "vscode"
+     },
+     {
+      "app": "terminal"
+     },
+     {
+      "app": "libresprite"
+     },
+     {
+      "app": "tiled"
+     }
+    ],
+    "exts": [
+     {
+      "app": "wadbrowser",
+      "id": "focus",
+      "name": "Focus"
+     },
+     {
+      "app": "wadbrowser",
+      "id": "github",
+      "name": "GitHub",
+      "url": "https://github.com"
+     },
+     {
+      "app": "wadbrowser",
+      "id": "learnopengl",
+      "name": "LearnOpenGL",
+      "url": "https://learnopengl.com",
+      "iconUrl": "/i.png"
+     },
+     {
+      "app": "vscode",
+      "id": "anthropic.claude-code"
+     },
+     {
+      "app": "vscode",
+      "id": "ms-vscode.cpptools"
+     },
+     {
+      "app": "vscode",
+      "id": "rust-lang.rust-analyzer"
+     },
+     {
+      "app": "terminal",
+      "id": "cpp"
+     },
+     {
+      "app": "terminal",
+      "id": "rust"
+     }
+    ],
+    "customization": {
+     "name": "IntelligenceQuest",
+     "description": "A game.",
+     "wallpaper": {
+      "type": "texture",
+      "value": "stars"
+     },
+     "autostart": [
+      "app:vscode"
+     ],
+     "projects": [
+      {
+       "id": "project-iq",
+       "kind": "github",
+       "repo": "HungGod/IntelligenceQuest",
+       "as": "IntelligenceQuest"
+      }
+     ],
+     "secrets": {
+      "bySlot": {
+       "ext:anthropic.claude-code": {
+        "id": "iq-claude",
+        "name": "IQ Claude",
+        "kind": "vscode-claude-code"
+       }
+      },
+      "groups": [
+       {
+        "id": "g1",
+        "members": [
+         "browser",
+         "web:github"
+        ],
+        "key": {
+         "id": "hunggod",
+         "name": "hunggod",
+         "kind": "web"
+        }
+       }
+      ]
+     }
+    }
+   }
+  ],
+  "out": "set:9c4fd8be97ba"
+ },
+ {
+  "fn": "v5ImageKey",
+  "args": [
+   {
+    "version": 5,
+    "id": "writing",
+    "owner": "u1",
+    "machine": "laptop",
+    "order": 2,
+    "apps": [
+     {
+      "app": "obsidian"
+     },
+     {
+      "app": "wadbrowser"
+     }
+    ],
+    "exts": [],
+    "customization": {
+     "name": "Writing",
+     "wallpaper": {
+      "type": "texture",
+      "value": "seigaiha"
+     }
+    }
+   }
+  ],
+  "out": "set:eda3cf2abd20"
+ },
+ {
+  "fn": "v5ImageKey",
+  "args": [
+   {
+    "version": 5,
+    "id": "bare",
+    "owner": "u1",
+    "machine": "laptop",
+    "apps": [],
+    "exts": [],
+    "customization": {
+     "name": "Bare"
+    }
+   }
+  ],
+  "out": "base"
+ },
+ {
+  "fn": "v5TemplateSetup",
+  "args": [
+   {
+    "version": 5,
+    "id": "iq",
+    "owner": "u1",
+    "machine": "surface",
+    "order": 1,
+    "apps": [
+     {
+      "app": "wadbrowser"
+     },
+     {
+      "app": "vscode"
+     },
+     {
+      "app": "terminal"
+     },
+     {
+      "app": "libresprite"
+     },
+     {
+      "app": "tiled"
+     }
+    ],
+    "exts": [
+     {
+      "app": "wadbrowser",
+      "id": "focus",
+      "name": "Focus"
+     },
+     {
+      "app": "wadbrowser",
+      "id": "github",
+      "name": "GitHub",
+      "url": "https://github.com"
+     },
+     {
+      "app": "wadbrowser",
+      "id": "learnopengl",
+      "name": "LearnOpenGL",
+      "url": "https://learnopengl.com",
+      "iconUrl": "/i.png"
+     },
+     {
+      "app": "vscode",
+      "id": "anthropic.claude-code"
+     },
+     {
+      "app": "vscode",
+      "id": "ms-vscode.cpptools"
+     },
+     {
+      "app": "vscode",
+      "id": "rust-lang.rust-analyzer"
+     },
+     {
+      "app": "terminal",
+      "id": "cpp"
+     },
+     {
+      "app": "terminal",
+      "id": "rust"
+     }
+    ],
+    "customization": {
+     "name": "IntelligenceQuest",
+     "description": "A game.",
+     "wallpaper": {
+      "type": "texture",
+      "value": "stars"
+     },
+     "autostart": [
+      "app:vscode"
+     ],
+     "projects": [
+      {
+       "id": "project-iq",
+       "kind": "github",
+       "repo": "HungGod/IntelligenceQuest",
+       "as": "IntelligenceQuest"
+      }
+     ],
+     "secrets": {
+      "bySlot": {
+       "ext:anthropic.claude-code": {
+        "id": "iq-claude",
+        "name": "IQ Claude",
+        "kind": "vscode-claude-code"
+       }
+      },
+      "groups": [
+       {
+        "id": "g1",
+        "members": [
+         "browser",
+         "web:github"
+        ],
+        "key": {
+         "id": "hunggod",
+         "name": "hunggod",
+         "kind": "web"
+        }
+       }
+      ]
+     }
+    }
+   }
+  ],
+  "out": [
+   {
+    "id": "iq",
+    "name": "IntelligenceQuest",
+    "apps": [
+     "wadbrowser",
+     "vscode",
+     "terminal",
+     "libresprite",
+     "tiled"
+    ]
+   },
+   {
+    "templateId": "iq",
+    "browserMode": "focus",
+    "webapps": [
+     {
+      "id": "github",
+      "name": "GitHub",
+      "url": "https://github.com"
+     },
+     {
+      "id": "learnopengl",
+      "name": "LearnOpenGL",
+      "url": "https://learnopengl.com",
+      "iconUrl": "/i.png"
+     }
+    ],
+    "extensions": [
+     "anthropic.claude-code",
+     "ms-vscode.cpptools",
+     "rust-lang.rust-analyzer"
+    ],
+    "tools": [
+     "cpp",
+     "rust"
+    ],
+    "autostart": [
+     "app:vscode"
+    ]
+   }
+  ]
+ },
+ {
+  "fn": "v5WorkspaceFor",
+  "args": [
+   {
+    "version": 5,
+    "id": "iq",
+    "owner": "u1",
+    "machine": "surface",
+    "order": 1,
+    "apps": [
+     {
+      "app": "wadbrowser"
+     },
+     {
+      "app": "vscode"
+     },
+     {
+      "app": "terminal"
+     },
+     {
+      "app": "libresprite"
+     },
+     {
+      "app": "tiled"
+     }
+    ],
+    "exts": [
+     {
+      "app": "wadbrowser",
+      "id": "focus",
+      "name": "Focus"
+     },
+     {
+      "app": "wadbrowser",
+      "id": "github",
+      "name": "GitHub",
+      "url": "https://github.com"
+     },
+     {
+      "app": "wadbrowser",
+      "id": "learnopengl",
+      "name": "LearnOpenGL",
+      "url": "https://learnopengl.com",
+      "iconUrl": "/i.png"
+     },
+     {
+      "app": "vscode",
+      "id": "anthropic.claude-code"
+     },
+     {
+      "app": "vscode",
+      "id": "ms-vscode.cpptools"
+     },
+     {
+      "app": "vscode",
+      "id": "rust-lang.rust-analyzer"
+     },
+     {
+      "app": "terminal",
+      "id": "cpp"
+     },
+     {
+      "app": "terminal",
+      "id": "rust"
+     }
+    ],
+    "customization": {
+     "name": "IntelligenceQuest",
+     "description": "A game.",
+     "wallpaper": {
+      "type": "texture",
+      "value": "stars"
+     },
+     "autostart": [
+      "app:vscode"
+     ],
+     "projects": [
+      {
+       "id": "project-iq",
+       "kind": "github",
+       "repo": "HungGod/IntelligenceQuest",
+       "as": "IntelligenceQuest"
+      }
+     ],
+     "secrets": {
+      "bySlot": {
+       "ext:anthropic.claude-code": {
+        "id": "iq-claude",
+        "name": "IQ Claude",
+        "kind": "vscode-claude-code"
+       }
+      },
+      "groups": [
+       {
+        "id": "g1",
+        "members": [
+         "browser",
+         "web:github"
+        ],
+        "key": {
+         "id": "hunggod",
+         "name": "hunggod",
+         "kind": "web"
+        }
+       }
+      ]
+     }
+    }
+   },
+   {
+    "tz": "Pacific/Fiji",
+    "secrets": [
+     "github_token"
+    ]
+   }
+  ],
+  "out": {
+   "id": "iq",
+   "name": "IntelligenceQuest",
+   "image": "localhost/wadspaces-set-9c4fd8be97ba:latest",
+   "display": "host",
+   "enabled": true,
+   "env": {
+    "PUID": "1000",
+    "PGID": "1000",
+    "TZ": "Pacific/Fiji",
+    "TITLE": "IntelligenceQuest",
+    "WALLPAPER": "/run/wadspaces-extra/wallpaper.png",
+    "WALLPAPER_MODE": "fill"
+   },
+   "secrets": [
+    "github_token"
+   ],
+   "volumes": [
+    "wad-iq-config:/config:z"
+   ],
+   "devices": [
+    "/dev/dri"
+   ],
+   "shm_size": "1g",
+   "signins": [
+    {
+     "id": "iq-claude",
+     "app": "vscode",
+     "name": "IQ Claude",
+     "kind": "vscode-claude-code",
+     "slot": "ext:anthropic.claude-code"
+    },
+    {
+     "id": "hunggod",
+     "app": "@browser",
+     "web": true,
+     "name": "hunggod",
+     "kind": "web",
+     "slot": "app:wadbrowser"
+    },
+    {
+     "id": "hunggod",
+     "app": "github",
+     "web": true,
+     "name": "hunggod",
+     "kind": "web",
+     "slot": "web:github"
+    },
+    {
+     "id": "hunggod",
+     "app": "learnopengl",
+     "web": true,
+     "name": "hunggod",
+     "kind": "web",
+     "slot": "web:learnopengl"
+    }
+   ],
+   "projects": [
+    {
+     "id": "project-iq",
+     "kind": "github",
+     "mount": "IntelligenceQuest",
+     "repo": "HungGod/IntelligenceQuest"
+    }
+   ],
+   "hotkey": null,
+   "autostart": false
+  }
+ },
+ {
+  "fn": "v5WorkspaceFor",
+  "args": [
+   {
+    "version": 5,
+    "id": "bare",
+    "owner": "u1",
+    "machine": "laptop",
+    "apps": [],
+    "exts": [],
+    "customization": {
+     "name": "Bare"
+    }
+   },
+   {
+    "base": "localhost/wadspaces-base:trixie"
+   }
+  ],
+  "out": {
+   "id": "bare",
+   "name": "Bare",
+   "image": "localhost/wadspaces-base:trixie",
+   "display": "host",
+   "enabled": true,
+   "env": {
+    "PUID": "1000",
+    "PGID": "1000",
+    "TZ": "Etc/UTC",
+    "TITLE": "Bare",
+    "WALLPAPER": "/run/wadspaces-extra/wallpaper.png",
+    "WALLPAPER_MODE": "fill"
+   },
+   "secrets": [],
+   "volumes": [
+    "wad-bare-config:/config:z"
+   ],
+   "devices": [
+    "/dev/dri"
+   ],
+   "shm_size": "1g",
+   "signins": [],
+   "projects": [],
+   "hotkey": null,
+   "autostart": false
+  }
+ },
+ {
+  "fn": "v5State",
+  "args": [
+   {
+    "version": 5,
+    "id": "iq",
+    "owner": "u1",
+    "machine": "surface",
+    "order": 1,
+    "apps": [
+     {
+      "app": "wadbrowser"
+     },
+     {
+      "app": "vscode"
+     },
+     {
+      "app": "terminal"
+     },
+     {
+      "app": "libresprite"
+     },
+     {
+      "app": "tiled"
+     }
+    ],
+    "exts": [
+     {
+      "app": "wadbrowser",
+      "id": "focus",
+      "name": "Focus"
+     },
+     {
+      "app": "wadbrowser",
+      "id": "github",
+      "name": "GitHub",
+      "url": "https://github.com"
+     },
+     {
+      "app": "wadbrowser",
+      "id": "learnopengl",
+      "name": "LearnOpenGL",
+      "url": "https://learnopengl.com",
+      "iconUrl": "/i.png"
+     },
+     {
+      "app": "vscode",
+      "id": "anthropic.claude-code"
+     },
+     {
+      "app": "vscode",
+      "id": "ms-vscode.cpptools"
+     },
+     {
+      "app": "vscode",
+      "id": "rust-lang.rust-analyzer"
+     },
+     {
+      "app": "terminal",
+      "id": "cpp"
+     },
+     {
+      "app": "terminal",
+      "id": "rust"
+     }
+    ],
+    "customization": {
+     "name": "IntelligenceQuest",
+     "description": "A game.",
+     "wallpaper": {
+      "type": "texture",
+      "value": "stars"
+     },
+     "autostart": [
+      "app:vscode"
+     ],
+     "projects": [
+      {
+       "id": "project-iq",
+       "kind": "github",
+       "repo": "HungGod/IntelligenceQuest",
+       "as": "IntelligenceQuest"
+      }
+     ],
+     "secrets": {
+      "bySlot": {
+       "ext:anthropic.claude-code": {
+        "id": "iq-claude",
+        "name": "IQ Claude",
+        "kind": "vscode-claude-code"
+       }
+      },
+      "groups": [
+       {
+        "id": "g1",
+        "members": [
+         "browser",
+         "web:github"
+        ],
+        "key": {
+         "id": "hunggod",
+         "name": "hunggod",
+         "kind": "web"
+        }
+       }
+      ]
+     }
+    }
+   },
+   [
+    {
+     "layer": "base",
+     "id": "b2"
+    }
+   ]
+  ],
+  "out": "never"
+ },
+ {
+  "fn": "v5State",
+  "args": [
+   {
+    "version": 5,
+    "id": "iq",
+    "owner": "u1",
+    "machine": "surface",
+    "order": 1,
+    "apps": [
+     {
+      "app": "wadbrowser"
+     },
+     {
+      "app": "vscode"
+     },
+     {
+      "app": "terminal"
+     },
+     {
+      "app": "libresprite"
+     },
+     {
+      "app": "tiled"
+     }
+    ],
+    "exts": [
+     {
+      "app": "wadbrowser",
+      "id": "focus",
+      "name": "Focus"
+     },
+     {
+      "app": "wadbrowser",
+      "id": "github",
+      "name": "GitHub",
+      "url": "https://github.com"
+     },
+     {
+      "app": "wadbrowser",
+      "id": "learnopengl",
+      "name": "LearnOpenGL",
+      "url": "https://learnopengl.com",
+      "iconUrl": "/i.png"
+     },
+     {
+      "app": "vscode",
+      "id": "anthropic.claude-code"
+     },
+     {
+      "app": "vscode",
+      "id": "ms-vscode.cpptools"
+     },
+     {
+      "app": "vscode",
+      "id": "rust-lang.rust-analyzer"
+     },
+     {
+      "app": "terminal",
+      "id": "cpp"
+     },
+     {
+      "app": "terminal",
+      "id": "rust"
+     }
+    ],
+    "customization": {
+     "name": "IntelligenceQuest",
+     "description": "A game.",
+     "wallpaper": {
+      "type": "texture",
+      "value": "stars"
+     },
+     "autostart": [
+      "app:vscode"
+     ],
+     "projects": [
+      {
+       "id": "project-iq",
+       "kind": "github",
+       "repo": "HungGod/IntelligenceQuest",
+       "as": "IntelligenceQuest"
+      }
+     ],
+     "secrets": {
+      "bySlot": {
+       "ext:anthropic.claude-code": {
+        "id": "iq-claude",
+        "name": "IQ Claude",
+        "kind": "vscode-claude-code"
+       }
+      },
+      "groups": [
+       {
+        "id": "g1",
+        "members": [
+         "browser",
+         "web:github"
+        ],
+        "key": {
+         "id": "hunggod",
+         "name": "hunggod",
+         "kind": "web"
+        }
+       }
+      ]
+     }
+    }
+   },
+   [
+    {
+     "layer": "base",
+     "id": "b2"
+    },
+    {
+     "layer": "set:9c4fd8be97ba",
+     "from": "b2"
+    }
+   ]
+  ],
+  "out": "built"
+ },
+ {
+  "fn": "v5State",
+  "args": [
+   {
+    "version": 5,
+    "id": "bare",
+    "owner": "u1",
+    "machine": "laptop",
+    "apps": [],
+    "exts": [],
+    "customization": {
+     "name": "Bare"
+    }
+   },
+   [
+    {
+     "layer": "base",
+     "id": "b2"
+    }
+   ]
+  ],
+  "out": "built"
+ },
+ {
+  "fn": "v5View",
+  "args": [
+   {
+    "version": 5,
+    "id": "iq",
+    "owner": "u1",
+    "machine": "surface",
+    "order": 1,
+    "apps": [
+     {
+      "app": "wadbrowser"
+     },
+     {
+      "app": "vscode"
+     },
+     {
+      "app": "terminal"
+     },
+     {
+      "app": "libresprite"
+     },
+     {
+      "app": "tiled"
+     }
+    ],
+    "exts": [
+     {
+      "app": "wadbrowser",
+      "id": "focus",
+      "name": "Focus"
+     },
+     {
+      "app": "wadbrowser",
+      "id": "github",
+      "name": "GitHub",
+      "url": "https://github.com"
+     },
+     {
+      "app": "wadbrowser",
+      "id": "learnopengl",
+      "name": "LearnOpenGL",
+      "url": "https://learnopengl.com",
+      "iconUrl": "/i.png"
+     },
+     {
+      "app": "vscode",
+      "id": "anthropic.claude-code"
+     },
+     {
+      "app": "vscode",
+      "id": "ms-vscode.cpptools"
+     },
+     {
+      "app": "vscode",
+      "id": "rust-lang.rust-analyzer"
+     },
+     {
+      "app": "terminal",
+      "id": "cpp"
+     },
+     {
+      "app": "terminal",
+      "id": "rust"
+     }
+    ],
+    "customization": {
+     "name": "IntelligenceQuest",
+     "description": "A game.",
+     "wallpaper": {
+      "type": "texture",
+      "value": "stars"
+     },
+     "autostart": [
+      "app:vscode"
+     ],
+     "projects": [
+      {
+       "id": "project-iq",
+       "kind": "github",
+       "repo": "HungGod/IntelligenceQuest",
+       "as": "IntelligenceQuest"
+      }
+     ],
+     "secrets": {
+      "bySlot": {
+       "ext:anthropic.claude-code": {
+        "id": "iq-claude",
+        "name": "IQ Claude",
+        "kind": "vscode-claude-code"
+       }
+      },
+      "groups": [
+       {
+        "id": "g1",
+        "members": [
+         "browser",
+         "web:github"
+        ],
+        "key": {
+         "id": "hunggod",
+         "name": "hunggod",
+         "kind": "web"
+        }
+       }
+      ]
+     }
+    }
+   }
+  ],
+  "out": {
+   "id": "iq",
+   "machine": "surface",
+   "name": "IntelligenceQuest",
+   "description": "A game.",
+   "order": 1,
+   "deleted": false,
+   "apps": [
+    "wadbrowser",
+    "vscode",
+    "terminal",
+    "libresprite",
+    "tiled"
+   ],
+   "packages": [
+    "cpp",
+    "rust",
+    "electron-deps",
+    "vscode",
+    "tiled",
+    "libresprite",
+    "ext-anthropic.claude-code",
+    "ext-ms-vscode.cpptools",
+    "ext-rust-lang.rust-analyzer"
+   ],
+   "imageKey": "set:9c4fd8be97ba",
+   "wallpaper": {
+    "type": "texture",
+    "value": "stars"
+   }
+  }
+ },
+ {
+  "fn": "v5View",
+  "args": [
+   {
+    "version": 5,
+    "id": "writing",
+    "owner": "u1",
+    "machine": "laptop",
+    "order": 2,
+    "apps": [
+     {
+      "app": "obsidian"
+     },
+     {
+      "app": "wadbrowser"
+     }
+    ],
+    "exts": [],
+    "customization": {
+     "name": "Writing",
+     "wallpaper": {
+      "type": "texture",
+      "value": "seigaiha"
+     }
+    },
+    "deletedAt": "2026-10-21T00:00:00Z"
+   }
+  ],
+  "out": {
+   "id": "writing",
+   "machine": "laptop",
+   "name": "Writing",
+   "description": "",
+   "order": 2,
+   "deleted": true,
+   "apps": [
+    "obsidian",
+    "wadbrowser"
+   ],
+   "packages": [
+    "electron-deps",
+    "obsidian"
+   ],
+   "imageKey": "set:eda3cf2abd20",
+   "wallpaper": {
+    "type": "texture",
+    "value": "seigaiha"
+   }
+  }
+ },
+ {
+  "fn": "v5Apps",
+  "args": [
+   {
+    "version": 5,
+    "id": "iq",
+    "owner": "u1",
+    "machine": "surface",
+    "order": 1,
+    "apps": [
+     {
+      "app": "wadbrowser"
+     },
+     {
+      "app": "vscode"
+     }
+    ],
+    "exts": [
+     {
+      "app": "wadbrowser",
+      "id": "focus",
+      "name": "Focus"
+     },
+     {
+      "app": "wadbrowser",
+      "id": "itch",
+      "name": "itch.io",
+      "url": "https://itch.io"
+     },
+     {
+      "app": "wadbrowser",
+      "id": "github",
+      "name": "GitHub",
+      "url": "https://github.com"
+     }
+    ],
+    "customization": {
+     "name": "IntelligenceQuest",
+     "description": "A game.",
+     "wallpaper": {
+      "type": "texture",
+      "value": "stars"
+     },
+     "autostart": [
+      "app:vscode"
+     ],
+     "projects": [
+      {
+       "id": "project-iq",
+       "kind": "github",
+       "repo": "HungGod/IntelligenceQuest",
+       "as": "IntelligenceQuest"
+      }
+     ],
+     "secrets": {
+      "bySlot": {
+       "ext:anthropic.claude-code": {
+        "id": "iq-claude",
+        "name": "IQ Claude",
+        "kind": "vscode-claude-code"
+       }
+      },
+      "groups": [
+       {
+        "id": "g1",
+        "members": [
+         "browser",
+         "web:github"
+        ],
+        "key": {
+         "id": "hunggod",
+         "name": "hunggod",
+         "kind": "web"
+        }
+       }
+      ]
+     }
+    }
+   }
+  ],
+  "out": [
+   {
+    "app": "wadbrowser",
+    "mode": "focus",
+    "extras": [
+     {
+      "id": "itch",
+      "name": "itch.io",
+      "url": "https://itch.io"
+     },
+     {
+      "id": "github",
+      "name": "GitHub",
+      "url": "https://github.com"
+     }
+    ]
+   },
+   {
+    "app": "vscode",
+    "extras": []
+   }
+  ]
+ },
+ {
+  "fn": "v5Apps",
+  "args": [
+   {
+    "version": 5,
+    "id": "iq",
+    "owner": "u1",
+    "machine": "surface",
+    "order": 1,
+    "apps": [
+     {
+      "app": "wadbrowser"
+     },
+     {
+      "app": "vscode"
+     }
+    ],
+    "exts": [
+     {
+      "app": "wadbrowser",
+      "id": "github",
+      "name": "GitHub",
+      "url": "https://github.com"
+     },
+     {
+      "app": "wadbrowser",
+      "id": "itch",
+      "name": "itch.io",
+      "url": "https://itch.io"
+     }
+    ],
+    "customization": {
+     "name": "IntelligenceQuest",
+     "description": "A game.",
+     "wallpaper": {
+      "type": "texture",
+      "value": "stars"
+     },
+     "autostart": [
+      "app:vscode"
+     ],
+     "projects": [
+      {
+       "id": "project-iq",
+       "kind": "github",
+       "repo": "HungGod/IntelligenceQuest",
+       "as": "IntelligenceQuest"
+      }
+     ],
+     "secrets": {
+      "bySlot": {
+       "ext:anthropic.claude-code": {
+        "id": "iq-claude",
+        "name": "IQ Claude",
+        "kind": "vscode-claude-code"
+       }
+      },
+      "groups": [
+       {
+        "id": "g1",
+        "members": [
+         "browser",
+         "web:github"
+        ],
+        "key": {
+         "id": "hunggod",
+         "name": "hunggod",
+         "kind": "web"
+        }
+       }
+      ]
+     }
+    }
+   }
+  ],
+  "out": [
+   {
+    "app": "wadbrowser",
+    "extras": [
+     {
+      "id": "github",
+      "name": "GitHub",
+      "url": "https://github.com"
+     },
+     {
+      "id": "itch",
+      "name": "itch.io",
+      "url": "https://itch.io"
+     }
+    ]
+   },
+   {
+    "app": "vscode",
+    "extras": []
+   }
+  ]
+ },
+ {
+  "fn": "v5WorkspaceFor",
+  "args": [
+   {
+    "version": 5,
+    "id": "iq",
+    "owner": "u1",
+    "machine": "surface",
+    "order": 1,
+    "apps": [
+     {
+      "app": "wadbrowser"
+     },
+     {
+      "app": "vscode"
+     },
+     {
+      "app": "terminal"
+     },
+     {
+      "app": "libresprite"
+     },
+     {
+      "app": "tiled"
+     }
+    ],
+    "exts": [
+     {
+      "app": "wadbrowser",
+      "id": "focus",
+      "name": "Focus"
+     },
+     {
+      "app": "wadbrowser",
+      "id": "github",
+      "name": "GitHub",
+      "url": "https://github.com"
+     },
+     {
+      "app": "wadbrowser",
+      "id": "learnopengl",
+      "name": "LearnOpenGL",
+      "url": "https://learnopengl.com",
+      "iconUrl": "/i.png"
+     },
+     {
+      "app": "vscode",
+      "id": "anthropic.claude-code"
+     },
+     {
+      "app": "vscode",
+      "id": "ms-vscode.cpptools"
+     },
+     {
+      "app": "vscode",
+      "id": "rust-lang.rust-analyzer"
+     },
+     {
+      "app": "terminal",
+      "id": "cpp"
+     },
+     {
+      "app": "terminal",
+      "id": "rust"
+     }
+    ],
+    "customization": {
+     "name": "IntelligenceQuest",
+     "description": "A game.",
+     "wallpaper": {
+      "type": "texture",
+      "value": "stars"
+     },
+     "autostart": [
+      "app:vscode"
+     ],
+     "projects": [
+      {
+       "id": "project-iq",
+       "kind": "github",
+       "repo": "HungGod/IntelligenceQuest",
+       "as": "IntelligenceQuest"
+      },
+      {
+       "id": "project-book",
+       "kind": "github",
+       "repo": "HungGod/Book",
+       "as": "Book",
+       "mounted": true
+      }
+     ],
+     "secrets": {
+      "bySlot": {
+       "ext:anthropic.claude-code": {
+        "id": "iq-claude",
+        "name": "IQ Claude",
+        "kind": "vscode-claude-code"
+       }
+      },
+      "groups": [
+       {
+        "id": "g1",
+        "members": [
+         "browser",
+         "web:github"
+        ],
+        "key": {
+         "id": "hunggod",
+         "name": "hunggod",
+         "kind": "web"
+        }
+       }
+      ]
+     }
+    }
+   },
+   {
+    "tz": "Pacific/Fiji",
+    "secrets": [
+     "github_token"
+    ]
+   }
+  ],
+  "out": {
+   "id": "iq",
+   "name": "IntelligenceQuest",
+   "image": "localhost/wadspaces-set-9c4fd8be97ba:latest",
+   "display": "host",
+   "enabled": true,
+   "env": {
+    "PUID": "1000",
+    "PGID": "1000",
+    "TZ": "Pacific/Fiji",
+    "TITLE": "IntelligenceQuest",
+    "WALLPAPER": "/run/wadspaces-extra/wallpaper.png",
+    "WALLPAPER_MODE": "fill"
+   },
+   "secrets": [
+    "github_token"
+   ],
+   "volumes": [
+    "wad-iq-config:/config:z"
+   ],
+   "devices": [
+    "/dev/dri"
+   ],
+   "shm_size": "1g",
+   "signins": [
+    {
+     "id": "iq-claude",
+     "app": "vscode",
+     "name": "IQ Claude",
+     "kind": "vscode-claude-code",
+     "slot": "ext:anthropic.claude-code"
+    },
+    {
+     "id": "hunggod",
+     "app": "@browser",
+     "web": true,
+     "name": "hunggod",
+     "kind": "web",
+     "slot": "app:wadbrowser"
+    },
+    {
+     "id": "hunggod",
+     "app": "github",
+     "web": true,
+     "name": "hunggod",
+     "kind": "web",
+     "slot": "web:github"
+    },
+    {
+     "id": "hunggod",
+     "app": "learnopengl",
+     "web": true,
+     "name": "hunggod",
+     "kind": "web",
+     "slot": "web:learnopengl"
+    }
+   ],
+   "projects": [
+    {
+     "id": "project-iq",
+     "kind": "github",
+     "mount": "IntelligenceQuest",
+     "repo": "HungGod/IntelligenceQuest"
+    },
+    {
+     "id": "project-book",
+     "kind": "github",
+     "mount": "Book",
+     "repo": "HungGod/Book",
+     "mounted": true
+    }
+   ],
+   "hotkey": null,
+   "autostart": false
+  }
+ },
+ {
+  "fn": "v5Upgrade",
   "args": [
    {
     "version": 4,
@@ -15088,7 +17333,7 @@
          {
           "id": "github",
           "name": "GitHub",
-          "url": "github.com"
+          "url": "https://github.com"
          }
         ]
        },
@@ -15201,10 +17446,115 @@
     }
    }
   ],
-  "out": "the web app github needs an http(s) address"
+  "out": {
+   "version": 5,
+   "id": "iq",
+   "owner": "u1",
+   "machine": "surface",
+   "order": 1,
+   "apps": [
+    {
+     "app": "wadbrowser"
+    },
+    {
+     "app": "vscode"
+    },
+    {
+     "app": "terminal"
+    },
+    {
+     "app": "libresprite"
+    },
+    {
+     "app": "tiled"
+    }
+   ],
+   "exts": [
+    {
+     "app": "wadbrowser",
+     "id": "focus",
+     "name": "Focus"
+    },
+    {
+     "app": "wadbrowser",
+     "id": "github",
+     "name": "GitHub",
+     "url": "https://github.com"
+    },
+    {
+     "app": "wadbrowser",
+     "id": "learnopengl",
+     "name": "LearnOpenGL",
+     "url": "https://learnopengl.com",
+     "iconUrl": "/i.png"
+    },
+    {
+     "app": "vscode",
+     "id": "anthropic.claude-code"
+    },
+    {
+     "app": "vscode",
+     "id": "ms-vscode.cpptools"
+    },
+    {
+     "app": "vscode",
+     "id": "rust-lang.rust-analyzer"
+    },
+    {
+     "app": "terminal",
+     "id": "cpp"
+    },
+    {
+     "app": "terminal",
+     "id": "rust"
+    }
+   ],
+   "customization": {
+    "name": "IntelligenceQuest",
+    "description": "A game.",
+    "wallpaper": {
+     "type": "texture",
+     "value": "stars"
+    },
+    "autostart": [
+     "app:vscode"
+    ],
+    "projects": [
+     {
+      "id": "project-iq",
+      "kind": "github",
+      "repo": "HungGod/IntelligenceQuest",
+      "as": "IntelligenceQuest"
+     }
+    ],
+    "secrets": {
+     "bySlot": {
+      "ext:anthropic.claude-code": {
+       "id": "iq-claude",
+       "name": "IQ Claude",
+       "kind": "vscode-claude-code"
+      }
+     },
+     "groups": [
+      {
+       "id": "g1",
+       "members": [
+        "browser",
+        "web:github"
+       ],
+       "key": {
+        "id": "hunggod",
+        "name": "hunggod",
+        "kind": "web"
+       }
+      }
+     ]
+    }
+   }
+  }
  },
  {
-  "fn": "v4Check",
+  "fn": "v5Upgrade",
   "args": [
    {
     "version": 4,
@@ -15214,12 +17564,28 @@
     "order": 1,
     "templates": [
      {
+      "id": "vg-dev",
+      "name": "VG Dev",
+      "apps": [
+       {
+        "app": "wadbrowser",
+        "mode": "focus",
+        "extras": [
+         {
+          "id": "itch",
+          "name": "itch.io",
+          "url": "https://itch.io"
+         }
+        ]
+       }
+      ]
+     },
+     {
       "id": "dev",
       "name": "Dev",
       "apps": [
        {
         "app": "wadbrowser",
-        "mode": "focus",
         "extras": [
          {
           "id": "github",
@@ -15230,65 +17596,7 @@
        },
        {
         "app": "vscode",
-        "extras": [
-         {
-          "id": "anthropic.claude-code"
-         }
-        ]
-       }
-      ]
-     },
-     {
-      "id": "lang",
-      "name": "C++ and Rust",
-      "apps": [
-       {
-        "app": "vscode",
-        "extras": [
-         {
-          "id": "ms-vscode.cpptools"
-         },
-         {
-          "id": "rust-lang.rust-analyzer"
-         },
-         {
-          "id": "anthropic.claude-code"
-         }
-        ]
-       },
-       {
-        "app": "terminal",
-        "extras": [
-         {
-          "id": "cpp"
-         },
-         {
-          "id": "rust"
-         }
-        ]
-       },
-       {
-        "app": "wadbrowser",
-        "extras": [
-         {
-          "id": "learnopengl",
-          "name": "LearnOpenGL",
-          "url": "https://learnopengl.com",
-          "iconUrl": "/i.png"
-         }
-        ]
-       }
-      ]
-     },
-     {
-      "id": "art",
-      "name": "Game art",
-      "apps": [
-       {
-        "app": "libresprite"
-       },
-       {
-        "app": "tiled"
+        "extras": []
        }
       ]
      }
@@ -15297,8 +17605,8 @@
      "name": "IntelligenceQuest",
      "description": "A game.",
      "wallpaper": {
-      "type": "image",
-      "value": "x.jpg"
+      "type": "texture",
+      "value": "stars"
      },
      "autostart": [
       "app:vscode"
@@ -15337,10 +17645,623 @@
     }
    }
   ],
-  "out": "its background is one of WadSpaces' textures, not {\"type\":\"image\",\"value\":\"x.jpg\"}"
+  "out": {
+   "version": 5,
+   "id": "iq",
+   "owner": "u1",
+   "machine": "surface",
+   "order": 1,
+   "apps": [
+    {
+     "app": "wadbrowser"
+    },
+    {
+     "app": "vscode"
+    }
+   ],
+   "exts": [
+    {
+     "app": "wadbrowser",
+     "id": "focus",
+     "name": "Focus"
+    },
+    {
+     "app": "wadbrowser",
+     "id": "itch",
+     "name": "itch.io",
+     "url": "https://itch.io"
+    },
+    {
+     "app": "wadbrowser",
+     "id": "github",
+     "name": "GitHub",
+     "url": "https://github.com"
+    }
+   ],
+   "customization": {
+    "name": "IntelligenceQuest",
+    "description": "A game.",
+    "wallpaper": {
+     "type": "texture",
+     "value": "stars"
+    },
+    "autostart": [
+     "app:vscode"
+    ],
+    "projects": [
+     {
+      "id": "project-iq",
+      "kind": "github",
+      "repo": "HungGod/IntelligenceQuest",
+      "as": "IntelligenceQuest"
+     }
+    ],
+    "secrets": {
+     "bySlot": {
+      "ext:anthropic.claude-code": {
+       "id": "iq-claude",
+       "name": "IQ Claude",
+       "kind": "vscode-claude-code"
+      }
+     },
+     "groups": [
+      {
+       "id": "g1",
+       "members": [
+        "browser",
+        "web:github"
+       ],
+       "key": {
+        "id": "hunggod",
+        "name": "hunggod",
+        "kind": "web"
+       }
+      }
+     ]
+    }
+   }
+  }
  },
  {
-  "fn": "v4Apps",
+  "fn": "v5Upgrade",
+  "args": [
+   {
+    "version": 4,
+    "id": "sites",
+    "owner": "u1",
+    "machine": "laptop",
+    "templates": [
+     {
+      "id": "a",
+      "name": "A",
+      "apps": [
+       {
+        "app": "wadbrowser",
+        "extras": [
+         {
+          "id": "focus",
+          "name": "focus",
+          "url": "https://focus.example"
+         },
+         {
+          "id": "notion",
+          "name": "notion",
+          "url": "https://notion.example"
+         }
+        ]
+       }
+      ]
+     }
+    ],
+    "customization": {
+     "name": "Sites",
+     "autostart": [
+      "web:focus"
+     ],
+     "secrets": {
+      "bySlot": {},
+      "groups": [
+       {
+        "id": "g1",
+        "members": [
+         "browser",
+         "web:focus"
+        ]
+       }
+      ]
+     }
+    }
+   }
+  ],
+  "out": {
+   "version": 5,
+   "id": "sites",
+   "owner": "u1",
+   "machine": "laptop",
+   "apps": [
+    {
+     "app": "wadbrowser"
+    }
+   ],
+   "exts": [
+    {
+     "app": "wadbrowser",
+     "id": "focus-app",
+     "name": "focus",
+     "url": "https://focus.example"
+    },
+    {
+     "app": "wadbrowser",
+     "id": "notion",
+     "name": "notion",
+     "url": "https://notion.example"
+    }
+   ],
+   "customization": {
+    "name": "Sites",
+    "autostart": [
+     "web:focus-app"
+    ],
+    "secrets": {
+     "bySlot": {},
+     "groups": [
+      {
+       "id": "g1",
+       "members": [
+        "browser",
+        "web:focus-app"
+       ]
+      }
+     ]
+    }
+   }
+  }
+ },
+ {
+  "fn": "v5Upgrade",
+  "args": [
+   {
+    "version": 4,
+    "id": "bare",
+    "owner": "u1",
+    "machine": "laptop",
+    "templates": [],
+    "customization": {
+     "name": "Bare"
+    },
+    "trash": [
+     {
+      "id": "k1",
+      "at": "2026-10-21T10:00:00Z",
+      "kind": "template",
+      "template": {
+       "id": "t",
+       "name": "T",
+       "apps": [
+        {
+         "app": "wadbrowser",
+         "mode": "focus",
+         "extras": [
+          {
+           "id": "gh",
+           "name": "GH",
+           "url": "https://github.com"
+          }
+         ]
+        },
+        {
+         "app": "tiled"
+        }
+       ]
+      },
+      "place": 0
+     },
+     {
+      "id": "k2",
+      "at": "2026-10-21T11:00:00Z",
+      "kind": "app",
+      "template": "t",
+      "entry": {
+       "app": "vscode",
+       "extras": [
+        {
+         "id": "rust-lang.rust-analyzer"
+        }
+       ]
+      }
+     },
+     {
+      "id": "k3",
+      "at": "2026-10-21T12:00:00Z",
+      "kind": "project",
+      "project": {
+       "id": "p",
+       "kind": "github",
+       "repo": "HungGod/notes",
+       "as": "notes"
+      }
+     },
+     {
+      "id": "k4",
+      "at": "2026-10-21T13:00:00Z",
+      "kind": "background",
+      "wallpaper": {
+       "type": "texture",
+       "value": "grid"
+      }
+     }
+    ]
+   }
+  ],
+  "out": {
+   "version": 5,
+   "id": "bare",
+   "owner": "u1",
+   "machine": "laptop",
+   "apps": [],
+   "exts": [],
+   "customization": {
+    "name": "Bare"
+   },
+   "trash": [
+    {
+     "id": "k1",
+     "at": "2026-10-21T10:00:00Z",
+     "kind": "app",
+     "app": {
+      "app": "wadbrowser"
+     }
+    },
+    {
+     "id": "k2",
+     "at": "2026-10-21T10:00:00Z",
+     "kind": "exts",
+     "app": "wadbrowser",
+     "exts": [
+      {
+       "app": "wadbrowser",
+       "id": "focus",
+       "name": "Focus"
+      },
+      {
+       "app": "wadbrowser",
+       "id": "gh",
+       "name": "GH",
+       "url": "https://github.com"
+      }
+     ]
+    },
+    {
+     "id": "k3",
+     "at": "2026-10-21T10:00:00Z",
+     "kind": "app",
+     "app": {
+      "app": "tiled"
+     }
+    },
+    {
+     "id": "k4",
+     "at": "2026-10-21T11:00:00Z",
+     "kind": "app",
+     "app": {
+      "app": "vscode"
+     }
+    },
+    {
+     "id": "k5",
+     "at": "2026-10-21T11:00:00Z",
+     "kind": "exts",
+     "app": "vscode",
+     "exts": [
+      {
+       "app": "vscode",
+       "id": "rust-lang.rust-analyzer"
+      }
+     ]
+    },
+    {
+     "id": "k6",
+     "at": "2026-10-21T12:00:00Z",
+     "kind": "project",
+     "project": {
+      "id": "p",
+      "kind": "github",
+      "repo": "HungGod/notes",
+      "as": "notes"
+     }
+    },
+    {
+     "id": "k7",
+     "at": "2026-10-21T13:00:00Z",
+     "kind": "background",
+     "wallpaper": {
+      "type": "texture",
+      "value": "grid"
+     }
+    }
+   ]
+  }
+ },
+ {
+  "fn": "v5Upgrade",
+  "args": [
+   {
+    "version": 4,
+    "id": "art",
+    "owner": "u1",
+    "machine": "laptop",
+    "templates": [
+     {
+      "id": "a",
+      "name": "A",
+      "apps": [
+       {
+        "app": "tiled",
+        "extras": [
+         {
+          "id": "x"
+         }
+        ]
+       },
+       {
+        "app": "terminal",
+        "extras": [
+         {
+          "id": "rust"
+         }
+        ]
+       }
+      ]
+     }
+    ],
+    "customization": {
+     "name": "Art"
+    }
+   }
+  ],
+  "out": {
+   "version": 5,
+   "id": "art",
+   "owner": "u1",
+   "machine": "laptop",
+   "apps": [
+    {
+     "app": "tiled"
+    },
+    {
+     "app": "terminal"
+    }
+   ],
+   "exts": [
+    {
+     "app": "terminal",
+     "id": "rust"
+    }
+   ],
+   "customization": {
+    "name": "Art"
+   }
+  }
+ },
+ {
+  "fn": "v5Upgrade",
+  "args": [
+   {
+    "version": 5,
+    "id": "iq",
+    "owner": "u1",
+    "machine": "surface",
+    "order": 1,
+    "apps": [
+     {
+      "app": "wadbrowser"
+     },
+     {
+      "app": "vscode"
+     },
+     {
+      "app": "terminal"
+     },
+     {
+      "app": "libresprite"
+     },
+     {
+      "app": "tiled"
+     }
+    ],
+    "exts": [
+     {
+      "app": "wadbrowser",
+      "id": "focus",
+      "name": "Focus"
+     },
+     {
+      "app": "wadbrowser",
+      "id": "github",
+      "name": "GitHub",
+      "url": "https://github.com"
+     },
+     {
+      "app": "wadbrowser",
+      "id": "learnopengl",
+      "name": "LearnOpenGL",
+      "url": "https://learnopengl.com",
+      "iconUrl": "/i.png"
+     },
+     {
+      "app": "vscode",
+      "id": "anthropic.claude-code"
+     },
+     {
+      "app": "vscode",
+      "id": "ms-vscode.cpptools"
+     },
+     {
+      "app": "vscode",
+      "id": "rust-lang.rust-analyzer"
+     },
+     {
+      "app": "terminal",
+      "id": "cpp"
+     },
+     {
+      "app": "terminal",
+      "id": "rust"
+     }
+    ],
+    "customization": {
+     "name": "IntelligenceQuest",
+     "description": "A game.",
+     "wallpaper": {
+      "type": "texture",
+      "value": "stars"
+     },
+     "autostart": [
+      "app:vscode"
+     ],
+     "projects": [
+      {
+       "id": "project-iq",
+       "kind": "github",
+       "repo": "HungGod/IntelligenceQuest",
+       "as": "IntelligenceQuest"
+      }
+     ],
+     "secrets": {
+      "bySlot": {
+       "ext:anthropic.claude-code": {
+        "id": "iq-claude",
+        "name": "IQ Claude",
+        "kind": "vscode-claude-code"
+       }
+      },
+      "groups": [
+       {
+        "id": "g1",
+        "members": [
+         "browser",
+         "web:github"
+        ],
+        "key": {
+         "id": "hunggod",
+         "name": "hunggod",
+         "kind": "web"
+        }
+       }
+      ]
+     }
+    }
+   }
+  ],
+  "out": {
+   "version": 5,
+   "id": "iq",
+   "owner": "u1",
+   "machine": "surface",
+   "order": 1,
+   "apps": [
+    {
+     "app": "wadbrowser"
+    },
+    {
+     "app": "vscode"
+    },
+    {
+     "app": "terminal"
+    },
+    {
+     "app": "libresprite"
+    },
+    {
+     "app": "tiled"
+    }
+   ],
+   "exts": [
+    {
+     "app": "wadbrowser",
+     "id": "focus",
+     "name": "Focus"
+    },
+    {
+     "app": "wadbrowser",
+     "id": "github",
+     "name": "GitHub",
+     "url": "https://github.com"
+    },
+    {
+     "app": "wadbrowser",
+     "id": "learnopengl",
+     "name": "LearnOpenGL",
+     "url": "https://learnopengl.com",
+     "iconUrl": "/i.png"
+    },
+    {
+     "app": "vscode",
+     "id": "anthropic.claude-code"
+    },
+    {
+     "app": "vscode",
+     "id": "ms-vscode.cpptools"
+    },
+    {
+     "app": "vscode",
+     "id": "rust-lang.rust-analyzer"
+    },
+    {
+     "app": "terminal",
+     "id": "cpp"
+    },
+    {
+     "app": "terminal",
+     "id": "rust"
+    }
+   ],
+   "customization": {
+    "name": "IntelligenceQuest",
+    "description": "A game.",
+    "wallpaper": {
+     "type": "texture",
+     "value": "stars"
+    },
+    "autostart": [
+     "app:vscode"
+    ],
+    "projects": [
+     {
+      "id": "project-iq",
+      "kind": "github",
+      "repo": "HungGod/IntelligenceQuest",
+      "as": "IntelligenceQuest"
+     }
+    ],
+    "secrets": {
+     "bySlot": {
+      "ext:anthropic.claude-code": {
+       "id": "iq-claude",
+       "name": "IQ Claude",
+       "kind": "vscode-claude-code"
+      }
+     },
+     "groups": [
+      {
+       "id": "g1",
+       "members": [
+        "browser",
+        "web:github"
+       ],
+       "key": {
+        "id": "hunggod",
+        "name": "hunggod",
+        "kind": "web"
+       }
+      }
+     ]
+    }
+   }
+  }
+ },
+ {
+  "fn": "v5Apps",
   "args": [
    {
     "version": 4,
@@ -15527,191 +18448,7 @@
   ]
  },
  {
-  "fn": "v4Packages",
-  "args": [
-   {
-    "version": 4,
-    "id": "iq",
-    "owner": "u1",
-    "machine": "surface",
-    "order": 1,
-    "templates": [
-     {
-      "id": "dev",
-      "name": "Dev",
-      "apps": [
-       {
-        "app": "wadbrowser",
-        "mode": "focus",
-        "extras": [
-         {
-          "id": "github",
-          "name": "GitHub",
-          "url": "https://github.com"
-         }
-        ]
-       },
-       {
-        "app": "vscode",
-        "extras": [
-         {
-          "id": "anthropic.claude-code"
-         }
-        ]
-       }
-      ]
-     },
-     {
-      "id": "lang",
-      "name": "C++ and Rust",
-      "apps": [
-       {
-        "app": "vscode",
-        "extras": [
-         {
-          "id": "ms-vscode.cpptools"
-         },
-         {
-          "id": "rust-lang.rust-analyzer"
-         },
-         {
-          "id": "anthropic.claude-code"
-         }
-        ]
-       },
-       {
-        "app": "terminal",
-        "extras": [
-         {
-          "id": "cpp"
-         },
-         {
-          "id": "rust"
-         }
-        ]
-       },
-       {
-        "app": "wadbrowser",
-        "extras": [
-         {
-          "id": "learnopengl",
-          "name": "LearnOpenGL",
-          "url": "https://learnopengl.com",
-          "iconUrl": "/i.png"
-         }
-        ]
-       }
-      ]
-     },
-     {
-      "id": "art",
-      "name": "Game art",
-      "apps": [
-       {
-        "app": "libresprite"
-       },
-       {
-        "app": "tiled"
-       }
-      ]
-     }
-    ],
-    "customization": {
-     "name": "IntelligenceQuest",
-     "description": "A game.",
-     "wallpaper": {
-      "type": "texture",
-      "value": "stars"
-     },
-     "autostart": [
-      "app:vscode"
-     ],
-     "projects": [
-      {
-       "id": "project-iq",
-       "kind": "github",
-       "repo": "HungGod/IntelligenceQuest",
-       "as": "IntelligenceQuest"
-      }
-     ],
-     "secrets": {
-      "bySlot": {
-       "ext:anthropic.claude-code": {
-        "id": "iq-claude",
-        "name": "IQ Claude",
-        "kind": "vscode-claude-code"
-       }
-      },
-      "groups": [
-       {
-        "id": "g1",
-        "members": [
-         "browser",
-         "web:github"
-        ],
-        "key": {
-         "id": "hunggod",
-         "name": "hunggod",
-         "kind": "web"
-        }
-       }
-      ]
-     }
-    }
-   }
-  ],
-  "out": [
-   "cpp",
-   "rust",
-   "electron-deps",
-   "vscode",
-   "tiled",
-   "libresprite",
-   "ext-anthropic.claude-code",
-   "ext-ms-vscode.cpptools",
-   "ext-rust-lang.rust-analyzer"
-  ]
- },
- {
-  "fn": "v4Packages",
-  "args": [
-   {
-    "version": 4,
-    "id": "writing",
-    "owner": "u1",
-    "machine": "laptop",
-    "order": 2,
-    "templates": [
-     {
-      "id": "notes",
-      "name": "Notes",
-      "apps": [
-       {
-        "app": "obsidian"
-       },
-       {
-        "app": "wadbrowser",
-        "extras": []
-       }
-      ]
-     }
-    ],
-    "customization": {
-     "name": "Writing",
-     "wallpaper": {
-      "type": "texture",
-      "value": "seigaiha"
-     }
-    }
-   }
-  ],
-  "out": [
-   "electron-deps",
-   "obsidian"
-  ]
- },
- {
-  "fn": "v4ImageKey",
+  "fn": "v5ImageKey",
   "args": [
    {
     "version": 4,
@@ -15845,1471 +18582,5 @@
    }
   ],
   "out": "set:9c4fd8be97ba"
- },
- {
-  "fn": "v4ImageKey",
-  "args": [
-   {
-    "version": 4,
-    "id": "writing",
-    "owner": "u1",
-    "machine": "laptop",
-    "order": 2,
-    "templates": [
-     {
-      "id": "notes",
-      "name": "Notes",
-      "apps": [
-       {
-        "app": "obsidian"
-       },
-       {
-        "app": "wadbrowser",
-        "extras": []
-       }
-      ]
-     }
-    ],
-    "customization": {
-     "name": "Writing",
-     "wallpaper": {
-      "type": "texture",
-      "value": "seigaiha"
-     }
-    }
-   }
-  ],
-  "out": "set:eda3cf2abd20"
- },
- {
-  "fn": "v4ImageKey",
-  "args": [
-   {
-    "version": 4,
-    "id": "bare",
-    "owner": "u1",
-    "machine": "laptop",
-    "templates": [],
-    "customization": {
-     "name": "Bare"
-    }
-   }
-  ],
-  "out": "base"
- },
- {
-  "fn": "v4TemplateSetup",
-  "args": [
-   {
-    "version": 4,
-    "id": "iq",
-    "owner": "u1",
-    "machine": "surface",
-    "order": 1,
-    "templates": [
-     {
-      "id": "dev",
-      "name": "Dev",
-      "apps": [
-       {
-        "app": "wadbrowser",
-        "mode": "focus",
-        "extras": [
-         {
-          "id": "github",
-          "name": "GitHub",
-          "url": "https://github.com"
-         }
-        ]
-       },
-       {
-        "app": "vscode",
-        "extras": [
-         {
-          "id": "anthropic.claude-code"
-         }
-        ]
-       }
-      ]
-     },
-     {
-      "id": "lang",
-      "name": "C++ and Rust",
-      "apps": [
-       {
-        "app": "vscode",
-        "extras": [
-         {
-          "id": "ms-vscode.cpptools"
-         },
-         {
-          "id": "rust-lang.rust-analyzer"
-         },
-         {
-          "id": "anthropic.claude-code"
-         }
-        ]
-       },
-       {
-        "app": "terminal",
-        "extras": [
-         {
-          "id": "cpp"
-         },
-         {
-          "id": "rust"
-         }
-        ]
-       },
-       {
-        "app": "wadbrowser",
-        "extras": [
-         {
-          "id": "learnopengl",
-          "name": "LearnOpenGL",
-          "url": "https://learnopengl.com",
-          "iconUrl": "/i.png"
-         }
-        ]
-       }
-      ]
-     },
-     {
-      "id": "art",
-      "name": "Game art",
-      "apps": [
-       {
-        "app": "libresprite"
-       },
-       {
-        "app": "tiled"
-       }
-      ]
-     }
-    ],
-    "customization": {
-     "name": "IntelligenceQuest",
-     "description": "A game.",
-     "wallpaper": {
-      "type": "texture",
-      "value": "stars"
-     },
-     "autostart": [
-      "app:vscode"
-     ],
-     "projects": [
-      {
-       "id": "project-iq",
-       "kind": "github",
-       "repo": "HungGod/IntelligenceQuest",
-       "as": "IntelligenceQuest"
-      }
-     ],
-     "secrets": {
-      "bySlot": {
-       "ext:anthropic.claude-code": {
-        "id": "iq-claude",
-        "name": "IQ Claude",
-        "kind": "vscode-claude-code"
-       }
-      },
-      "groups": [
-       {
-        "id": "g1",
-        "members": [
-         "browser",
-         "web:github"
-        ],
-        "key": {
-         "id": "hunggod",
-         "name": "hunggod",
-         "kind": "web"
-        }
-       }
-      ]
-     }
-    }
-   }
-  ],
-  "out": [
-   {
-    "id": "iq",
-    "name": "IntelligenceQuest",
-    "apps": [
-     "wadbrowser",
-     "vscode",
-     "terminal",
-     "libresprite",
-     "tiled"
-    ]
-   },
-   {
-    "templateId": "iq",
-    "browserMode": "focus",
-    "webapps": [
-     {
-      "id": "github",
-      "name": "GitHub",
-      "url": "https://github.com"
-     },
-     {
-      "id": "learnopengl",
-      "name": "LearnOpenGL",
-      "url": "https://learnopengl.com",
-      "iconUrl": "/i.png"
-     }
-    ],
-    "extensions": [
-     "anthropic.claude-code",
-     "ms-vscode.cpptools",
-     "rust-lang.rust-analyzer"
-    ],
-    "tools": [
-     "cpp",
-     "rust"
-    ],
-    "autostart": [
-     "app:vscode"
-    ]
-   }
-  ]
- },
- {
-  "fn": "v4WorkspaceFor",
-  "args": [
-   {
-    "version": 4,
-    "id": "iq",
-    "owner": "u1",
-    "machine": "surface",
-    "order": 1,
-    "templates": [
-     {
-      "id": "dev",
-      "name": "Dev",
-      "apps": [
-       {
-        "app": "wadbrowser",
-        "mode": "focus",
-        "extras": [
-         {
-          "id": "github",
-          "name": "GitHub",
-          "url": "https://github.com"
-         }
-        ]
-       },
-       {
-        "app": "vscode",
-        "extras": [
-         {
-          "id": "anthropic.claude-code"
-         }
-        ]
-       }
-      ]
-     },
-     {
-      "id": "lang",
-      "name": "C++ and Rust",
-      "apps": [
-       {
-        "app": "vscode",
-        "extras": [
-         {
-          "id": "ms-vscode.cpptools"
-         },
-         {
-          "id": "rust-lang.rust-analyzer"
-         },
-         {
-          "id": "anthropic.claude-code"
-         }
-        ]
-       },
-       {
-        "app": "terminal",
-        "extras": [
-         {
-          "id": "cpp"
-         },
-         {
-          "id": "rust"
-         }
-        ]
-       },
-       {
-        "app": "wadbrowser",
-        "extras": [
-         {
-          "id": "learnopengl",
-          "name": "LearnOpenGL",
-          "url": "https://learnopengl.com",
-          "iconUrl": "/i.png"
-         }
-        ]
-       }
-      ]
-     },
-     {
-      "id": "art",
-      "name": "Game art",
-      "apps": [
-       {
-        "app": "libresprite"
-       },
-       {
-        "app": "tiled"
-       }
-      ]
-     }
-    ],
-    "customization": {
-     "name": "IntelligenceQuest",
-     "description": "A game.",
-     "wallpaper": {
-      "type": "texture",
-      "value": "stars"
-     },
-     "autostart": [
-      "app:vscode"
-     ],
-     "projects": [
-      {
-       "id": "project-iq",
-       "kind": "github",
-       "repo": "HungGod/IntelligenceQuest",
-       "as": "IntelligenceQuest"
-      }
-     ],
-     "secrets": {
-      "bySlot": {
-       "ext:anthropic.claude-code": {
-        "id": "iq-claude",
-        "name": "IQ Claude",
-        "kind": "vscode-claude-code"
-       }
-      },
-      "groups": [
-       {
-        "id": "g1",
-        "members": [
-         "browser",
-         "web:github"
-        ],
-        "key": {
-         "id": "hunggod",
-         "name": "hunggod",
-         "kind": "web"
-        }
-       }
-      ]
-     }
-    }
-   },
-   {
-    "tz": "Pacific/Fiji",
-    "secrets": [
-     "github_token"
-    ]
-   }
-  ],
-  "out": {
-   "id": "iq",
-   "name": "IntelligenceQuest",
-   "image": "localhost/wadspaces-set-9c4fd8be97ba:latest",
-   "display": "host",
-   "enabled": true,
-   "env": {
-    "PUID": "1000",
-    "PGID": "1000",
-    "TZ": "Pacific/Fiji",
-    "TITLE": "IntelligenceQuest",
-    "WALLPAPER": "/run/wadspaces-extra/wallpaper.png",
-    "WALLPAPER_MODE": "fill"
-   },
-   "secrets": [
-    "github_token"
-   ],
-   "volumes": [
-    "wad-iq-config:/config:z"
-   ],
-   "devices": [
-    "/dev/dri"
-   ],
-   "shm_size": "1g",
-   "signins": [
-    {
-     "id": "iq-claude",
-     "app": "vscode",
-     "name": "IQ Claude",
-     "kind": "vscode-claude-code",
-     "slot": "ext:anthropic.claude-code"
-    },
-    {
-     "id": "hunggod",
-     "app": "@browser",
-     "web": true,
-     "name": "hunggod",
-     "kind": "web",
-     "slot": "app:wadbrowser"
-    },
-    {
-     "id": "hunggod",
-     "app": "github",
-     "web": true,
-     "name": "hunggod",
-     "kind": "web",
-     "slot": "web:github"
-    },
-    {
-     "id": "hunggod",
-     "app": "learnopengl",
-     "web": true,
-     "name": "hunggod",
-     "kind": "web",
-     "slot": "web:learnopengl"
-    }
-   ],
-   "projects": [
-    {
-     "id": "project-iq",
-     "kind": "github",
-     "mount": "IntelligenceQuest",
-     "repo": "HungGod/IntelligenceQuest"
-    }
-   ],
-   "hotkey": null,
-   "autostart": false
-  }
- },
- {
-  "fn": "v4WorkspaceFor",
-  "args": [
-   {
-    "version": 4,
-    "id": "bare",
-    "owner": "u1",
-    "machine": "laptop",
-    "templates": [],
-    "customization": {
-     "name": "Bare"
-    }
-   },
-   {
-    "base": "localhost/wadspaces-base:trixie"
-   }
-  ],
-  "out": {
-   "id": "bare",
-   "name": "Bare",
-   "image": "localhost/wadspaces-base:trixie",
-   "display": "host",
-   "enabled": true,
-   "env": {
-    "PUID": "1000",
-    "PGID": "1000",
-    "TZ": "Etc/UTC",
-    "TITLE": "Bare",
-    "WALLPAPER": "/run/wadspaces-extra/wallpaper.png",
-    "WALLPAPER_MODE": "fill"
-   },
-   "secrets": [],
-   "volumes": [
-    "wad-bare-config:/config:z"
-   ],
-   "devices": [
-    "/dev/dri"
-   ],
-   "shm_size": "1g",
-   "signins": [],
-   "projects": [],
-   "hotkey": null,
-   "autostart": false
-  }
- },
- {
-  "fn": "v4State",
-  "args": [
-   {
-    "version": 4,
-    "id": "iq",
-    "owner": "u1",
-    "machine": "surface",
-    "order": 1,
-    "templates": [
-     {
-      "id": "dev",
-      "name": "Dev",
-      "apps": [
-       {
-        "app": "wadbrowser",
-        "mode": "focus",
-        "extras": [
-         {
-          "id": "github",
-          "name": "GitHub",
-          "url": "https://github.com"
-         }
-        ]
-       },
-       {
-        "app": "vscode",
-        "extras": [
-         {
-          "id": "anthropic.claude-code"
-         }
-        ]
-       }
-      ]
-     },
-     {
-      "id": "lang",
-      "name": "C++ and Rust",
-      "apps": [
-       {
-        "app": "vscode",
-        "extras": [
-         {
-          "id": "ms-vscode.cpptools"
-         },
-         {
-          "id": "rust-lang.rust-analyzer"
-         },
-         {
-          "id": "anthropic.claude-code"
-         }
-        ]
-       },
-       {
-        "app": "terminal",
-        "extras": [
-         {
-          "id": "cpp"
-         },
-         {
-          "id": "rust"
-         }
-        ]
-       },
-       {
-        "app": "wadbrowser",
-        "extras": [
-         {
-          "id": "learnopengl",
-          "name": "LearnOpenGL",
-          "url": "https://learnopengl.com",
-          "iconUrl": "/i.png"
-         }
-        ]
-       }
-      ]
-     },
-     {
-      "id": "art",
-      "name": "Game art",
-      "apps": [
-       {
-        "app": "libresprite"
-       },
-       {
-        "app": "tiled"
-       }
-      ]
-     }
-    ],
-    "customization": {
-     "name": "IntelligenceQuest",
-     "description": "A game.",
-     "wallpaper": {
-      "type": "texture",
-      "value": "stars"
-     },
-     "autostart": [
-      "app:vscode"
-     ],
-     "projects": [
-      {
-       "id": "project-iq",
-       "kind": "github",
-       "repo": "HungGod/IntelligenceQuest",
-       "as": "IntelligenceQuest"
-      }
-     ],
-     "secrets": {
-      "bySlot": {
-       "ext:anthropic.claude-code": {
-        "id": "iq-claude",
-        "name": "IQ Claude",
-        "kind": "vscode-claude-code"
-       }
-      },
-      "groups": [
-       {
-        "id": "g1",
-        "members": [
-         "browser",
-         "web:github"
-        ],
-        "key": {
-         "id": "hunggod",
-         "name": "hunggod",
-         "kind": "web"
-        }
-       }
-      ]
-     }
-    }
-   },
-   [
-    {
-     "layer": "base",
-     "id": "b2"
-    }
-   ]
-  ],
-  "out": "never"
- },
- {
-  "fn": "v4State",
-  "args": [
-   {
-    "version": 4,
-    "id": "iq",
-    "owner": "u1",
-    "machine": "surface",
-    "order": 1,
-    "templates": [
-     {
-      "id": "dev",
-      "name": "Dev",
-      "apps": [
-       {
-        "app": "wadbrowser",
-        "mode": "focus",
-        "extras": [
-         {
-          "id": "github",
-          "name": "GitHub",
-          "url": "https://github.com"
-         }
-        ]
-       },
-       {
-        "app": "vscode",
-        "extras": [
-         {
-          "id": "anthropic.claude-code"
-         }
-        ]
-       }
-      ]
-     },
-     {
-      "id": "lang",
-      "name": "C++ and Rust",
-      "apps": [
-       {
-        "app": "vscode",
-        "extras": [
-         {
-          "id": "ms-vscode.cpptools"
-         },
-         {
-          "id": "rust-lang.rust-analyzer"
-         },
-         {
-          "id": "anthropic.claude-code"
-         }
-        ]
-       },
-       {
-        "app": "terminal",
-        "extras": [
-         {
-          "id": "cpp"
-         },
-         {
-          "id": "rust"
-         }
-        ]
-       },
-       {
-        "app": "wadbrowser",
-        "extras": [
-         {
-          "id": "learnopengl",
-          "name": "LearnOpenGL",
-          "url": "https://learnopengl.com",
-          "iconUrl": "/i.png"
-         }
-        ]
-       }
-      ]
-     },
-     {
-      "id": "art",
-      "name": "Game art",
-      "apps": [
-       {
-        "app": "libresprite"
-       },
-       {
-        "app": "tiled"
-       }
-      ]
-     }
-    ],
-    "customization": {
-     "name": "IntelligenceQuest",
-     "description": "A game.",
-     "wallpaper": {
-      "type": "texture",
-      "value": "stars"
-     },
-     "autostart": [
-      "app:vscode"
-     ],
-     "projects": [
-      {
-       "id": "project-iq",
-       "kind": "github",
-       "repo": "HungGod/IntelligenceQuest",
-       "as": "IntelligenceQuest"
-      }
-     ],
-     "secrets": {
-      "bySlot": {
-       "ext:anthropic.claude-code": {
-        "id": "iq-claude",
-        "name": "IQ Claude",
-        "kind": "vscode-claude-code"
-       }
-      },
-      "groups": [
-       {
-        "id": "g1",
-        "members": [
-         "browser",
-         "web:github"
-        ],
-        "key": {
-         "id": "hunggod",
-         "name": "hunggod",
-         "kind": "web"
-        }
-       }
-      ]
-     }
-    }
-   },
-   [
-    {
-     "layer": "base",
-     "id": "b2"
-    },
-    {
-     "layer": "set:9c4fd8be97ba",
-     "from": "b2"
-    }
-   ]
-  ],
-  "out": "built"
- },
- {
-  "fn": "v4State",
-  "args": [
-   {
-    "version": 4,
-    "id": "bare",
-    "owner": "u1",
-    "machine": "laptop",
-    "templates": [],
-    "customization": {
-     "name": "Bare"
-    }
-   },
-   [
-    {
-     "layer": "base",
-     "id": "b2"
-    }
-   ]
-  ],
-  "out": "built"
- },
- {
-  "fn": "v4View",
-  "args": [
-   {
-    "version": 4,
-    "id": "iq",
-    "owner": "u1",
-    "machine": "surface",
-    "order": 1,
-    "templates": [
-     {
-      "id": "dev",
-      "name": "Dev",
-      "apps": [
-       {
-        "app": "wadbrowser",
-        "mode": "focus",
-        "extras": [
-         {
-          "id": "github",
-          "name": "GitHub",
-          "url": "https://github.com"
-         }
-        ]
-       },
-       {
-        "app": "vscode",
-        "extras": [
-         {
-          "id": "anthropic.claude-code"
-         }
-        ]
-       }
-      ]
-     },
-     {
-      "id": "lang",
-      "name": "C++ and Rust",
-      "apps": [
-       {
-        "app": "vscode",
-        "extras": [
-         {
-          "id": "ms-vscode.cpptools"
-         },
-         {
-          "id": "rust-lang.rust-analyzer"
-         },
-         {
-          "id": "anthropic.claude-code"
-         }
-        ]
-       },
-       {
-        "app": "terminal",
-        "extras": [
-         {
-          "id": "cpp"
-         },
-         {
-          "id": "rust"
-         }
-        ]
-       },
-       {
-        "app": "wadbrowser",
-        "extras": [
-         {
-          "id": "learnopengl",
-          "name": "LearnOpenGL",
-          "url": "https://learnopengl.com",
-          "iconUrl": "/i.png"
-         }
-        ]
-       }
-      ]
-     },
-     {
-      "id": "art",
-      "name": "Game art",
-      "apps": [
-       {
-        "app": "libresprite"
-       },
-       {
-        "app": "tiled"
-       }
-      ]
-     }
-    ],
-    "customization": {
-     "name": "IntelligenceQuest",
-     "description": "A game.",
-     "wallpaper": {
-      "type": "texture",
-      "value": "stars"
-     },
-     "autostart": [
-      "app:vscode"
-     ],
-     "projects": [
-      {
-       "id": "project-iq",
-       "kind": "github",
-       "repo": "HungGod/IntelligenceQuest",
-       "as": "IntelligenceQuest"
-      }
-     ],
-     "secrets": {
-      "bySlot": {
-       "ext:anthropic.claude-code": {
-        "id": "iq-claude",
-        "name": "IQ Claude",
-        "kind": "vscode-claude-code"
-       }
-      },
-      "groups": [
-       {
-        "id": "g1",
-        "members": [
-         "browser",
-         "web:github"
-        ],
-        "key": {
-         "id": "hunggod",
-         "name": "hunggod",
-         "kind": "web"
-        }
-       }
-      ]
-     }
-    }
-   }
-  ],
-  "out": {
-   "id": "iq",
-   "machine": "surface",
-   "name": "IntelligenceQuest",
-   "description": "A game.",
-   "order": 1,
-   "deleted": false,
-   "apps": [
-    "wadbrowser",
-    "vscode",
-    "terminal",
-    "libresprite",
-    "tiled"
-   ],
-   "packages": [
-    "cpp",
-    "rust",
-    "electron-deps",
-    "vscode",
-    "tiled",
-    "libresprite",
-    "ext-anthropic.claude-code",
-    "ext-ms-vscode.cpptools",
-    "ext-rust-lang.rust-analyzer"
-   ],
-   "imageKey": "set:9c4fd8be97ba",
-   "wallpaper": {
-    "type": "texture",
-    "value": "stars"
-   }
-  }
- },
- {
-  "fn": "v4View",
-  "args": [
-   {
-    "version": 4,
-    "id": "writing",
-    "owner": "u1",
-    "machine": "laptop",
-    "order": 2,
-    "templates": [
-     {
-      "id": "notes",
-      "name": "Notes",
-      "apps": [
-       {
-        "app": "obsidian"
-       },
-       {
-        "app": "wadbrowser",
-        "extras": []
-       }
-      ]
-     }
-    ],
-    "customization": {
-     "name": "Writing",
-     "wallpaper": {
-      "type": "texture",
-      "value": "seigaiha"
-     }
-    },
-    "deletedAt": "2026-10-21T00:00:00Z"
-   }
-  ],
-  "out": {
-   "id": "writing",
-   "machine": "laptop",
-   "name": "Writing",
-   "description": "",
-   "order": 2,
-   "deleted": true,
-   "apps": [
-    "obsidian",
-    "wadbrowser"
-   ],
-   "packages": [
-    "electron-deps",
-    "obsidian"
-   ],
-   "imageKey": "set:eda3cf2abd20",
-   "wallpaper": {
-    "type": "texture",
-    "value": "seigaiha"
-   }
-  }
- },
- {
-  "fn": "v4Apps",
-  "args": [
-   {
-    "version": 4,
-    "id": "iq",
-    "owner": "u1",
-    "machine": "surface",
-    "order": 1,
-    "templates": [
-     {
-      "id": "vg-dev",
-      "name": "VG Dev",
-      "apps": [
-       {
-        "app": "wadbrowser",
-        "mode": "focus",
-        "extras": [
-         {
-          "id": "itch",
-          "name": "itch.io",
-          "url": "https://itch.io"
-         }
-        ]
-       }
-      ]
-     },
-     {
-      "id": "dev",
-      "name": "Dev",
-      "apps": [
-       {
-        "app": "wadbrowser",
-        "extras": [
-         {
-          "id": "github",
-          "name": "GitHub",
-          "url": "https://github.com"
-         }
-        ]
-       },
-       {
-        "app": "vscode",
-        "extras": []
-       }
-      ]
-     }
-    ],
-    "customization": {
-     "name": "IntelligenceQuest",
-     "description": "A game.",
-     "wallpaper": {
-      "type": "texture",
-      "value": "stars"
-     },
-     "autostart": [
-      "app:vscode"
-     ],
-     "projects": [
-      {
-       "id": "project-iq",
-       "kind": "github",
-       "repo": "HungGod/IntelligenceQuest",
-       "as": "IntelligenceQuest"
-      }
-     ],
-     "secrets": {
-      "bySlot": {
-       "ext:anthropic.claude-code": {
-        "id": "iq-claude",
-        "name": "IQ Claude",
-        "kind": "vscode-claude-code"
-       }
-      },
-      "groups": [
-       {
-        "id": "g1",
-        "members": [
-         "browser",
-         "web:github"
-        ],
-        "key": {
-         "id": "hunggod",
-         "name": "hunggod",
-         "kind": "web"
-        }
-       }
-      ]
-     }
-    }
-   }
-  ],
-  "out": [
-   {
-    "app": "wadbrowser",
-    "mode": "focus",
-    "extras": [
-     {
-      "id": "itch",
-      "name": "itch.io",
-      "url": "https://itch.io"
-     },
-     {
-      "id": "github",
-      "name": "GitHub",
-      "url": "https://github.com"
-     }
-    ]
-   },
-   {
-    "app": "vscode",
-    "extras": []
-   }
-  ]
- },
- {
-  "fn": "v4Apps",
-  "args": [
-   {
-    "version": 4,
-    "id": "iq",
-    "owner": "u1",
-    "machine": "surface",
-    "order": 1,
-    "templates": [
-     {
-      "id": "dev",
-      "name": "Dev",
-      "apps": [
-       {
-        "app": "wadbrowser",
-        "extras": [
-         {
-          "id": "github",
-          "name": "GitHub",
-          "url": "https://github.com"
-         }
-        ]
-       },
-       {
-        "app": "vscode",
-        "extras": []
-       }
-      ]
-     },
-     {
-      "id": "vg-dev",
-      "name": "VG Dev",
-      "apps": [
-       {
-        "app": "wadbrowser",
-        "mode": "focus",
-        "extras": [
-         {
-          "id": "itch",
-          "name": "itch.io",
-          "url": "https://itch.io"
-         }
-        ]
-       }
-      ]
-     }
-    ],
-    "customization": {
-     "name": "IntelligenceQuest",
-     "description": "A game.",
-     "wallpaper": {
-      "type": "texture",
-      "value": "stars"
-     },
-     "autostart": [
-      "app:vscode"
-     ],
-     "projects": [
-      {
-       "id": "project-iq",
-       "kind": "github",
-       "repo": "HungGod/IntelligenceQuest",
-       "as": "IntelligenceQuest"
-      }
-     ],
-     "secrets": {
-      "bySlot": {
-       "ext:anthropic.claude-code": {
-        "id": "iq-claude",
-        "name": "IQ Claude",
-        "kind": "vscode-claude-code"
-       }
-      },
-      "groups": [
-       {
-        "id": "g1",
-        "members": [
-         "browser",
-         "web:github"
-        ],
-        "key": {
-         "id": "hunggod",
-         "name": "hunggod",
-         "kind": "web"
-        }
-       }
-      ]
-     }
-    }
-   }
-  ],
-  "out": [
-   {
-    "app": "wadbrowser",
-    "extras": [
-     {
-      "id": "github",
-      "name": "GitHub",
-      "url": "https://github.com"
-     },
-     {
-      "id": "itch",
-      "name": "itch.io",
-      "url": "https://itch.io"
-     }
-    ]
-   },
-   {
-    "app": "vscode",
-    "extras": []
-   }
-  ]
- },
- {
-  "fn": "v4WorkspaceFor",
-  "args": [
-   {
-    "version": 4,
-    "id": "iq",
-    "owner": "u1",
-    "machine": "surface",
-    "order": 1,
-    "templates": [
-     {
-      "id": "dev",
-      "name": "Dev",
-      "apps": [
-       {
-        "app": "wadbrowser",
-        "mode": "focus",
-        "extras": [
-         {
-          "id": "github",
-          "name": "GitHub",
-          "url": "https://github.com"
-         }
-        ]
-       },
-       {
-        "app": "vscode",
-        "extras": [
-         {
-          "id": "anthropic.claude-code"
-         }
-        ]
-       }
-      ]
-     },
-     {
-      "id": "lang",
-      "name": "C++ and Rust",
-      "apps": [
-       {
-        "app": "vscode",
-        "extras": [
-         {
-          "id": "ms-vscode.cpptools"
-         },
-         {
-          "id": "rust-lang.rust-analyzer"
-         },
-         {
-          "id": "anthropic.claude-code"
-         }
-        ]
-       },
-       {
-        "app": "terminal",
-        "extras": [
-         {
-          "id": "cpp"
-         },
-         {
-          "id": "rust"
-         }
-        ]
-       },
-       {
-        "app": "wadbrowser",
-        "extras": [
-         {
-          "id": "learnopengl",
-          "name": "LearnOpenGL",
-          "url": "https://learnopengl.com",
-          "iconUrl": "/i.png"
-         }
-        ]
-       }
-      ]
-     },
-     {
-      "id": "art",
-      "name": "Game art",
-      "apps": [
-       {
-        "app": "libresprite"
-       },
-       {
-        "app": "tiled"
-       }
-      ]
-     }
-    ],
-    "customization": {
-     "name": "IntelligenceQuest",
-     "description": "A game.",
-     "wallpaper": {
-      "type": "texture",
-      "value": "stars"
-     },
-     "autostart": [
-      "app:vscode"
-     ],
-     "projects": [
-      {
-       "id": "project-iq",
-       "kind": "github",
-       "repo": "HungGod/IntelligenceQuest",
-       "as": "IntelligenceQuest"
-      },
-      {
-       "id": "project-book",
-       "kind": "github",
-       "repo": "HungGod/Book",
-       "as": "Book",
-       "mounted": true
-      }
-     ],
-     "secrets": {
-      "bySlot": {
-       "ext:anthropic.claude-code": {
-        "id": "iq-claude",
-        "name": "IQ Claude",
-        "kind": "vscode-claude-code"
-       }
-      },
-      "groups": [
-       {
-        "id": "g1",
-        "members": [
-         "browser",
-         "web:github"
-        ],
-        "key": {
-         "id": "hunggod",
-         "name": "hunggod",
-         "kind": "web"
-        }
-       }
-      ]
-     }
-    }
-   },
-   {
-    "tz": "Pacific/Fiji",
-    "secrets": [
-     "github_token"
-    ]
-   }
-  ],
-  "out": {
-   "id": "iq",
-   "name": "IntelligenceQuest",
-   "image": "localhost/wadspaces-set-9c4fd8be97ba:latest",
-   "display": "host",
-   "enabled": true,
-   "env": {
-    "PUID": "1000",
-    "PGID": "1000",
-    "TZ": "Pacific/Fiji",
-    "TITLE": "IntelligenceQuest",
-    "WALLPAPER": "/run/wadspaces-extra/wallpaper.png",
-    "WALLPAPER_MODE": "fill"
-   },
-   "secrets": [
-    "github_token"
-   ],
-   "volumes": [
-    "wad-iq-config:/config:z"
-   ],
-   "devices": [
-    "/dev/dri"
-   ],
-   "shm_size": "1g",
-   "signins": [
-    {
-     "id": "iq-claude",
-     "app": "vscode",
-     "name": "IQ Claude",
-     "kind": "vscode-claude-code",
-     "slot": "ext:anthropic.claude-code"
-    },
-    {
-     "id": "hunggod",
-     "app": "@browser",
-     "web": true,
-     "name": "hunggod",
-     "kind": "web",
-     "slot": "app:wadbrowser"
-    },
-    {
-     "id": "hunggod",
-     "app": "github",
-     "web": true,
-     "name": "hunggod",
-     "kind": "web",
-     "slot": "web:github"
-    },
-    {
-     "id": "hunggod",
-     "app": "learnopengl",
-     "web": true,
-     "name": "hunggod",
-     "kind": "web",
-     "slot": "web:learnopengl"
-    }
-   ],
-   "projects": [
-    {
-     "id": "project-iq",
-     "kind": "github",
-     "mount": "IntelligenceQuest",
-     "repo": "HungGod/IntelligenceQuest"
-    },
-    {
-     "id": "project-book",
-     "kind": "github",
-     "mount": "Book",
-     "repo": "HungGod/Book",
-     "mounted": true
-    }
-   ],
-   "hotkey": null,
-   "autostart": false
-  }
  }
 ]

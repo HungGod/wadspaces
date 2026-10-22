@@ -2,7 +2,7 @@
 //! their wadspaces (version 4 documents: each its own templates, on one
 //! machine), their saved WadBrowser setups, and their machines' heartbeats.
 //! Read as them (the rules decide), kept on disk for the next start (offline
-//! too). Documents stay JSON: wad-core's v4 code reads them as the web app's
+//! too). Documents stay JSON: wad-core's v5 code reads them as the web app's
 //! wasm does.
 
 use std::path::PathBuf;
@@ -22,7 +22,7 @@ pub struct Library {
     pub machines: Vec<Value>,
 }
 
-/// A version 4 wadspace's document (wad_core::v4::is_v4).
+/// A version 4 wadspace's document (wad_core::v5::is_v4), what the Builder writes.
 pub fn is_v4(w: &Value) -> bool {
     w.get("version").and_then(Value::as_u64) == Some(4)
 }

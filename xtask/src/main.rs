@@ -18,6 +18,9 @@
 //!   API mounts it).
 //! - `packages index <old index.json> <abi> <base digest> <result.json>…`:
 //!   the index with these results in (CI's last step).
+//! - `wadspaces-v5 [--no-check]`: version 4 wadspaces in the JSON on stdin
+//!   upgraded to version 5 (fixtures, and wadspaces-client's
+//!   scripts/upgrade-to-v5.mjs for the account's documents).
 //!
 //! Its tests check repo files no other crate owns (the base image's start-up
 //! banner).
@@ -190,6 +193,54 @@ fn packages(args: &[String]) -> Result<(), String> {
     }
 }
 
+/// Version 4 wadspaces upgraded to version 5 (wad_core::v5::upgrade): the
+/// JSON on stdin, every version 4 wadspace in it (anywhere: a list of
+/// documents, a fixture's library) replaced by its upgrade, on stdout; a
+/// line per wadspace on stderr. Fails when one doesn't check as version 5
+/// (`--no-check`: the goldens' broken ones on purpose).
+fn wadspaces_v5(args: &[String]) -> Result<(), String> {
+    use serde_json::Value;
+    use wad_core::v5;
+    let checking = match args {
+        [] => true,
+        [flag] if flag == "--no-check" => false,
+        _ => return Err("usage: cargo xtask wadspaces-v5 [--no-check] < in.json > out.json".into()),
+    };
+    fn walk(v: &mut Value, bad: &mut Vec<String>, checking: bool) {
+        if v5::is_v4(v) && v.get("customization").is_some() {
+            let up = v5::upgrade(v);
+            let id = up["id"].as_str().unwrap_or("?").to_string();
+            let n = |k: &str| up[k].as_array().map_or(0, Vec::len);
+            let checked = v5::check(&up);
+            eprintln!(
+                "{id}: {} apps, {} add-ons, {} kept, {} · {}",
+                n("apps"),
+                n("exts"),
+                n("trash"),
+                v5::image_key(&up),
+                checked.as_ref().map_or_else(|e| format!("doesn't check: {e}"), |()| "checks".into())
+            );
+            if let (true, Err(e)) = (checking, checked) {
+                bad.push(format!("{id}: {e}"));
+            }
+            *v = up;
+            return;
+        }
+        match v {
+            Value::Object(o) => o.values_mut().for_each(|v| walk(v, bad, checking)),
+            Value::Array(a) => a.iter_mut().for_each(|v| walk(v, bad, checking)),
+            _ => {}
+        }
+    }
+    let mut input = String::new();
+    std::io::Read::read_to_string(&mut std::io::stdin(), &mut input).map_err(|e| format!("stdin: {e}"))?;
+    let mut v: Value = serde_json::from_str(&input).map_err(|e| format!("stdin: {e}"))?;
+    let mut bad = vec![];
+    walk(&mut v, &mut bad, checking);
+    println!("{}", serde_json::to_string_pretty(&v).map_err(|e| e.to_string())?);
+    if bad.is_empty() { Ok(()) } else { Err(format!("these don't check as version 5:\n{}", bad.join("\n"))) }
+}
+
 fn main() -> ExitCode {
     let task = std::env::args().nth(1).unwrap_or_default();
     let result = match task.as_str() {
@@ -202,7 +253,8 @@ fn main() -> ExitCode {
         "jscheck" => jscheck(),
         "packages" => packages(&std::env::args().skip(2).collect::<Vec<_>>()),
         "phone-icons" => phone_icons(std::env::args().nth(2).as_deref()),
-        _ => Err("usage: cargo xtask <ci|wasm|jscheck|packages|phone-icons>".into()),
+        "wadspaces-v5" => wadspaces_v5(&std::env::args().skip(2).collect::<Vec<_>>()),
+        _ => Err("usage: cargo xtask <ci|wasm|jscheck|packages|phone-icons|wadspaces-v5>".into()),
     };
     match result {
         Ok(()) => ExitCode::SUCCESS,

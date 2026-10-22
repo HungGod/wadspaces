@@ -261,7 +261,7 @@ fn fill_apps(st: &AppState, ws: &str, list: &gtk::Box) {
         b.board
             .get(ws)
             .map(|w| {
-                wad_core::v4::apps_of(&w.doc())
+                wad_core::v5::apps_of(&w.doc())
                     .iter()
                     .map(|e| {
                         let xs = e["extras"].as_array().into_iter().flatten().map(|x| s(x, "id").to_string());

@@ -89,7 +89,7 @@ impl Wanted {
         let mut needs: Vec<String> = workspaces
             .iter()
             .filter_map(|w| crate::sets::installed_doc(state_dir, &w.id))
-            .flat_map(|d| wad_core::v4::packages_of(&d))
+            .flat_map(|d| wad_core::v5::packages_of(&d))
             .collect();
         needs.sort();
         needs.dedup();

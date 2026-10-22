@@ -207,18 +207,18 @@ impl Builds {
         &self.icons
     }
 
-    /// Builds a version 4 wadspace's set (sets.rs): `packages` (wad-core's
-    /// v4::packages_of) on `base`. A build of the same set already going on
+    /// Builds a wadspace's set (sets.rs): `packages` (wad-core's
+    /// v5::packages_of) on `base`. A build of the same set already going on
     /// is the one it answers.
     pub fn create_set(&self, name: &str, packages: Vec<String>, base: &str) -> Result<Build, ApiError> {
         if packages.is_empty() {
             return Err(bad(format!("{name} has no packages: it runs on the base")));
         }
-        let key = format!("set:{}", wad_core::v4::set_key(&packages));
+        let key = format!("set:{}", wad_core::v5::set_key(&packages));
         if let Some(b) = self.list().into_iter().find(|b| b.ws_id == key && !b.status.finished()) {
             return Ok(b);
         }
-        let image = wad_core::v4::image_ref(&key, base);
+        let image = wad_core::v5::image_ref(&key, base);
         // Its packages, chain steps and the set: groups move as it learns them.
         let groups = packages.len() as u32 + 2;
         let work = crate::sets::SetWork { key: key.clone(), packages, base: base.to_string() };

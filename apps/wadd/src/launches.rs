@@ -666,7 +666,7 @@ impl Launches {
             let Some(labels) = self.backend.image_labels(&ws.image).await? else {
                 return Err(format!("{} isn't on this machine; build {} in WadSpaces first", ws.image, ws.name));
             };
-            // A version 4 wadspace's web apps and layout come in at start.
+            // A wadspace's web apps and layout come in at start.
             if !labels.contains_key(crate::sets::EXTRAS_LABEL)
                 && crate::sets::installed_doc(&self.state_dir, id).is_some()
             {

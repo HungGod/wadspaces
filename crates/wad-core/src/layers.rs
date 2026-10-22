@@ -1,9 +1,9 @@
-//! What a wadspace is made of, as its image and desktop see it: the apps
-//! its templates have (and which open folders), the keys its apps and web
+//! What a wadspace is made of, as its image and desktop see it: its apps
+//! (and which open folders), the keys its apps and web
 //! apps sign in with and the secrets that fit them, its desktop and Start
 //! menu as the image draws them, the layout and WadBrowser settings it
-//! starts with, and the workspace wadd installs it as. A version 4
-//! wadspace comes here as v4::as_template_setup's (template, setup).
+//! starts with, and the workspace wadd installs it as. A wadspace comes
+//! here as v5::as_template_setup's (template, setup).
 //! Values are JSON, as everywhere in the core.
 
 use std::cmp::Ordering;
@@ -13,7 +13,7 @@ use serde_json::{Value, json};
 use crate::catalog::{self, App, Recipe};
 use crate::js::{self, Obj};
 use crate::spec::is_id;
-use crate::{signins, url, v4};
+use crate::{signins, url, v5};
 
 /// Where wadd puts a wadspace's wallpaper inside it (its extra folder).
 pub const WALLPAPER_DIR: &str = "/run/wadspaces-extra";
@@ -65,22 +65,26 @@ pub fn webapp_icon(u: &str) -> String {
 
 // ------------------------------------------------------------------ setups
 
-/// A web app's id from its name: "Google Cloud" → "google-cloud".
+/// A web app's id from its name: "Google Cloud" → "google-cloud" ("focus"
+/// is WadBrowser's Focus: a web app called that is "focus-app").
 pub fn webapp_id(name: &str) -> String {
     let lower = name.to_lowercase();
     let id = js::replace_runs(&lower, |c| !(c.is_ascii_lowercase() || c.is_ascii_digit()), "-");
     let id = js::ascii_prefix(js::trim_dashes(&id), 60);
-    let id = js::trim_dashes(id);
-    if id.is_empty() { "app".into() } else { id.into() }
+    match js::trim_dashes(id) {
+        "" => "app".into(),
+        v5::FOCUS => format!("{}-app", v5::FOCUS),
+        id => id.into(),
+    }
 }
 
 // --------------------------------------------------------------- wadspaces
 
 /// What a wadspace is made of: `{chain, template, setup}`: its templates
-/// (`{id, name}`, top first), and [`v4::as_template_setup`]'s template and
+/// (`{id, name}`, top first), and [`v5::as_template_setup`]'s template and
 /// setup (what the image and the desktop are made from).
 pub fn resolve_stack(w: &Value) -> Value {
-    let (template, setup) = v4::as_template_setup(w);
+    let (template, setup) = v5::as_template_setup(w);
     let chain: Vec<Value> =
         js::arr(w, "templates").iter().map(|t| json!({ "id": s(t, "id"), "name": s(t, "name") })).collect();
     json!({ "chain": chain, "template": template, "setup": setup })
@@ -88,7 +92,7 @@ pub fn resolve_stack(w: &Value) -> Value {
 
 /// The image a wadspace runs: its set's ("set:<key>"), or "base".
 pub fn stack_image_key(w: &Value) -> String {
-    v4::image_key(w)
+    v5::image_key(w)
 }
 
 /// An image on a machine, as [`image_state`] reads it: podman's id for it,
@@ -112,7 +116,7 @@ pub enum ImageState {
 
 /// The state of the image for `key` ("set:<key>", or "base"), given the
 /// machine's images by key ("base" for the base image): a set is built, or
-/// an update when it's on an older base (as [`v4::state`]); "base" is built
+/// an update when it's on an older base (as [`v5::state`]); "base" is built
 /// when it's here.
 pub fn image_state(key: &str, images: &std::collections::HashMap<String, LayerImage>) -> ImageState {
     let Some(row) = images.get(key) else { return ImageState::Never };

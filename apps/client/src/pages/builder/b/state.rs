@@ -329,7 +329,7 @@ pub fn refresh_images() {
     });
 }
 
-/// A machine's images, as wad_core::v4::state reads them: this one's from
+/// A machine's images, as wad_core::v5::state reads them: this one's from
 /// wadd, another's from its last heartbeat.
 fn images_of(s: &AppState, machine: &str) -> Option<Vec<Value>> {
     if machine == here(s) {
@@ -341,12 +341,12 @@ fn images_of(s: &AppState, machine: &str) -> Option<Vec<Value>> {
 
 pub fn standing(s: &AppState, w: &Wadspace) -> Standing {
     let doc = w.doc();
-    let key = wad_core::v4::image_key(&doc);
+    let key = wad_core::v5::image_key(&doc);
     if w.machine == here(s) && s.builds.iter().any(|(b, _)| !b.status.finished() && b.layer.as_deref() == Some(&key)) {
         return Standing::Building;
     }
     let Some(images) = images_of(s, &w.machine) else { return Standing::Unknown };
-    match wad_core::v4::state(&doc, &images) {
+    match wad_core::v5::state(&doc, &images) {
         "built" => Standing::Built,
         "update" => Standing::Update,
         _ => Standing::Unbuilt,

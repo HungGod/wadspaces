@@ -159,7 +159,7 @@ fn launch_items(items: &[RunItem], wadspaces: &[Value]) -> Result<Vec<Value>, St
 
 /// A wadspace's web apps (its WadBrowser's extras).
 pub fn wadspace_webapps(w: &Value) -> Vec<Value> {
-    let (template, setup) = wad_core::v4::as_template_setup(w);
+    let (template, setup) = wad_core::v5::as_template_setup(w);
     if !core::has_app(&template, "wadbrowser") {
         return vec![];
     }
@@ -168,14 +168,14 @@ pub fn wadspace_webapps(w: &Value) -> Vec<Value> {
 
 /// A wadspace's sign-ins as wadd mounts them.
 fn signins_of(w: &Value) -> Value {
-    wad_core::v4::workspace_for(w, &json!({}))["signins"].clone()
+    wad_core::v5::workspace_for(w, &json!({}))["signins"].clone()
 }
 
 /// A WadBrowser setup for one of a wadspace's web apps: that app alone, its
 /// sign-ins as the wadspace has them, and the wadspace's WadBrowser mode.
 fn wadspace_webapp_setup(wadspaces: &[Value], from: &str, webapp: &str) -> Result<Value, String> {
     let w = wadspaces.iter().find(|x| s(x, "id") == from).ok_or("That wadspace is gone.")?;
-    let (_, setup) = wad_core::v4::as_template_setup(w);
+    let (_, setup) = wad_core::v5::as_template_setup(w);
     let wa = setup["webapps"]
         .as_array()
         .into_iter()

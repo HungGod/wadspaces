@@ -123,10 +123,10 @@ pub fn tree_of(
         running: false,
     });
     for (w, name) in stacks {
-        let parent = wad_core::v4::image_key(w);
+        let parent = wad_core::v5::image_key(w);
         if parent != "base" {
             let (note, tone) = note(&parent).map(|(n, t)| (Some(n), t)).unwrap_or((None, ""));
-            let apps: Vec<String> = wad_core::v4::apps_of(w)
+            let apps: Vec<String> = wad_core::v5::apps_of(w)
                 .iter()
                 .map(|e| wad_core::catalog::app(s(e, "app")).map_or_else(|| s(e, "app").to_string(), |a| a.name))
                 .collect();
@@ -388,7 +388,7 @@ pub fn package_rows(st: &Storage, wadspaces: &[(&Value, String)]) -> Vec<(String
         .map(|p| {
             let mut names: Vec<&str> = wadspaces
                 .iter()
-                .filter(|(w, _)| p.sets.contains(&wad_core::v4::image_key(w)))
+                .filter(|(w, _)| p.sets.contains(&wad_core::v5::image_key(w)))
                 .map(|(_, n)| n.as_str())
                 .collect();
             names.sort();
@@ -1283,7 +1283,7 @@ mod tests {
 
     /// The set those apps run on.
     fn set(app: &str) -> String {
-        wad_core::v4::image_key(&wadspace("x", &[app]))
+        wad_core::v5::image_key(&wadspace("x", &[app]))
     }
 
     fn running(id: &str) -> Container {
@@ -1389,7 +1389,7 @@ mod tests {
             sets,
         };
         st.packages =
-            vec![pkg("vscode", "VS Code", vec![wad_core::v4::image_key(&vanua)]), pkg("tiled", "Tiled", vec![])];
+            vec![pkg("vscode", "VS Code", vec![wad_core::v5::image_key(&vanua)]), pkg("tiled", "Tiled", vec![])];
         let rows = package_rows(&st, &[(&vanua, "Vanua".to_string())]);
         assert_eq!(rows[0], ("VS Code".into(), "cccccccccccc · in Vanua".into(), 1_000_000_000));
         assert_eq!(rows[1].1, "cccccccccccc · kept for a wadspace whose image isn't built yet");

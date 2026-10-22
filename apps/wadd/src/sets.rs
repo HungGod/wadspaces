@@ -1,7 +1,7 @@
-//! Version 4 wadspaces (wad_core::v4) on this machine: installed, and their
+//! Version 5 wadspaces (wad_core::v5) on this machine: installed, and their
 //! images built.
 //!
-//! A version 4 wadspace's image is a set: the base with its packages copied
+//! A wadspace's image is a set: the base with its packages copied
 //! on, shared by every wadspace with the same packages. A set's build gets
 //! them (packages.rs: here, downloaded, or built here), stacks them as chain
 //! images, each one package on the chain under it and named by the base and
@@ -29,7 +29,7 @@ use std::path::{Path, PathBuf};
 
 use serde_json::{Map, Value, json};
 use wad_core::packages as pk;
-use wad_core::v4;
+use wad_core::v5;
 use wad_proto::v1::{SetBuild, Theme, WorkspaceSaved};
 use wad_proto::{ApiError, ErrorCode};
 
@@ -66,7 +66,7 @@ pub fn is_assembly_part(labels: &Map<String, Value>) -> bool {
     [crate::packages::PKG_LABEL, CHAIN_LABEL, ASSEMBLY_LABEL].iter().any(|k| labels.contains_key(*k))
 }
 
-/// A set to build: `packages` (v4::packages_of) on `base`.
+/// A set to build: `packages` (v5::packages_of) on `base`.
 pub struct SetWork {
     /// "set:<key>"
     pub key: String,
@@ -151,7 +151,7 @@ async fn podman(
 /// A set's build (a job of builds.rs): its tag when it's done.
 pub(crate) async fn build(b: &Builds, id: &str, w: SetWork) -> Result<String, String> {
     let backend = b.backend().clone();
-    let tag = v4::image_ref(&w.key, &w.base);
+    let tag = v5::image_ref(&w.key, &w.base);
     let lock = b.image_lock(&tag);
     let _held = lock.lock().await;
     let base = base_for_sets(backend.as_ref(), &w.base).await?;
@@ -240,9 +240,11 @@ fn doc_path(state_dir: &Path, id: &str) -> PathBuf {
     state_dir.join("wadspaces").join(format!("{id}.json"))
 }
 
-/// The version 4 document a wadspace here was installed from.
+/// The document a wadspace here was installed from (version 5: one
+/// installed as version 4 upgraded).
 pub fn installed_doc(state_dir: &Path, id: &str) -> Option<Value> {
-    serde_json::from_slice(&std::fs::read(doc_path(state_dir, id)).ok()?).ok()
+    let w: Value = serde_json::from_slice(&std::fs::read(doc_path(state_dir, id)).ok()?).ok()?;
+    Some(v5::upgrade(&w))
 }
 
 /// The machine's theme (PUT /v1/machine/theme): dark unless it's light.
@@ -262,13 +264,15 @@ fn put(dir: &Path, name: &str, bytes: &[u8]) -> std::io::Result<()> {
     std::fs::rename(&tmp, dir.join(name))
 }
 
-/// PUT /v1/wadspaces/{id} with a version 4 wadspace: installed, or
-/// updated, as a workspace on its set, with what it takes at start.
+/// PUT /v1/wadspaces/{id} with a version 5 wadspace (a version 4 one is
+/// upgraded): installed, or updated, as a workspace on its set, with what it
+/// takes at start.
 pub async fn install(h: &Here<'_>, id: &str, w: &Value, tz: Option<&str>) -> Result<Installed, ApiError> {
     if w.get("id").and_then(Value::as_str) != Some(id) {
         return Err(bad(format!("{id:?}: the wadspace sent is another")));
     }
-    v4::check(w).map_err(bad)?;
+    let w = &v5::upgrade(w);
+    v5::check(w).map_err(bad)?;
     if let Some(m) = &h.machine
         && w["machine"].as_str() != Some(m)
     {
@@ -282,8 +286,8 @@ pub async fn install(h: &Here<'_>, id: &str, w: &Value, tz: Option<&str>) -> Res
         h.backend.secret_names().await.unwrap_or_default().into_iter().filter(|n| n == "github_token").collect();
     let tz = tz.filter(|t| !t.is_empty() && t.len() < 64 && !t.contains(char::is_control)).unwrap_or("Etc/UTC");
     let opts = json!({ "tz": tz, "secrets": secrets, "base": wad_core::spec::DEFAULT_BASE_IMAGE });
-    let mut ws = v4::workspace_for(w, &opts);
-    ws["desktop"] = v4::desktop(w).iter().map(|i| json!({ "label": i["label"], "icon": i["iconUrl"] })).collect();
+    let mut ws = v5::workspace_for(w, &opts);
+    ws["desktop"] = v5::desktop(w).iter().map(|i| json!({ "label": i["label"], "icon": i["iconUrl"] })).collect();
     // Its extras before the workspace: a start finds them there.
     let warnings = write_extras(h, id, w, theme(h.state_dir)).await.map_err(internal)?;
     let docs = h.state_dir.join("wadspaces");
@@ -307,7 +311,7 @@ pub async fn install(h: &Here<'_>, id: &str, w: &Value, tz: Option<&str>) -> Res
 async fn write_extras(h: &Here<'_>, id: &str, w: &Value, theme: Theme) -> std::io::Result<Vec<String>> {
     crate::images::ensure_extra(h.state_dir, id)?;
     let dir = crate::images::extra_dir(h.state_dir, id);
-    let x = v4::extras(w);
+    let x = v5::extras(w);
     let webapps: Vec<Value> = x["webapps"].as_array().cloned().unwrap_or_default();
     let list: Vec<Value> =
         webapps.iter().map(|a| json!({ "id": a["id"], "name": a["name"], "url": a["url"] })).collect();
@@ -382,19 +386,19 @@ pub async fn build_installed(h: &Here<'_>, id: &str) -> Result<SetBuild, ApiErro
     let base = wad_core::spec::DEFAULT_BASE_IMAGE;
     let conflict = |e: String| ApiError::new(ErrorCode::Conflict, e);
     let info = base_for_sets(h.backend, base).await.map_err(conflict)?;
-    let image_key = v4::image_key(&w);
+    let image_key = v5::image_key(&w);
     if image_key == "base" {
         return Ok(SetBuild { image_key, built: true, build: None });
     }
     if let Some(b) = h.builds.list().into_iter().find(|b| b.ws_id == image_key && !b.status.finished()) {
         return Ok(SetBuild { image_key, built: false, build: Some(b) });
     }
-    let tag = v4::image_ref(&image_key, base);
+    let tag = v5::image_ref(&image_key, base);
     if h.backend.image_info(&tag).await.map_err(internal)?.is_some_and(|i| label(&i, FROM_LABEL) == info.id) {
         return Ok(SetBuild { image_key, built: true, build: None });
     }
     let name = w["customization"]["name"].as_str().unwrap_or(id).to_string();
-    let b = h.builds.create_set(&name, v4::packages_of(&w), base)?;
+    let b = h.builds.create_set(&name, v5::packages_of(&w), base)?;
     Ok(SetBuild { image_key, built: false, build: Some(b) })
 }
 
@@ -411,7 +415,7 @@ pub async fn install_and_build(
     Ok((installed, built))
 }
 
-/// PUT /v1/machine/theme: kept, and each version 4 wadspace's icons and
+/// PUT /v1/machine/theme: kept, and each wadspace's icons and
 /// background made again in it (each takes them at its next start).
 pub async fn set_theme(h: &Here<'_>, theme: Theme) -> Result<(), ApiError> {
     let name = if theme == Theme::Light { "light" } else { "dark" };

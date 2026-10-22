@@ -127,7 +127,7 @@ pub fn key_use(st: &AppState) -> HashMap<String, Vec<KeyUser>> {
                 KeyUser { kind: "wadspace", id: s(w, "id").into(), name: name.clone(), what: what(&items), items },
             );
         }
-        let webapps = wad_core::v4::as_template_setup(w).1["webapps"].as_array().cloned().unwrap_or_default();
+        let webapps = wad_core::v5::as_template_setup(w).1["webapps"].as_array().cloned().unwrap_or_default();
         for g in keys["groups"].as_array().into_iter().flatten() {
             let members = g["members"].as_array().cloned().unwrap_or_default();
             if !g["key"].is_object() || members.is_empty() {
