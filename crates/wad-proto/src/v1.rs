@@ -322,6 +322,10 @@ pub struct WorkspaceProject {
     /// every wadspace mounting it share.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub mounted: bool,
+    /// A mount of a folder made for it: "~/<name>" (the machine's user's
+    /// home), made empty when it isn't there.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub make: bool,
 }
 
 impl WorkspaceProject {

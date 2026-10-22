@@ -228,6 +228,9 @@ pub struct Here<'a> {
     /// This machine's id in the account, when it's linked: a wadspace
     /// installs only on its own machine.
     pub machine: Option<String>,
+    /// Its sign-ins (none: tests), which take the names its keys have in
+    /// the documents installed.
+    pub signins: Option<&'a crate::signins::SignIns>,
 }
 
 /// Installed: the workspace, and what didn't go as it should.
@@ -245,6 +248,26 @@ fn doc_path(state_dir: &Path, id: &str) -> PathBuf {
 pub fn installed_doc(state_dir: &Path, id: &str) -> Option<Value> {
     let w: Value = serde_json::from_slice(&std::fs::read(doc_path(state_dir, id)).ok()?).ok()?;
     Some(v5::upgrade(&w))
+}
+
+/// Wadspaces installed here as version 4, written again as version 5 (at
+/// start: their sets keep their names, so what's built stays built); how
+/// many.
+pub fn upgrade_installed(state_dir: &Path) -> std::io::Result<usize> {
+    let dir = state_dir.join("wadspaces");
+    let mut n = 0;
+    for e in std::fs::read_dir(&dir).into_iter().flatten().flatten() {
+        let name = e.file_name().to_string_lossy().into_owned();
+        let Some(w) = name.strip_suffix(".json").and_then(|id| {
+            let w: Value = serde_json::from_slice(&std::fs::read(e.path()).ok()?).ok()?;
+            (v5::is_v4(&w) && w["id"] == id).then_some(w)
+        }) else {
+            continue;
+        };
+        put(&dir, &name, &serde_json::to_vec_pretty(&v5::upgrade(&w))?)?;
+        n += 1;
+    }
+    Ok(n)
 }
 
 /// The machine's theme (PUT /v1/machine/theme): dark unless it's light.
@@ -293,6 +316,9 @@ pub async fn install(h: &Here<'_>, id: &str, w: &Value, tz: Option<&str>) -> Res
     let docs = h.state_dir.join("wadspaces");
     std::fs::create_dir_all(&docs).map_err(internal)?;
     put(&docs, &format!("{id}.json"), &serde_json::to_vec_pretty(w).map_err(internal)?).map_err(internal)?;
+    if let (Some(s), Ok(signins)) = (h.signins, serde_json::from_value::<Vec<_>>(ws["signins"].clone())) {
+        s.follow_names(&signins);
+    }
     let (list, updated) = crate::builds::merged(&h.registry.workspaces(), &ws).map_err(bad)?;
     let running = h.registry.state(id).is_some_and(|s| s.container == "running");
     h.registry.set_workspaces(list).await.map_err(internal)?;

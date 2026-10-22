@@ -170,8 +170,12 @@ impl Copies {
                 if !self.is_here(&from.machine_id) {
                     return Ok(None);
                 }
+                let path = match first.strip_prefix("~/") {
+                    Some(rest) => self.in_home(rest, p.make).map_err(|e| format!("{as_}: {e}"))?,
+                    None => first.to_string(),
+                };
                 PathBuf::from(
-                    wad_store::folders::resolve_folder(first, &self.roots, true).map_err(|e| format!("{as_}: {e}"))?,
+                    wad_store::folders::resolve_folder(&path, &self.roots, true).map_err(|e| format!("{as_}: {e}"))?,
                 )
             }
         };
@@ -179,6 +183,20 @@ impl Copies {
             return Err(format!("{as_} mounts {}, which isn't there", path.display()));
         }
         Ok(Some(path))
+    }
+
+    /// `rest` in the machine's user's home ("~/<rest>"); with `make`, a
+    /// folder made for it (one name, right in the home) is made when it
+    /// isn't there, empty and the user's.
+    fn in_home(&self, rest: &str, make: bool) -> Result<String, String> {
+        let home = self.home.as_ref().ok_or("this machine's user has no home")?;
+        let path = home.join(rest);
+        let one = wad_core::projects::is_mount(rest) && rest != "." && rest != "..";
+        if make && one && std::fs::symlink_metadata(&path).is_err() {
+            std::fs::create_dir(&path).map_err(|e| format!("{}: {e}", path.display()))?;
+            nix::unistd::chown(&path, Some(self.uid.into()), None).map_err(|e| format!("{}: {e}", path.display()))?;
+        }
+        Ok(path.to_string_lossy().into_owned())
     }
 
     /// Whether a machine id is this machine.

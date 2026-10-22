@@ -389,6 +389,25 @@ impl SignIns {
         Ok(r)
     }
 
+    /// The names an installed wadspace's document gives its keys, taken: a
+    /// key renamed elsewhere (the phone renames in the documents) is called
+    /// that here too, unless another sign-in here is. Only at an install,
+    /// when the document is the newest there is.
+    pub fn follow_names(&self, signins: &[WorkspaceSignIn]) {
+        let _one = self.lock.lock().unwrap();
+        for s in signins {
+            let (Some(mut r), Ok(name)) = (self.read(&s.id), clean_name(&s.name)) else { continue };
+            if name == r.name || self.name_free(&name, Some(&r.id)).is_err() {
+                continue;
+            }
+            tracing::info!("sign-in {}: {} is called {name} now", r.id, r.name);
+            r.name = name;
+            if self.write(&r).is_ok() {
+                self.publish(vec![r.id.clone()]);
+            }
+        }
+    }
+
     /// Gets a container's sign-ins ready to mount: each one's folder (made
     /// here, empty, when its design came from a machine that has it), and
     /// signins.json for inside.

@@ -79,6 +79,30 @@ fn using(id: &str, signins: &[(&str, &str, bool)]) -> Workspace {
 }
 
 #[tokio::test]
+async fn an_installed_wadspace_names_its_keys() {
+    let s = setup(vec![]).await;
+    let gh = s.signins.create(web("GitHub")).unwrap();
+    let work = s.signins.create(web("Work")).unwrap();
+    let named = |id: &str, name: &str| WorkspaceSignIn {
+        id: id.into(),
+        app: "github".into(),
+        web: true,
+        name: name.into(),
+        kind: "web".into(),
+        slot: "web:github".into(),
+    };
+    // Renamed on the phone (in the documents): called that here too.
+    s.signins.follow_names(&[named(&gh.id, "Personal")]);
+    assert_eq!(s.signins.get(&gh.id).unwrap().name, "Personal");
+    // Not to a name another sign-in here has.
+    s.signins.follow_names(&[named(&gh.id, "work")]);
+    assert_eq!(
+        (s.signins.get(&gh.id).unwrap().name, s.signins.get(&work.id).unwrap().name),
+        ("Personal".into(), "Work".into())
+    );
+}
+
+#[tokio::test]
 async fn made_renamed_and_listed() {
     let s = setup(vec![]).await;
     let gh = s.signins.create(web("GitHub")).unwrap();

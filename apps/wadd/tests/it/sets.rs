@@ -1,4 +1,4 @@
-//! Version 4 wadspaces on a machine: installed on their set with what they
+//! Wadspaces on a machine: installed on their set with what they
 //! take at start (web apps and their icons, layout, WadBrowser's mode, the
 //! background in the machine's theme), and the set built from packages as
 //! chain images, each build starting from the longest chain stored; one
@@ -53,7 +53,14 @@ struct Env {
 
 impl Env {
     fn here(&self) -> Here<'_> {
-        Here { registry: &self.reg, backend: &self.fake, builds: &self.builds, state_dir: &self.state, machine: None }
+        Here {
+            registry: &self.reg,
+            backend: &self.fake,
+            builds: &self.builds,
+            state_dir: &self.state,
+            machine: None,
+            signins: None,
+        }
     }
 
     fn extra(&self, id: &str, file: &str) -> PathBuf {
@@ -173,12 +180,12 @@ async fn env() -> Env {
 /// command line, a web app in focus mode, and its starry background.
 fn iq() -> Value {
     json!({
-        "version": 4, "id": "iq", "owner": "u1", "machine": "surface", "order": 1,
-        "templates": [
-            {"id": "dev", "name": "Dev", "apps": [
-                {"app": "wadbrowser", "mode": "focus", "extras": [{"id": "notes", "name": "Notes", "url": "http://127.0.0.1:9/"}]},
-                {"app": "vscode", "extras": [{"id": "rust-lang.rust-analyzer"}]},
-                {"app": "terminal", "extras": [{"id": "cpp"}, {"id": "rust"}]}]}],
+        "version": 5, "id": "iq", "owner": "u1", "machine": "surface", "order": 1,
+        "apps": [{"app": "wadbrowser"}, {"app": "vscode"}, {"app": "terminal"}],
+        "exts": [{"app": "wadbrowser", "id": "focus", "name": "Focus"},
+                 {"app": "wadbrowser", "id": "notes", "name": "Notes", "url": "http://127.0.0.1:9/"},
+                 {"app": "vscode", "id": "rust-lang.rust-analyzer"},
+                 {"app": "terminal", "id": "cpp"}, {"app": "terminal", "id": "rust"}],
         "customization": {"name": "IntelligenceQuest", "wallpaper": {"type": "texture", "value": "stars"},
                           "projects": [], "secrets": {"bySlot": {}, "groups": []}}
     })
@@ -187,6 +194,13 @@ fn iq() -> Value {
 fn with(mut w: Value, f: impl FnOnce(&mut Value)) -> Value {
     f(&mut w);
     w
+}
+
+/// It without the add-ons `out` says.
+fn without(w: Value, out: impl Fn(&str, &str) -> bool) -> Value {
+    with(w, |w| {
+        w["exts"].as_array_mut().unwrap().retain(|x| !out(x["app"].as_str().unwrap(), x["id"].as_str().unwrap()))
+    })
 }
 
 fn set_ref(w: &Value) -> String {
@@ -249,7 +263,7 @@ async fn what_it_takes_at_start_is_in_its_extra_folder() {
     // The document stays for its build and the theme.
     assert_eq!(sets::installed_doc(&e.state, "iq").unwrap()["id"], "iq");
     // Without WadBrowser: no web apps, and the base's own wadbrowser.conf.
-    let art = with(iq(), |w| w["templates"][0]["apps"] = json!([{"app": "vscode"}]));
+    let art = with(iq(), |w| w["apps"] = json!([{"app": "vscode"}]));
     sets::install(&e.here(), "iq", &art, None).await.unwrap();
     assert_eq!(std::fs::read_to_string(e.extra("iq", "webapps.json")).unwrap().trim(), "[]");
     assert!(!e.extra("iq", "wadbrowser.conf").exists());
@@ -283,11 +297,10 @@ async fn a_second_wadspace_with_the_same_packages_builds_nothing() {
     e.install_and_build(&iq()).await.unwrap();
     let n = e.built().len();
     // Other web apps, another name and background: the same packages.
-    let twin = with(iq(), |w| {
+    let twin = with(without(iq(), |app, _| app == "wadbrowser"), |w| {
         w["id"] = "twin".into();
         w["customization"]["name"] = "Twin".into();
         w["customization"]["wallpaper"] = json!({"type": "texture", "value": "marble"});
-        w["templates"][0]["apps"][0]["extras"] = json!([]);
     });
     assert!(e.install_and_build(&twin).await.is_none(), "built already");
     assert_eq!(e.built().len(), n);
@@ -300,14 +313,14 @@ async fn taking_a_package_out_restacks_only_whats_above_it() {
     e.install_and_build(&iq()).await.unwrap();
     let n = e.built().len();
     // The extension, at the top: its chain is there, so only the set builds.
-    let no_ext = with(iq(), |w| w["templates"][0]["apps"][1]["extras"] = json!([]));
+    let no_ext = without(iq(), |app, _| app == "vscode");
     let log = e.install_and_build(&no_ext).await.unwrap();
     assert_eq!(log.build.status, BuildStatus::Done, "{:?}", log.lines);
     assert!(log.lines.iter().any(|l| l.contains("4 of them stacked already")), "{:?}", log.lines);
     assert_eq!(e.built()[n..], [set_ref(&no_ext)]);
     // rust, second from the bottom: cpp's chain stays under the rest.
     let n = e.built().len();
-    let no_rust = with(iq(), |w| w["templates"][0]["apps"][2]["extras"] = json!([{"id": "cpp"}]));
+    let no_rust = without(iq(), |_, id| id == "rust");
     let log = e.install_and_build(&no_rust).await.unwrap();
     assert!(log.lines.iter().any(|l| l.contains("1 of them stacked already")), "{:?}", log.lines);
     let after = &e.built()[n..];
@@ -338,8 +351,8 @@ async fn one_set_builds_once_however_many_ask() {
 #[tokio::test]
 async fn a_wadspace_with_no_packages_runs_on_the_base() {
     let e = env().await;
-    let web = json!({"version": 4, "id": "web", "machine": "surface", "templates": [{"id": "w", "name": "Web", "apps": [
-        {"app": "wadbrowser", "extras": [{"id": "notes", "name": "Notes", "url": "http://127.0.0.1:9/"}]}]}],
+    let web = json!({"version": 5, "id": "web", "machine": "surface", "apps": [{"app": "wadbrowser"}],
+        "exts": [{"app": "wadbrowser", "id": "notes", "name": "Notes", "url": "http://127.0.0.1:9/"}],
         "customization": {"name": "Web"}});
     let (_, b) = sets::install_and_build(&e.here(), "web", &web, None).await.unwrap();
     assert_eq!((b.image_key.as_str(), b.built, b.build.is_none()), ("base", true, true));
@@ -347,6 +360,40 @@ async fn a_wadspace_with_no_packages_runs_on_the_base() {
     assert!(e.built().is_empty());
     // No background chosen: plain black.
     assert!(e.extra("web", "wallpaper.png").is_file());
+}
+
+/// IntelligenceQuest as the templates' Builder made it (version 4).
+fn iq_v4() -> Value {
+    with(iq(), |w| {
+        let o = w.as_object_mut().unwrap();
+        o.shift_remove("apps");
+        o.shift_remove("exts");
+        o.insert("version".into(), 4.into());
+        o.insert(
+            "templates".into(),
+            json!([{"id": "dev", "name": "Dev", "apps": [
+                {"app": "wadbrowser", "mode": "focus", "extras": [{"id": "notes", "name": "Notes", "url": "http://127.0.0.1:9/"}]},
+                {"app": "vscode", "extras": [{"id": "rust-lang.rust-analyzer"}]},
+                {"app": "terminal", "extras": [{"id": "cpp"}, {"id": "rust"}]}]}]),
+        );
+    })
+}
+
+#[tokio::test]
+async fn a_version_4_wadspace_installs_as_version_5_on_the_same_set() {
+    let e = env().await;
+    sets::install(&e.here(), "iq", &iq_v4(), None).await.unwrap();
+    let doc = sets::installed_doc(&e.state, "iq").unwrap();
+    assert_eq!((doc["version"].as_u64(), doc.get("templates")), (Some(5), None));
+    assert_eq!(doc["exts"], iq()["exts"]);
+    assert_eq!(e.reg.workspace("iq").unwrap().image, set_ref(&iq()));
+    // One installed as version 4 by the wadd before: upgraded at start.
+    let file = e.state.join("wadspaces/old.json");
+    std::fs::write(&file, serde_json::to_vec(&with(iq_v4(), |w| w["id"] = "old".into())).unwrap()).unwrap();
+    assert_eq!(sets::upgrade_installed(&e.state).unwrap(), 1);
+    let old: Value = serde_json::from_slice(&std::fs::read(&file).unwrap()).unwrap();
+    assert_eq!((old["version"].as_u64(), wad_core::v5::image_key(&old)), (Some(5), wad_core::v5::image_key(&iq())));
+    assert_eq!(sets::upgrade_installed(&e.state).unwrap(), 0, "once");
 }
 
 #[tokio::test]
@@ -426,7 +473,7 @@ async fn a_set_nothing_runs_on_goes_after_the_next_build_with_what_only_it_neede
     assert!(has(&old) && has(ext));
     // rust-analyzer out: the new set builds, then the tidy-up (after the
     // last build out) takes the old set, its own steps and the extension.
-    let no_ext = with(iq(), |w| w["templates"][0]["apps"][1]["extras"] = json!([]));
+    let no_ext = without(iq(), |app, _| app == "vscode");
     let log = e.install_and_build(&no_ext).await.unwrap();
     assert_eq!(log.build.status, BuildStatus::Done, "{:?}", log.lines);
     for _ in 0..500 {

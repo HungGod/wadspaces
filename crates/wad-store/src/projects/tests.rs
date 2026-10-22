@@ -259,6 +259,7 @@ fn manifests_are_written_atomically_with_setup_hashes() {
         setup: "npm install".into(),
         from: None,
         mounted: false,
+        make: false,
     };
     let copy = WorkspaceProject {
         id: "c1".into(),
@@ -269,6 +270,7 @@ fn manifests_are_written_atomically_with_setup_hashes() {
         setup: String::new(),
         from: Some(CopyFrom { machine_id: "m1".into(), drive: None, paths: vec!["/home/wad/Notes".into()] }),
         mounted: false,
+        make: false,
     };
     let path = write_manifest(d.path(), "writing", &[github, copy]).unwrap();
     assert_eq!(path, d.path().join("extra/writing/projects.json"));

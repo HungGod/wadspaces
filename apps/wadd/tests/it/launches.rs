@@ -88,6 +88,7 @@ fn github(id: &str, mount: &str) -> WorkspaceProject {
         setup: "npm install".into(),
         from: None,
         mounted: false,
+        make: false,
     }
 }
 
@@ -101,6 +102,7 @@ fn copy(id: &str, mount: &str, from: Option<CopyFrom>) -> WorkspaceProject {
         setup: String::new(),
         from,
         mounted: false,
+        make: false,
     }
 }
 
@@ -498,6 +500,27 @@ async fn a_mount_that_isnt_there_stops_the_start() {
     with_projects(&e, vec![mount("m1", "Etc", etc)]).await;
     let l = launch(&e, "a", false).await;
     assert!(l.launch.error.as_deref().unwrap_or("").contains("isn't inside"), "{l:?}");
+}
+
+#[tokio::test]
+async fn a_folder_made_for_a_wadspace_is_made_in_the_home_when_it_starts() {
+    let e = env().await;
+    mounts_in(&e);
+    let home = e.home().to_string_lossy().into_owned();
+    let from = |p: &str| CopyFrom { machine_id: "local".into(), drive: None, paths: vec![p.into()] };
+    // One not made for it isn't made: the start stops.
+    with_projects(&e, vec![mount("m1", "Gone", from("~/Gone"))]).await;
+    let l = launch(&e, "a", false).await;
+    assert!(l.launch.error.as_deref().unwrap_or("").contains("isn't there"), "{l:?}");
+    assert!(!e.home().join("Gone").exists());
+    let thesis = WorkspaceProject { make: true, ..mount("m1", "Thesis", from("~/Thesis")) };
+    with_projects(&e, vec![thesis, mount("m2", "Notes", from("~/Notes"))]).await;
+    let l = launch(&e, "a", false).await;
+    assert_eq!(l.launch.status, LaunchStatus::Done, "{l:?}");
+    assert!(e.home().join("Thesis").is_dir());
+    let u = unit(&e, "wad-a.container");
+    assert!(u.contains(&format!("Volume={home}/Thesis:/config/Desktop/Thesis:rw\n")), "{u}");
+    assert!(u.contains(&format!("Volume={home}/Notes:/config/Desktop/Notes:rw\n")), "{u}");
 }
 
 #[tokio::test]

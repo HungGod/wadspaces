@@ -460,9 +460,9 @@ async fn past_hello_the_owners_sign_in_is_needed_too() {
 fn put_library(fb: &FakeFirebase) {
     // Web apps only: they run on the base, so there's nothing to build.
     let wadspace = |id: &str, owner: &str, name: &str| {
-        json!({"version": 4, "id": id, "owner": owner, "sharedWith": [], "machine": "m1", "order": 1,
-               "templates": [{"id": "w", "name": "Web", "apps": [
-                   {"app": "wadbrowser", "extras": [{"id": "notes", "name": "Notes", "url": "http://127.0.0.1:9/"}]}]}],
+        json!({"version": 5, "id": id, "owner": owner, "sharedWith": [], "machine": "m1", "order": 1,
+               "apps": [{"app": "wadbrowser"}],
+               "exts": [{"app": "wadbrowser", "id": "notes", "name": "Notes", "url": "http://127.0.0.1:9/"}],
                "customization": {"name": name, "wallpaper": {"type": "texture", "value": "stars"}, "projects": [],
                                  "secrets": {"bySlot": {}, "groups": []}},
                "createdAt": "t", "updatedAt": "t"})

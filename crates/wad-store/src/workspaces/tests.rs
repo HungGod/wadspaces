@@ -88,6 +88,14 @@ fn refusals_say_where() {
             "comes from paths that aren't",
         ),
         (
+            vec![a(json!({"projects": [{"id": "p", "kind": "mount", "mount": "M", "from": {"paths": ["~/../etc"]}}]}))],
+            "comes from paths that aren't",
+        ),
+        (
+            vec![a(json!({"projects": [{"id": "p", "kind": "copy", "mount": "M", "make": true}]}))],
+            "only a mounted folder is made",
+        ),
+        (
             vec![a(
                 json!({"projects": [{"id": "p", "kind": "copy", "mount": "M"}, {"id": "p", "kind": "copy", "mount": "N"}]}),
             )],
@@ -108,6 +116,10 @@ fn refusals_say_where() {
         let e = check_workspaces(list).unwrap_err().to_string();
         assert!(e.contains(why), "{e} (wanted {why})");
     }
+    // A folder made for it, in the machine's user's home.
+    let made = a(json!({"projects": [{"id": "p", "kind": "mount", "mount": "Thesis", "make": true,
+                                     "from": {"machineId": "m", "paths": ["~/Thesis"]}}]}));
+    assert!(check_workspaces(vec![made]).unwrap()[0].projects[0].make);
     // What a launch used to mount ({id, mount, path?}) is dropped, not refused.
     assert!(
         check_workspaces(vec![a(json!({"projects": [{"id": "p", "mount": "M", "path": "/x"}]}))]).unwrap()[0]

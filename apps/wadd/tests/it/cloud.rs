@@ -426,8 +426,8 @@ async fn a_version_4_wadspace_builds_by_its_id_on_its_own_machine() {
     });
     // Web apps only: it runs on the base, so there's nothing to build.
     let web = |id: &str, machine: &str| {
-        json!({"version": 4, "id": id, "owner": "u1", "machine": machine, "templates": [{"id": "w", "name": "Web", "apps": [
-            {"app": "wadbrowser", "extras": [{"id": "notes", "name": "Notes", "url": "http://127.0.0.1:9/"}]}]}],
+        json!({"version": 5, "id": id, "owner": "u1", "machine": machine, "apps": [{"app": "wadbrowser"}],
+            "exts": [{"app": "wadbrowser", "id": "notes", "name": "Notes", "url": "http://127.0.0.1:9/"}],
             "customization": {"name": "Web"}, "createdAt": "t", "updatedAt": "t"})
     };
     e.fb.put("wadspaces/web", web("web", "m1"));

@@ -68,6 +68,7 @@ fn applies_what_is_new_or_changed_and_keeps_the_machines_projects() {
         setup: String::new(),
         from: None,
         mounted: false,
+        make: false,
     }];
     assert_eq!(apply(&mut list, &mut book, &vendor), Applied::default());
     assert_eq!(list[0].name, "My writing");

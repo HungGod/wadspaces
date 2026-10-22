@@ -244,6 +244,7 @@ impl CloudRelay {
             builds: &self.parts.builds,
             state_dir: &self.settings.state_dir,
             machine: self.ids().map(|(_, m)| m),
+            signins: Some(&self.parts.signins),
         }
     }
 

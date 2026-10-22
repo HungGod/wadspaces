@@ -87,6 +87,7 @@ impl AppState {
             builds: &self.builds,
             state_dir: &self.store.dir,
             machine: Some(self.store.cloud()).filter(|l| l.linked).and_then(|l| l.machine_id),
+            signins: Some(&self.signins),
         }
     }
 }

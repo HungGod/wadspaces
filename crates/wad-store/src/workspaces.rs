@@ -241,6 +241,9 @@ fn check_projects(v: Option<&Value>, where_: &str) -> Result<Vec<WorkspaceProjec
         if parsed.mounted && parsed.kind != ProjectKind::Github {
             return Err(err(format!("{where_}: only a GitHub project is cloned on the machine and mounted")));
         }
+        if parsed.make && parsed.kind != ProjectKind::Mount {
+            return Err(err(format!("{where_}: only a mounted folder is made")));
+        }
         if !wad_core::projects::is_project_id(id) {
             return Err(err(format!("{where_}: project id '{id}' must match ^[A-Za-z0-9_-]{{1,64}}$")));
         }
@@ -275,7 +278,10 @@ fn check_projects(v: Option<&Value>, where_: &str) -> Result<Vec<WorkspaceProjec
                                 && if on_drive {
                                     !x.starts_with('/') && !x.split('/').any(|part| part == "..")
                                 } else {
-                                    x.starts_with('/') && host_path_ok(x)
+                                    // "~/…": the machine's user's home.
+                                    (x.starts_with('/') || x.starts_with("~/"))
+                                        && host_path_ok(x)
+                                        && !x.split('/').any(|part| part == "..")
                                 }
                         })
                         && f.drive.as_ref().is_none_or(|d| wad_core::projects::is_drive_uuid(&d.uuid))

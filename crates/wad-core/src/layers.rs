@@ -575,6 +575,9 @@ pub(crate) fn workspace_projects(custom: &Value) -> Vec<Value> {
                 }
                 from.insert("paths".into(), json!(strs(src, "paths")));
                 e.insert("from".into(), Value::Object(from));
+                if k == "mount" && p["make"] == Value::Bool(true) {
+                    e.insert("make".into(), true.into());
+                }
             }
             _ => continue,
         }
