@@ -22,7 +22,7 @@ pub enum Payload {
     /// groups (a wadspace's keys).
     Member { members: Vec<String>, group: String },
     /// Something of the Builder's board, or from its sidebar.
-    B(wad_board::b::Payload),
+    B(wad_board::b4::Payload),
 }
 
 /// What a drop here does ("Copy to VanuaAcademy"), or why it can't.

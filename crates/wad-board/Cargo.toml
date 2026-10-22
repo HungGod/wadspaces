@@ -1,6 +1,6 @@
 [package]
 name = "wad-board"
-description = "The Builder's board: stacks of modules, read from the documents and written back, its catalog checks and its edits (the client's components/builder in Rust)"
+description = "The Builder's board: wadspace cards read from the documents and written back, their keys and add-ons, and the edits made to them"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

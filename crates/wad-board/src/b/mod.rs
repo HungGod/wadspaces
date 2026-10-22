@@ -1,17 +1,19 @@
-//! Design B's board: the Builder's version 4 wadspaces (wad_core::v5 reads them). Each
-//! wadspace is on one machine, with its Templates bucket (its own templates,
-//! each apps with their extras) and its Customizations bucket (background,
-//! projects, keys). The edits are the design's spike's (B-Buckets):
+//! The Builder's board: version 5 wadspaces (wad_core::v5), each on one
+//! machine and shown as one card: its customization (background,
+//! projects), its secrets (its keys, each with what signs in with it), its
+//! add-ons (VS Code's extensions, command-line tools, WadBrowser's web apps
+//! and its Focus, by the app they're for) and its apps. The edits are the
+//! cards' (ui-mockup-builder):
 //!
-//! - A drag takes a module and what's under it: a template the templates
-//!   below it, the Customizations bucket the whole wadspace; Shift takes
-//!   just the one (the client makes the payload). Single apps, extras,
-//!   projects and the background go on their own.
-//! - Into another wadspace it's a copy; within its own it moves. Between
+//! - A drag takes the card (all of it) or one piece: its customization, its
+//!   secrets, a key with what signs in with it, one thing that does, its
+//!   apps, an app's add-ons, an add-on, an app, the background, a project.
+//! - Into another wadspace it's copied in, merged with what's there (an
+//!   add-on brings its app); nothing moves around inside its own. Between
 //!   wadspaces or on the open board it starts a new one; onto a machine (the
 //!   carousel) a new one there, a whole wadspace keeping its name.
-//! - Deleting is soft (deletedAt), so a wadspace can be restored; Undo steps
-//!   back.
+//! - What's taken out waits in its wadspace's Recently deleted; deleting a
+//!   wadspace is soft (deletedAt), so it can be restored; Undo steps back.
 //!
 //! Every edit is an [`Op`] ([`Board::apply`]), as JSON: what the goldens
 //! (fixtures/board/b.json) and the Android app's port replay. [`Board::plan`]
@@ -19,27 +21,25 @@
 
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value, json};
-use wad_core::{catalog, layers, spec, v5};
+use wad_core::{spec, v5};
 
-/// The version of the documents this board writes.
-pub const VERSION: u64 = 4;
-
-use crate::catalog::{self as cat, BrowserItem, KeyApp};
 use crate::model::KeyGroup;
 
+mod keys;
+pub use keys::*;
+
 const UNDO_STEPS: usize = 40;
-/// What a wadspace's Recently deleted keeps: the newest this many.
-pub const KEEP_MOST: usize = 30;
+pub use v5::KEEP_MOST;
 
-/// A new wadspace's name, and its one empty template's id and name (made
-/// by [`Op::Create`], to fill in).
+/// A new wadspace's name ("New wadspace - 1"… when its row has one).
 pub const NEW_NAME: &str = "New wadspace";
-pub const BLANK_TEMPLATE: &str = "template";
-const BLANK_TEMPLATE_NAME: &str = "Template";
 
+/// An add-on: something added to an app (a VS Code extension, a
+/// command-line tool, a WadBrowser web app or its Focus).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct Extra {
+pub struct Ext {
+    pub app: String,
     pub id: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
@@ -49,23 +49,28 @@ pub struct Extra {
     pub icon_url: Option<String>,
 }
 
-/// An app in a template, with what it takes.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct Entry {
-    pub app: String,
-    /// WadBrowser's: "browser" or "focus".
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub mode: Option<String>,
-    #[serde(default)]
-    pub extras: Vec<Extra>,
+impl Ext {
+    /// One with no name or address of its own (an extension, a tool).
+    pub fn plain(app: &str, id: &str) -> Self {
+        Self { app: app.into(), id: id.into(), name: None, url: None, icon_url: None }
+    }
+    /// WadBrowser's Focus.
+    pub fn focus() -> Self {
+        Self { name: Some("Focus".into()), ..Self::plain("wadbrowser", v5::FOCUS) }
+    }
+    pub fn is_focus(&self) -> bool {
+        self.app == "wadbrowser" && self.id == v5::FOCUS
+    }
+    /// The same add-on (its app's, by id).
+    pub fn same(&self, o: &Ext) -> bool {
+        self.app == o.app && self.id == o.id
+    }
 }
 
+/// An app in a wadspace.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct Template {
-    pub id: String,
-    pub name: String,
-    #[serde(default)]
-    pub apps: Vec<Entry>,
+pub struct AppIn {
+    pub app: String,
 }
 
 /// Something taken out of a wadspace, kept in it (Recently deleted) until
@@ -81,22 +86,21 @@ pub struct Kept {
     pub piece: Piece,
 }
 
-/// What's kept: a template and its place among the templates, an app off a
-/// template (with its extras), a project, or the background.
+/// What's kept: an app's add-ons, an app, a project, or the background.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum Piece {
-    Template { template: Template, place: usize },
-    App { template: String, entry: Entry },
+    Exts { app: String, exts: Vec<Ext> },
+    App { app: AppIn },
     Project { project: Value },
     Background { wallpaper: Value },
 }
 
-/// A version 4 wadspace document (its Firestore fields).
+/// A version 5 wadspace document (its Firestore fields).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Wadspace {
-    #[serde(default = "four")]
+    #[serde(default = "five")]
     pub version: u64,
     pub id: String,
     #[serde(default, skip_serializing_if = "String::is_empty")]
@@ -106,10 +110,13 @@ pub struct Wadspace {
     pub machine: String,
     #[serde(default)]
     pub order: i64,
+    /// Its apps, each once.
     #[serde(default)]
-    pub templates: Vec<Template>,
-    /// Version 3's: name, description, wallpaper, titleBars, autostart,
-    /// projects, secrets.
+    pub apps: Vec<AppIn>,
+    /// Its add-ons, each once.
+    #[serde(default)]
+    pub exts: Vec<Ext>,
+    /// Name, description, wallpaper, titleBars, autostart, projects, secrets.
     #[serde(default)]
     pub customization: Map<String, Value>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -123,8 +130,8 @@ pub struct Wadspace {
     pub trash: Vec<Kept>,
 }
 
-fn four() -> u64 {
-    VERSION
+fn five() -> u64 {
+    v5::VERSION
 }
 
 impl Wadspace {
@@ -138,12 +145,43 @@ impl Wadspace {
     pub fn doc(&self) -> Value {
         serde_json::to_value(self).unwrap_or(Value::Null)
     }
+    pub fn has_app(&self, app: &str) -> bool {
+        self.apps.iter().any(|a| a.app == app)
+    }
+    /// Its add-ons by the app they're for: WadBrowser's, VS Code's, the
+    /// command line's, then any other's.
+    pub fn exts_by_app(&self) -> Vec<(String, Vec<&Ext>)> {
+        let mut apps: Vec<&str> = vec![];
+        for x in &self.exts {
+            if !apps.contains(&x.app.as_str()) {
+                apps.push(&x.app);
+            }
+        }
+        let rank = |a: &str| crate::catalog::EXT_ORDER.iter().position(|o| *o == a).unwrap_or(99);
+        apps.sort_by_key(|a| rank(a));
+        apps.into_iter().map(|a| (a.to_string(), self.exts.iter().filter(|x| x.app == a).collect())).collect()
+    }
+    pub fn wallpaper(&self) -> Option<&Value> {
+        self.customization.get("wallpaper").filter(|w| !w.is_null())
+    }
+    pub fn projects(&self) -> &[Value] {
+        self.customization.get("projects").and_then(Value::as_array).map(Vec::as_slice).unwrap_or(&[])
+    }
     fn secrets(&mut self) -> &mut Map<String, Value> {
         let s = self.customization.entry("secrets").or_insert_with(|| json!({"bySlot": {}, "groups": []}));
         if !s.is_object() {
             *s = json!({"bySlot": {}, "groups": []});
         }
-        s.as_object_mut().unwrap()
+        let s = s.as_object_mut().unwrap();
+        for (k, empty) in [("bySlot", json!({})), ("groups", json!([]))] {
+            if !s.get(k).is_some_and(|v| v.is_object() || v.is_array()) {
+                s.insert(k.into(), empty);
+            }
+        }
+        s
+    }
+    fn by_slot(&mut self) -> &mut Map<String, Value> {
+        self.secrets()["bySlot"].as_object_mut().expect("an object")
     }
 }
 
@@ -158,23 +196,40 @@ pub struct Machine {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum Payload {
-    /// A whole wadspace, by its name (or the carousel's picks).
+    /// The whole card.
     Wadspace {
         ws: String,
     },
-    /// Templates of one wadspace: a pile, or just one.
-    #[serde(rename_all = "camelCase")]
-    Templates {
+    /// Its customization: background, projects, keys.
+    Customs {
         ws: String,
-        ids: Vec<String>,
     },
-    /// A bucket by its bar: the Templates bucket's templates, or the
-    /// Customizations bucket (with the Templates under it when `pile`).
-    Bucket {
+    /// Just its keys.
+    Secrets {
         ws: String,
-        which: Which,
-        #[serde(default)]
-        pile: bool,
+    },
+    /// One key, with what signs in with it.
+    Key {
+        ws: String,
+        key: String,
+    },
+    /// One thing that signs in with a key: its slot, or (WadBrowser's) its
+    /// member.
+    Holder {
+        ws: String,
+        key: String,
+        slot: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        member: Option<String>,
+    },
+    /// All its apps.
+    Apps {
+        ws: String,
+    },
+    /// All of an app's add-ons.
+    Exts {
+        ws: String,
+        app: String,
     },
     Project {
         ws: String,
@@ -183,58 +238,48 @@ pub enum Payload {
     Background {
         ws: String,
     },
-    /// An app off a template, with its extras.
     App {
         ws: String,
-        template: String,
         app: String,
     },
-    /// One extra off an app.
-    Extra {
+    Ext {
         ws: String,
-        template: String,
         app: String,
         id: String,
     },
     /// From the sidebar.
-    #[serde(rename_all = "camelCase")]
     CatalogApp {
         app: String,
     },
-    #[serde(rename_all = "camelCase")]
-    CatalogExtra {
-        app: String,
-        extra: Extra,
+    CatalogExt {
+        ext: Ext,
     },
     Texture {
         value: String,
     },
-    #[serde(rename_all = "camelCase")]
     CatalogProject {
         project: Value,
     },
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub enum Which {
-    Templates,
-    Customs,
-}
-
-/// Where in a wadspace a drop lands.
-#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Where {
-    /// Templates: at this place in its Templates bucket (none: the end).
-    #[serde(default)]
-    pub at: Option<usize>,
-    /// An app or extra: onto this template.
-    #[serde(default)]
-    pub template: Option<String>,
-    /// An app or extra: into a new template of its own.
-    #[serde(default)]
-    pub new_template: bool,
+impl Payload {
+    /// The wadspace it's out of (none: the sidebar's).
+    pub fn source(&self) -> Option<&str> {
+        match self {
+            Payload::Wadspace { ws }
+            | Payload::Customs { ws }
+            | Payload::Secrets { ws }
+            | Payload::Key { ws, .. }
+            | Payload::Holder { ws, .. }
+            | Payload::Apps { ws }
+            | Payload::Exts { ws, .. }
+            | Payload::Project { ws, .. }
+            | Payload::Background { ws }
+            | Payload::App { ws, .. }
+            | Payload::Ext { ws, .. } => Some(ws),
+            _ => None,
+        }
+    }
 }
 
 /// Something picked (Ctrl+click), for Delete selected.
@@ -242,20 +287,29 @@ pub struct Where {
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum Pick {
     Wadspace { ws: String },
-    Template { ws: String, id: String },
+    Exts { ws: String, app: String },
     Project { ws: String, id: String },
     Background { ws: String },
+}
+
+/// One thing that signs in with a key: a slot ("app:vscode",
+/// "ext:<id>"…), or one of WadBrowser's apps (its member, in group slot
+/// "group:<id>").
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct HolderRef {
+    pub slot: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub member: Option<String>,
 }
 
 /// An edit to the board.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "op", rename_all = "camelCase")]
 pub enum Op {
+    /// What's dragged copied into a wadspace (from its own: nothing).
     Drop {
         payload: Payload,
         into: String,
-        #[serde(default, rename = "where")]
-        at: Where,
     },
     /// A new wadspace on `machine` from what's dragged, before `before`
     /// (none: after the row's last).
@@ -265,8 +319,7 @@ pub enum Op {
         #[serde(default)]
         before: Option<String>,
     },
-    /// A new wadspace on `machine` from nothing, to fill in: one empty
-    /// template ([`BLANK_TEMPLATE`]) and a customization with only its name.
+    /// A new wadspace on `machine` from nothing, to fill in.
     Create {
         machine: String,
     },
@@ -281,7 +334,7 @@ pub enum Op {
     Restore {
         ws: String,
     },
-    /// Something from a wadspace's Recently deleted back where it was.
+    /// Something from a wadspace's Recently deleted back in it.
     PutBack {
         ws: String,
         kept: String,
@@ -300,29 +353,15 @@ pub enum Op {
         ws: String,
         description: String,
     },
-    RenameTemplate {
-        ws: String,
-        template: String,
-        name: String,
-    },
+    /// An app out (kept); its add-ons stay, waiting for it.
     RemoveApp {
         ws: String,
-        template: String,
         app: String,
     },
-    RemoveExtra {
+    RemoveExt {
         ws: String,
-        template: String,
         app: String,
         id: String,
-    },
-    /// WadBrowser's mode in `template` (none: wherever it is in the
-    /// wadspace). The top template with WadBrowser decides (v5::apps_of).
-    SetMode {
-        ws: String,
-        mode: String,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        template: Option<String>,
     },
     SetBackground {
         ws: String,
@@ -350,17 +389,17 @@ pub enum Op {
         member: String,
         to: Option<String>,
     },
-    NewGroup {
-        ws: String,
-    },
-    RemoveGroup {
-        ws: String,
-        group: String,
-    },
     /// A key's name, everywhere it's used.
     RenameKey {
         id: String,
         name: String,
+    },
+    /// These sign in with `key` (a new one, or one it has; none: no key):
+    /// slots set, WadBrowser's apps into the group with it.
+    AssignKey {
+        ws: String,
+        holders: Vec<HolderRef>,
+        key: Option<Value>,
     },
     Undo,
 }
@@ -368,15 +407,17 @@ pub enum Op {
 /// What a drag brings to where it lands.
 #[derive(Default)]
 struct Got {
-    templates: Option<Vec<Template>>,
     background: Option<Value>,
     projects: Vec<Value>,
     secrets: Option<Value>,
     description: Option<String>,
-    entry: Option<Entry>,
+    apps: Vec<AppIn>,
+    exts: Vec<Ext>,
+    /// Keys merged in: slots set, WadBrowser's apps in groups with them.
+    keys: Option<(Map<String, Value>, Vec<KeyGroup>)>,
 }
 
-/// The board: the account's machines and version 4 wadspaces (deleted
+/// The board: the account's machines and version 5 wadspaces (deleted
 /// ones too, for Recently deleted), in board order.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct Board {
@@ -441,26 +482,6 @@ fn free_group(taken: &[String]) -> String {
     (1..).map(|n| format!("g{n}")).find(|g| !taken.contains(g)).unwrap()
 }
 
-fn app_name(app: &str) -> String {
-    catalog::app(app).map(|a| a.name).unwrap_or_else(|| app.to_string())
-}
-
-/// An app's extras, with these added (once each, by id).
-fn add_to(t: &mut Template, app: &str, extras: &[Extra]) {
-    let i = match t.apps.iter().position(|e| e.app == app) {
-        Some(i) => i,
-        None => {
-            t.apps.push(Entry { app: app.into(), mode: None, extras: vec![] });
-            t.apps.len() - 1
-        }
-    };
-    for x in extras {
-        if !t.apps[i].extras.iter().any(|y| y.id == x.id) {
-            t.apps[i].extras.push(x.clone());
-        }
-    }
-}
-
 impl Board {
     pub fn new(machines: Vec<Machine>, wadspaces: Vec<Wadspace>, now: &str) -> Self {
         Self { machines, wadspaces, now: now.into(), reserved: vec![], past: vec![] }
@@ -509,8 +530,8 @@ impl Board {
         self.apply_all(std::slice::from_ref(op))
     }
 
-    /// Edits made together, one step to undo (WadBrowser's apps moved as
-    /// one); if one can't be made, none is.
+    /// Edits made together, one step to undo (a new wadspace with what
+    /// went into it); if one can't be made, none is.
     pub fn apply_all(&mut self, ops: &[Op]) -> Result<(), String> {
         let before = self.wadspaces.clone();
         for op in ops {
@@ -534,7 +555,7 @@ impl Board {
 
     fn edit(&mut self, op: &Op) -> Result<(), String> {
         match op {
-            Op::Drop { payload, into, at } => self.drop(payload, into, at),
+            Op::Drop { payload, into } => self.drop(payload, into),
             Op::Fresh { payload, machine, before } => self.fresh(payload, machine, before.as_deref()).map(drop),
             Op::Create { machine } => {
                 self.create(machine);
@@ -554,23 +575,13 @@ impl Board {
             Op::PutBack { ws, kept } => {
                 let w = self.get_mut(ws)?;
                 let i = w.trash.iter().position(|k| k.id == *kept).ok_or("that's not in Recently deleted")?;
-                let (got, place, onto) = match w.trash.remove(i).piece {
-                    Piece::Template { template, place } => {
-                        (Got { templates: Some(vec![template]), ..Got::default() }, Some(place), Where::default())
-                    }
-                    Piece::App { template, entry } => (
-                        Got { entry: Some(entry), ..Got::default() },
-                        None,
-                        Where { template: Some(template), ..Where::default() },
-                    ),
-                    Piece::Project { project } => {
-                        (Got { projects: vec![project], ..Got::default() }, None, Where::default())
-                    }
-                    Piece::Background { wallpaper } => {
-                        (Got { background: Some(wallpaper), ..Got::default() }, None, Where::default())
-                    }
+                let got = match w.trash.remove(i).piece {
+                    Piece::Exts { exts, .. } => Got { exts, ..Got::default() },
+                    Piece::App { app } => Got { apps: vec![app], ..Got::default() },
+                    Piece::Project { project } => Got { projects: vec![project], ..Got::default() },
+                    Piece::Background { wallpaper } => Got { background: Some(wallpaper), ..Got::default() },
                 };
-                Self::take(w, got, place, &onto);
+                Self::take(w, got);
                 Ok(())
             }
             Op::Forget { ws, kept } => {
@@ -589,43 +600,14 @@ impl Board {
                 self.get_mut(ws)?.customization.insert("description".into(), description.clone().into());
                 Ok(())
             }
-            Op::RenameTemplate { ws, template, name } => {
+            Op::RemoveApp { ws, app } => {
                 let w = self.get_mut(ws)?;
-                let t = w.templates.iter_mut().find(|t| t.id == *template).ok_or("no such template")?;
-                t.name = name.clone();
-                Ok(())
+                let Some(i) = w.apps.iter().position(|a| a.app == *app) else { return Ok(()) };
+                let app = w.apps.remove(i);
+                self.keep(ws, Piece::App { app })
             }
-            Op::RemoveApp { ws, template, app } => {
-                let w = self.get_mut(ws)?;
-                let t = w.templates.iter_mut().find(|t| t.id == *template).ok_or("no such template")?;
-                let Some(i) = t.apps.iter().position(|e| e.app == *app) else { return Ok(()) };
-                let entry = t.apps.remove(i);
-                self.keep(ws, Piece::App { template: template.clone(), entry })
-            }
-            Op::RemoveExtra { ws, template, app, id } => {
-                let w = self.get_mut(ws)?;
-                let t = w.templates.iter_mut().find(|t| t.id == *template).ok_or("no such template")?;
-                if let Some(e) = t.apps.iter_mut().find(|e| e.app == *app) {
-                    e.extras.retain(|x| x.id != *id);
-                }
-                Ok(())
-            }
-            Op::SetMode { ws, mode, template } => {
-                if !matches!(mode.as_str(), "browser" | "focus") {
-                    return Err(format!("WadBrowser has no mode {mode}"));
-                }
-                let w = self.get_mut(ws)?;
-                if let Some(id) = template {
-                    let t = w.templates.iter().find(|t| t.id == *id).ok_or("no such template")?;
-                    if !t.apps.iter().any(|e| e.app == "wadbrowser") {
-                        return Err(format!("{} has no WadBrowser", t.name));
-                    }
-                }
-                for t in w.templates.iter_mut().filter(|t| template.as_ref().is_none_or(|id| t.id == *id)) {
-                    for e in t.apps.iter_mut().filter(|e| e.app == "wadbrowser") {
-                        e.mode = (mode == "focus").then(|| mode.clone());
-                    }
-                }
+            Op::RemoveExt { ws, app, id } => {
+                self.get_mut(ws)?.exts.retain(|x| !(x.app == *app && x.id == *id));
                 Ok(())
             }
             Op::SetBackground { ws, texture } => {
@@ -657,9 +639,7 @@ impl Board {
                 Ok(())
             }
             Op::SetKey { ws, slot, key } => {
-                let secrets = self.get_mut(ws)?.secrets();
-                let by = secrets.entry("bySlot").or_insert_with(|| json!({}));
-                let by = by.as_object_mut().ok_or("bySlot isn't an object")?;
+                let by = self.get_mut(ws)?.by_slot();
                 match key {
                     Some(k) => by.insert(slot.clone(), k.clone()),
                     None => by.remove(slot),
@@ -667,47 +647,23 @@ impl Board {
                 Ok(())
             }
             Op::SetGroupKey { ws, group, key } => self.set_groups(ws, |gs| {
-                for g in gs.iter_mut().filter(|g| s(g, "id") == group) {
-                    match key {
-                        Some(k) => drop(g.as_object_mut().map(|o| o.insert("key".into(), k.clone()))),
-                        None => drop(g.as_object_mut().map(|o| o.remove("key"))),
-                    }
+                for g in gs.iter_mut().filter(|g| g.id == *group) {
+                    g.key = key.clone();
                 }
             }),
-            Op::MoveMember { ws, member, to } => {
-                let ids: Vec<String> = self.groups_of(ws).iter().map(|g| s(g, "id").to_string()).collect();
-                let fresh = free_group(&ids);
-                self.set_groups(ws, |gs| {
-                    let was: Vec<bool> =
-                        gs.iter().map(|g| g["members"].as_array().is_some_and(|m| m.is_empty())).collect();
-                    for g in gs.iter_mut() {
-                        if let Some(m) = g["members"].as_array_mut() {
-                            m.retain(|x| x.as_str() != Some(member));
-                        }
-                    }
-                    match to.as_deref().and_then(|t| gs.iter_mut().find(|g| s(g, "id") == t)) {
-                        Some(g) => g["members"].as_array_mut().unwrap().push(member.clone().into()),
-                        None => gs.push(json!({"id": fresh, "members": [member]})),
-                    }
-                    // A group its last app left goes; one made empty with New group stays.
-                    let mut i = 0;
-                    gs.retain(|g| {
-                        let keep = !g["members"].as_array().is_some_and(|m| m.is_empty())
-                            || was.get(i).copied().unwrap_or(true);
-                        i += 1;
-                        keep
-                    });
-                })
-            }
-            Op::NewGroup { ws } => {
-                let ids: Vec<String> = self.groups_of(ws).iter().map(|g| s(g, "id").to_string()).collect();
-                let id = free_group(&ids);
-                self.set_groups(ws, |gs| gs.push(json!({"id": id, "members": []})))
-            }
-            Op::RemoveGroup { ws, group } => self.set_groups(ws, |gs| gs.retain(|g| s(g, "id") != group)),
+            Op::MoveMember { ws, member, to } => self.set_groups(ws, |gs| {
+                let ids: Vec<String> = gs.iter().map(|g| g.id.clone()).collect();
+                for g in gs.iter_mut() {
+                    g.members.retain(|m| m != member);
+                }
+                match to.as_deref().and_then(|t| gs.iter_mut().find(|g| g.id == t)) {
+                    Some(g) => g.members.push(member.clone()),
+                    None => gs.push(KeyGroup { id: free_group(&ids), members: vec![member.clone()], key: None }),
+                }
+            }),
             Op::RenameKey { id, name } => {
                 for w in &mut self.wadspaces {
-                    let sec = w.secrets();
+                    let Some(sec) = w.customization.get_mut("secrets") else { continue };
                     if let Some(by) = sec.get_mut("bySlot").and_then(Value::as_object_mut) {
                         for k in by.values_mut().filter(|k| s(k, "id") == id) {
                             k["name"] = name.clone().into();
@@ -721,78 +677,56 @@ impl Board {
                 }
                 Ok(())
             }
+            Op::AssignKey { ws, holders, key } => self.assign_key(ws, holders, key.as_ref()),
             Op::Undo => unreachable!(),
         }
     }
 
-    /// What `p` brings into wadspace `into`: moved out of its own wadspace
-    /// when that's `into`, else copied.
-    fn carry(&mut self, p: &Payload, into: &str) -> Result<Got, String> {
-        let src = |b: &Self, ws: &str| b.get(ws).cloned().ok_or_else(|| format!("no wadspace {ws}"));
-        let moving = |ws: &str| ws == into;
-        let whole = |w: &Wadspace| Got {
-            templates: Some(w.templates.clone()),
-            background: w.customization.get("wallpaper").cloned(),
-            projects: w.customization.get("projects").and_then(Value::as_array).cloned().unwrap_or_default(),
-            secrets: w.customization.get("secrets").cloned(),
-            description: w.customization.get("description").and_then(Value::as_str).map(String::from),
-            entry: None,
+    /// What `p` brings: copies, whatever it came out of.
+    fn carry(&self, p: &Payload) -> Result<Got, String> {
+        let src = |ws: &str| self.get(ws).ok_or_else(|| format!("no wadspace {ws}"));
+        let c = |w: &Wadspace, k: &str| w.customization.get(k).filter(|v| !v.is_null()).cloned();
+        let customs = |w: &Wadspace| Got {
+            background: c(w, "wallpaper"),
+            projects: w.projects().to_vec(),
+            secrets: c(w, "secrets"),
+            ..Got::default()
         };
         Ok(match p {
-            Payload::Wadspace { ws } => whole(&src(self, ws)?),
-            Payload::Templates { ws, ids } => {
-                let w = src(self, ws)?;
-                let tpls: Vec<Template> = w.templates.iter().filter(|t| ids.contains(&t.id)).cloned().collect();
-                if moving(ws) {
-                    self.get_mut(ws)?.templates.retain(|t| !ids.contains(&t.id));
-                }
-                Got { templates: Some(tpls), ..Got::default() }
-            }
-            Payload::Bucket { ws, which, pile } => {
-                let w = src(self, ws)?;
-                match which {
-                    Which::Templates => Got { templates: Some(w.templates.clone()), ..Got::default() },
-                    Which::Customs if *pile => whole(&w),
-                    Which::Customs => Got { templates: None, description: None, ..whole(&w) },
+            Payload::Wadspace { ws } => {
+                let w = src(ws)?;
+                Got {
+                    apps: w.apps.clone(),
+                    exts: w.exts.clone(),
+                    description: w.customization.get("description").and_then(Value::as_str).map(String::from),
+                    ..customs(w)
                 }
             }
-            Payload::Project { ws, id } => {
-                let w = src(self, ws)?;
-                let projects = w.customization.get("projects").and_then(Value::as_array).cloned().unwrap_or_default();
-                Got { projects: projects.into_iter().filter(|p| s(p, "id") == id).collect(), ..Got::default() }
+            Payload::Customs { ws } => customs(src(ws)?),
+            Payload::Secrets { ws } => Got { secrets: c(src(ws)?, "secrets"), ..Got::default() },
+            Payload::Key { ws, key } => Got { keys: Some(self.keys_out(ws, key, None)?), ..Got::default() },
+            Payload::Holder { ws, key, slot, member } => {
+                Got { keys: Some(self.keys_out(ws, key, Some((slot, member.as_deref())))?), ..Got::default() }
             }
-            Payload::Background { ws } => {
-                Got { background: src(self, ws)?.customization.get("wallpaper").cloned(), ..Got::default() }
+            Payload::Apps { ws } => Got { apps: src(ws)?.apps.clone(), ..Got::default() },
+            Payload::Exts { ws, app } => {
+                Got { exts: src(ws)?.exts.iter().filter(|x| x.app == *app).cloned().collect(), ..Got::default() }
             }
-            Payload::App { ws, template, app } | Payload::Extra { ws, template, app, .. } => {
-                let w = src(self, ws)?;
-                let t = w.templates.iter().find(|t| t.id == *template).ok_or("no such template")?;
-                let e = t.apps.iter().find(|e| e.app == *app).ok_or("no such app")?.clone();
-                let extras = match p {
-                    Payload::Extra { id, .. } => e.extras.iter().filter(|x| x.id == *id).cloned().collect(),
-                    _ => e.extras.clone(),
-                };
-                if moving(ws) {
-                    let wm = self.get_mut(ws)?;
-                    let t = wm.templates.iter_mut().find(|t| t.id == *template).unwrap();
-                    match p {
-                        Payload::Extra { id, .. } => {
-                            if let Some(e) = t.apps.iter_mut().find(|e| e.app == *app) {
-                                e.extras.retain(|x| x.id != *id);
-                            }
-                        }
-                        _ => t.apps.retain(|e| e.app != *app),
-                    }
-                }
-                Got { entry: Some(Entry { app: e.app, mode: e.mode, extras }), ..Got::default() }
-            }
-            Payload::CatalogApp { app } => {
-                Got { entry: Some(Entry { app: app.clone(), mode: None, extras: vec![] }), ..Got::default() }
-            }
-            Payload::CatalogExtra { app, extra } => Got {
-                entry: Some(Entry { app: app.clone(), mode: None, extras: vec![extra.clone()] }),
+            Payload::Project { ws, id } => Got {
+                projects: src(ws)?.projects().iter().filter(|p| s(p, "id") == id).cloned().collect(),
                 ..Got::default()
             },
+            Payload::Background { ws } => Got { background: c(src(ws)?, "wallpaper"), ..Got::default() },
+            Payload::App { ws, app } => {
+                let a = src(ws)?.apps.iter().find(|a| a.app == *app).ok_or("no such app")?;
+                Got { apps: vec![a.clone()], ..Got::default() }
+            }
+            Payload::Ext { ws, app, id } => {
+                let x = src(ws)?.exts.iter().find(|x| x.app == *app && x.id == *id).ok_or("no such add-on")?;
+                Got { exts: vec![x.clone()], ..Got::default() }
+            }
+            Payload::CatalogApp { app } => Got { apps: vec![AppIn { app: app.clone() }], ..Got::default() },
+            Payload::CatalogExt { ext } => Got { exts: vec![ext.clone()], ..Got::default() },
             Payload::Texture { value } => {
                 Got { background: Some(json!({"type": "texture", "value": value})), ..Got::default() }
             }
@@ -800,31 +734,11 @@ impl Board {
         })
     }
 
-    /// Templates in, their ids made their own in `w`.
-    fn insert_templates(w: &mut Wadspace, at: usize, tpls: Vec<Template>) {
-        let mut taken: Vec<String> = w.templates.iter().map(|t| t.id.clone()).collect();
-        let tpls: Vec<Template> = tpls
-            .into_iter()
-            .map(|mut t| {
-                t.id = free(&t.id, &taken);
-                taken.push(t.id.clone());
-                t
-            })
-            .collect();
-        let at = at.min(w.templates.len());
-        w.templates.splice(at..at, tpls);
-    }
-
-    /// A new template in `w` for an app, named as the app.
-    fn new_template(w: &mut Wadspace, app: &str) -> usize {
-        let name = app_name(app);
-        let taken: Vec<String> = w.templates.iter().map(|t| t.id.clone()).collect();
-        let id = free(&spec::slugify(&name), &taken);
-        w.templates.push(Template { id, name, apps: vec![] });
-        w.templates.len() - 1
-    }
-
-    fn take(w: &mut Wadspace, got: Got, at: Option<usize>, onto: &Where) {
+    /// What `got` brings, merged into `w`: the background and secrets
+    /// replaced, projects, apps and add-ons added when they aren't in it (an
+    /// add-on's app with it), keys' slots set and WadBrowser's apps that
+    /// come with a key signing in with it together.
+    fn take(w: &mut Wadspace, got: Got) {
         if let Some(d) = got.description {
             w.customization.insert("description".into(), d.into());
         }
@@ -844,43 +758,43 @@ impl Board {
         if let Some(sec) = got.secrets {
             w.customization.insert("secrets".into(), sec);
         }
-        if let Some(t) = got.templates {
-            let at = at.unwrap_or(w.templates.len());
-            Self::insert_templates(w, at, t);
-        }
-        if let Some(e) = got.entry {
-            let mut i = if onto.new_template {
-                None
-            } else {
-                onto.template.as_ref().and_then(|t| w.templates.iter().position(|x| x.id == *t))
-            };
-            // A click in the sidebar: an extension goes where its app is.
-            if i.is_none() && !onto.new_template && !e.extras.is_empty() {
-                i = w.templates.iter().position(|t| t.apps.iter().any(|x| x.app == e.app));
+        if let Some((by, groups)) = got.keys {
+            w.by_slot().extend(by);
+            let mut gs: Vec<KeyGroup> = serde_json::from_value(w.secrets()["groups"].clone()).unwrap_or_default();
+            for g in groups {
+                for o in gs.iter_mut() {
+                    o.members.retain(|m| !g.members.contains(m));
+                }
+                gs.retain(|o| !o.members.is_empty());
+                let ids: Vec<String> = gs.iter().map(|o| o.id.clone()).collect();
+                gs.push(KeyGroup { id: free_group(&ids), ..g });
             }
-            let i = i.unwrap_or_else(|| Self::new_template(w, &e.app));
-            add_to(&mut w.templates[i], &e.app, &e.extras);
-            if let Some(m) = e.mode
-                && let Some(x) = w.templates[i].apps.iter_mut().find(|x| x.app == e.app && x.mode.is_none())
-            {
-                x.mode = Some(m);
+            w.secrets().insert("groups".into(), serde_json::to_value(gs).unwrap_or(json!([])));
+        }
+        for a in got.apps {
+            if !w.has_app(&a.app) {
+                w.apps.push(a);
+            }
+        }
+        for x in got.exts {
+            // An add-on needs its app: it comes along when the wadspace hasn't got it.
+            if !w.has_app(&x.app) {
+                w.apps.push(AppIn { app: x.app.clone() });
+            }
+            if !w.exts.iter().any(|y| y.same(&x)) {
+                w.exts.push(x);
             }
         }
     }
 
-    fn drop(&mut self, p: &Payload, into: &str, onto: &Where) -> Result<(), String> {
+    fn drop(&mut self, p: &Payload, into: &str) -> Result<(), String> {
         self.get(into).ok_or_else(|| format!("no wadspace {into}"))?;
-        // Templates moving within their own bucket: where they land once they're out.
-        let mut at = onto.at;
-        if let (Payload::Templates { ws, ids }, Some(a)) = (p, at)
-            && ws == into
-        {
-            let w = self.get(into).unwrap();
-            at = Some(w.templates.iter().take(a).filter(|t| !ids.contains(&t.id)).count());
+        // Nothing moves around inside its own wadspace.
+        if p.source() == Some(into) {
+            return Ok(());
         }
-        let got = self.carry(p, into)?;
-        let w = self.get_mut(into)?;
-        Self::take(w, got, at, onto);
+        let got = self.carry(p)?;
+        Self::take(self.get_mut(into)?, got);
         Ok(())
     }
 
@@ -899,17 +813,18 @@ impl Board {
         }
     }
 
-    fn blank(id: String, machine: &str, name: &str, owner: String, templates: Vec<Template>) -> Wadspace {
+    fn blank(id: String, machine: &str, name: &str, owner: String) -> Wadspace {
         let mut c = Map::new();
         c.insert("name".into(), name.into());
         Wadspace {
-            version: VERSION,
+            version: v5::VERSION,
             id,
             owner,
             shared_with: vec![],
             machine: machine.into(),
             order: 0,
-            templates,
+            apps: vec![],
+            exts: vec![],
             customization: c,
             created_at: None,
             updated_at: None,
@@ -918,48 +833,48 @@ impl Board {
         }
     }
 
+    /// A new wadspace's name on `machine`: "New wadspace", or "New
+    /// wadspace - 1"… when its row has one.
+    pub fn new_name(&self, machine: &str) -> String {
+        let names: Vec<String> = self.row(machine).iter().map(|w| w.name().to_string()).collect();
+        if names.iter().any(|n| n == NEW_NAME) { copy_name(NEW_NAME, &names) } else { NEW_NAME.into() }
+    }
+
     /// A new wadspace on `machine` from nothing; its id.
     fn create(&mut self, machine: &str) -> String {
-        let id = self.free_id(NEW_NAME);
+        let name = self.new_name(machine);
+        let id = self.free_id(&name);
         let at = self.place(machine, None);
-        let t = Template { id: BLANK_TEMPLATE.into(), name: BLANK_TEMPLATE_NAME.into(), apps: vec![] };
-        self.wadspaces.insert(at, Self::blank(id.clone(), machine, NEW_NAME, String::new(), vec![t]));
+        self.wadspaces.insert(at, Self::blank(id.clone(), machine, &name, String::new()));
         id
     }
 
     /// A new wadspace on `machine` from what's dragged; its id.
     fn fresh(&mut self, p: &Payload, machine: &str, before: Option<&str>) -> Result<String, String> {
-        let from = match p {
-            Payload::Wadspace { ws }
-            | Payload::Templates { ws, .. }
-            | Payload::Bucket { ws, .. }
-            | Payload::Project { ws, .. }
-            | Payload::Background { ws }
-            | Payload::App { ws, .. }
-            | Payload::Extra { ws, .. } => Some(self.get(ws).cloned().ok_or_else(|| format!("no wadspace {ws}"))?),
-            _ => None,
+        let from = match p.source() {
+            Some(ws) => Some(self.get(ws).cloned().ok_or_else(|| format!("no wadspace {ws}"))?),
+            None => None,
         };
-        let whole = matches!(p, Payload::Wadspace { .. } | Payload::Bucket { pile: true, .. });
         let name = match &from {
-            None => NEW_NAME.to_string(),
-            Some(w) if whole && w.machine != machine => w.name().to_string(),
+            None => self.new_name(machine),
+            Some(w) if matches!(p, Payload::Wadspace { .. }) && w.machine != machine => w.name().to_string(),
             Some(w) => {
                 let taken: Vec<String> = self.row(machine).iter().map(|x| x.name().to_string()).collect();
                 copy_name(w.name(), &taken)
             }
         };
+        let got = self.carry(p)?;
         let id = self.free_id(&name);
         let at = self.place(machine, before);
-        let owner = from.as_ref().map(|w| w.owner.clone()).unwrap_or_default();
-        self.wadspaces.insert(at, Self::blank(id.clone(), machine, &name, owner, vec![]));
-        let got = self.carry(p, &id)?;
-        let w = self.get_mut(&id)?;
-        Self::take(w, got, None, &Where { new_template: true, ..Where::default() });
+        let owner = from.map(|w| w.owner).unwrap_or_default();
+        self.wadspaces.insert(at, Self::blank(id.clone(), machine, &name, owner));
+        Self::take(self.get_mut(&id)?, got);
         Ok(id)
     }
 
-    /// Wadspaces deleted (they wait, deleted); templates, projects and
-    /// backgrounds taken out (they wait in their wadspace's Recently deleted).
+    /// Wadspaces deleted (they wait, deleted); an app's add-ons, projects
+    /// and backgrounds taken out (they wait in their wadspace's Recently
+    /// deleted).
     fn delete(&mut self, picks: &[Pick]) -> Result<(), String> {
         let now = self.now.clone();
         for pick in picks {
@@ -968,10 +883,14 @@ impl Board {
                     self.get_mut(ws)?.deleted_at = Some(now.clone());
                     continue;
                 }
-                Pick::Template { ws, id } => {
+                Pick::Exts { ws, app } => {
                     let w = self.get_mut(ws)?;
-                    let Some(place) = w.templates.iter().position(|t| t.id == *id) else { continue };
-                    (ws, Piece::Template { template: w.templates.remove(place), place })
+                    let (exts, rest): (Vec<Ext>, Vec<Ext>) = w.exts.drain(..).partition(|x| x.app == *app);
+                    w.exts = rest;
+                    if exts.is_empty() {
+                        continue;
+                    }
+                    (ws, Piece::Exts { app: app.clone(), exts })
                 }
                 Pick::Project { ws, id } => {
                     let list = self.get_mut(ws)?.customization.get_mut("projects").and_then(Value::as_array_mut);
@@ -999,148 +918,6 @@ impl Board {
             w.trash.remove(0);
         }
         Ok(())
-    }
-
-    // ------------------------------------------------------------ keys
-
-    /// The key slots it has (wad_core's: an app's own, each AI extension's,
-    /// each web app's).
-    pub fn slots_of(&self, ws: &str) -> Vec<Value> {
-        let Some(w) = self.get(ws) else { return vec![] };
-        let (t, setup) = v5::as_template_setup(&w.doc());
-        layers::slots_for(&t, &setup)
-    }
-
-    /// WadBrowser's apps in their groups, every one in exactly one: the
-    /// browser and each web app (none without WadBrowser).
-    pub fn groups_of(&self, ws: &str) -> Vec<Value> {
-        let Some(w) = self.get(ws) else { return vec![] };
-        let apps = v5::apps_of(&w.doc());
-        let Some(browser) = apps.iter().find(|e| s(e, "app") == "wadbrowser") else { return vec![] };
-        let mut members = vec!["browser".to_string()];
-        members.extend(browser["extras"].as_array().into_iter().flatten().map(|x| format!("web:{}", s(x, "id"))));
-        let stored = w.customization.get("secrets").and_then(|x| x.get("groups")).and_then(Value::as_array);
-        let mut groups: Vec<Value> = stored
-            .into_iter()
-            .flatten()
-            .map(|g| {
-                let mut g = g.clone();
-                let kept: Vec<Value> = g["members"]
-                    .as_array()
-                    .into_iter()
-                    .flatten()
-                    .filter(|m| m.as_str().is_some_and(|m| members.iter().any(|x| x == m)))
-                    .cloned()
-                    .collect();
-                g["members"] = Value::Array(kept);
-                g
-            })
-            .collect();
-        let loose: Vec<Value> = members
-            .iter()
-            .filter(|m| !groups.iter().any(|g| g["members"].as_array().is_some_and(|l| l.iter().any(|x| x == *m))))
-            .map(|m| Value::from(m.as_str()))
-            .collect();
-        if !loose.is_empty() {
-            match groups.first_mut() {
-                Some(g) => g["members"].as_array_mut().unwrap().extend(loose),
-                None => groups.push(json!({"id": "g1", "members": loose})),
-            }
-        }
-        groups
-    }
-
-    /// Its keys by app, as the client's key editor shows them (the old
-    /// board's [`cat::KeyApp`]s): WadBrowser's groups, VS Code's settings and
-    /// its extensions that sign in, each other app that keeps a key.
-    pub fn key_map(&self, ws: &str) -> Vec<KeyApp> {
-        let Some(w) = self.get(ws) else { return vec![] };
-        let apps = v5::apps_of(&w.doc());
-        let ids: Vec<String> = apps.iter().map(|e| s(e, "app").to_string()).collect();
-        let extras = |app: &str| -> Vec<Value> {
-            apps.iter().find(|e| s(e, "app") == app).and_then(|e| e["extras"].as_array().cloned()).unwrap_or_default()
-        };
-        let mut items = vec![];
-        if ids.iter().any(|a| a == "wadbrowser") {
-            items.push(BrowserItem { id: "browser".into(), name: "WadBrowser".into(), icon: cat::BROWSER_ICON.into() });
-            for x in extras("wadbrowser") {
-                let icon = match s(&x, "iconUrl") {
-                    "" => cat::site_icon(s(&x, "url")),
-                    i => i.to_string(),
-                };
-                items.push(BrowserItem { id: format!("web:{}", s(&x, "id")), name: s(&x, "name").into(), icon });
-            }
-        }
-        let extensions: Vec<String> = extras("vscode").iter().map(|x| s(x, "id").to_string()).collect();
-        let groups: Vec<KeyGroup> =
-            self.groups_of(ws).into_iter().filter_map(|g| serde_json::from_value(g).ok()).collect();
-        cat::key_map_of(&ids, items, &extensions, groups)
-    }
-
-    /// Every key the board's wadspaces keep, each once (`{id, name, kind}`).
-    pub fn keys(&self) -> Vec<Value> {
-        let mut out: Vec<Value> = vec![];
-        for w in &self.wadspaces {
-            let sec = w.customization.get("secrets");
-            let by = sec.and_then(|x| x.get("bySlot")).and_then(Value::as_object).into_iter().flat_map(|o| o.values());
-            let groups = sec.and_then(|x| x.get("groups")).and_then(Value::as_array).into_iter().flatten();
-            for k in by.chain(groups.filter_map(|g| g.get("key"))) {
-                if k.is_object() && !out.iter().any(|o| s(o, "id") == s(k, "id")) {
-                    out.push(k.clone());
-                }
-            }
-        }
-        out
-    }
-
-    /// Why key `id` can't be called `name` (another key is), or None.
-    pub fn key_clash(&self, id: &str, name: &str, known: &[Value]) -> Option<String> {
-        let name = name.trim();
-        if name.is_empty() {
-            return Some("Give it a name".into());
-        }
-        let used = self.keys();
-        known
-            .iter()
-            .chain(&used)
-            .find(|k| s(k, "id") != id && s(k, "name").eq_ignore_ascii_case(name))
-            .map(|o| format!("Another key is already called {}", s(o, "name")))
-    }
-
-    fn set_groups(&mut self, ws: &str, f: impl FnOnce(&mut Vec<Value>)) -> Result<(), String> {
-        let mut gs = self.groups_of(ws);
-        f(&mut gs);
-        self.get_mut(ws)?.secrets().insert("groups".into(), Value::Array(gs));
-        Ok(())
-    }
-
-    /// A new key `{id, name, kind}`: its name `name` unless that's taken
-    /// (then name-2…), its id from it, unique among the board's keys.
-    pub fn new_key(&self, name: &str, kind: &str) -> Value {
-        let mut names = vec![];
-        let mut ids = vec![];
-        for w in &self.wadspaces {
-            let sec = w.customization.get("secrets");
-            let refs = sec
-                .and_then(|x| x.get("bySlot"))
-                .and_then(Value::as_object)
-                .into_iter()
-                .flat_map(|o| o.values())
-                .chain(
-                    sec.and_then(|x| x.get("groups"))
-                        .and_then(Value::as_array)
-                        .into_iter()
-                        .flatten()
-                        .filter_map(|g| g.get("key")),
-                );
-            for k in refs {
-                names.push(s(k, "name").to_string());
-                ids.push(s(k, "id").to_string());
-            }
-        }
-        let name = free(name, &names);
-        let id = free(&spec::slugify(&name), &ids);
-        json!({"id": id, "name": name, "kind": kind})
     }
 
     // ------------------------------------------------------------ saving

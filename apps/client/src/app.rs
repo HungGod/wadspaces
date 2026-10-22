@@ -222,7 +222,7 @@ async fn builder_b(w: &gtk::ApplicationWindow, dir: &std::path::Path) {
     shot(w, &dir.join("builder-b-hud-dark.png"));
     w.remove_css_class("hud-room");
     carousel::show("m-surface");
-    state::toggle_pick(wad_board::b::Pick::Wadspace { ws: iq.into() });
+    state::toggle_pick(wad_board::b4::Pick::Wadspace { ws: iq.into() });
     for t in [wad_gtk::Theme::Dark, wad_gtk::Theme::Light] {
         wad_gtk::theme::set(&display, t);
         settle(900).await;
@@ -231,7 +231,7 @@ async fn builder_b(w: &gtk::ApplicationWindow, dir: &std::path::Path) {
     state::write(|s| s.picked.clear());
     // Recently deleted: a template and a project taken out of
     // IntelligenceQuest, Desk Lab deleted (its parts to drag back out).
-    use wad_board::b::{Op, Pick};
+    use wad_board::b4::{Op, Pick};
     let out =
         vec![Pick::Template { ws: iq.into(), id: "art".into() }, Pick::Project { ws: iq.into(), id: "iq".into() }];
     let _ = state::apply(Op::Delete { picks: out });

@@ -7,7 +7,7 @@
 
 use gtk::{glib, prelude::*};
 use serde_json::Value;
-use wad_board::b::{Kept, Op, Payload as Bp, Piece, Wadspace};
+use wad_board::b4::{Kept, Op, Payload as Bp, Piece, Wadspace};
 use wad_gtk::Icon;
 
 use super::buckets::{self, act, app_icon, app_name, projects_of, texture_name, texture_of};

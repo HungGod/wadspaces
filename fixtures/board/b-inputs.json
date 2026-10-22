@@ -1,3512 +1,2844 @@
 [
- {
-  "name": "a template pile copied into another wadspace",
-  "fn": "bRun",
-  "args": [
-   {
-    "board": {
-     "machines": [
+  {
+    "name": "a card copied into another, and into its own",
+    "fn": "bRun",
+    "args": [
       {
-       "id": "surface",
-       "name": "Surface Book 2"
-      },
-      {
-       "id": "laptop",
-       "name": "Laptop"
-      }
-     ],
-     "wadspaces": [
-      {
-       "version": 4,
-       "id": "iq",
-       "owner": "u1",
-       "sharedWith": [],
-       "machine": "surface",
-       "order": 0,
-       "templates": [
-        {
-         "id": "dev",
-         "name": "Dev",
-         "apps": [
-          {
-           "app": "wadbrowser",
-           "extras": [
+        "board": {
+          "machines": [
             {
-             "id": "github",
-             "name": "GitHub",
-             "url": "https://github.com"
-            }
-           ]
-          },
-          {
-           "app": "vscode",
-           "extras": [
+              "id": "surface",
+              "name": "Surface Book 2"
+            },
             {
-             "id": "anthropic.claude-code"
+              "id": "laptop",
+              "name": "Laptop"
             }
-           ]
-          }
-         ]
-        },
-        {
-         "id": "cpp",
-         "name": "C++",
-         "apps": [
-          {
-           "app": "vscode",
-           "extras": [
-            {
-             "id": "ms-vscode.cpptools"
-            }
-           ]
-          },
-          {
-           "app": "terminal",
-           "extras": [
-            {
-             "id": "cpp"
-            }
-           ]
-          }
-         ]
-        },
-        {
-         "id": "art",
-         "name": "Game art",
-         "apps": [
-          {
-           "app": "libresprite",
-           "extras": []
-          },
-          {
-           "app": "tiled",
-           "extras": []
-          }
-         ]
-        }
-       ],
-       "customization": {
-        "description": "A game.",
-        "wallpaper": {
-         "type": "texture",
-         "value": "stars"
-        },
-        "projects": [
-         {
-          "id": "project-iq",
-          "kind": "github",
-          "repo": "HungGod/IntelligenceQuest",
-          "as": "IntelligenceQuest"
-         }
-        ],
-        "secrets": {
-         "bySlot": {
-          "ext:anthropic.claude-code": {
-           "id": "iq-claude",
-           "name": "IQ-claude",
-           "kind": "vscode-claude-code"
-          }
-         },
-         "groups": [
-          {
-           "id": "g1",
-           "members": [
-            "browser",
-            "web:github"
-           ],
-           "key": {
-            "id": "hunggod",
-            "name": "hunggod",
-            "kind": "web"
-           }
-          }
-         ]
-        },
-        "name": "IntelligenceQuest"
-       },
-       "createdAt": "2026-10-20T00:00:00Z",
-       "updatedAt": "2026-10-20T00:00:00Z"
-      },
-      {
-       "version": 4,
-       "id": "cosmic",
-       "owner": "u1",
-       "sharedWith": [],
-       "machine": "surface",
-       "order": 0,
-       "templates": [
-        {
-         "id": "writing",
-         "name": "Writing",
-         "apps": [
-          {
-           "app": "obsidian",
-           "extras": []
-          },
-          {
-           "app": "wadbrowser",
-           "extras": []
-          }
-         ]
-        }
-       ],
-       "customization": {
-        "name": "Cosmic Bodybuilding"
-       },
-       "createdAt": "2026-10-20T00:00:00Z",
-       "updatedAt": "2026-10-20T00:00:00Z"
-      },
-      {
-       "version": 4,
-       "id": "vanua",
-       "owner": "u1",
-       "sharedWith": [],
-       "machine": "laptop",
-       "order": 0,
-       "templates": [
-        {
-         "id": "dev",
-         "name": "Dev",
-         "apps": [
-          {
-           "app": "vscode",
-           "extras": []
-          }
-         ]
-        }
-       ],
-       "customization": {
-        "name": "VanuaAcademy"
-       },
-       "createdAt": "2026-10-20T00:00:00Z",
-       "updatedAt": "2026-10-20T00:00:00Z"
-      }
-     ],
-     "now": "2026-10-21T10:00:00Z"
-    },
-    "ops": [
-     {
-      "op": "drop",
-      "payload": {
-       "kind": "templates",
-       "ws": "iq",
-       "ids": [
-        "cpp",
-        "art"
-       ]
-      },
-      "into": "cosmic"
-     },
-     {
-      "op": "drop",
-      "payload": {
-       "kind": "templates",
-       "ws": "iq",
-       "ids": [
-        "dev"
-       ]
-      },
-      "into": "vanua",
-      "where": {
-       "at": 0
-      }
-     }
-    ],
-    "now": "2026-10-21T11:00:00Z"
-   }
-  ]
- },
- {
-  "name": "a template moved within its wadspace",
-  "fn": "bRun",
-  "args": [
-   {
-    "board": {
-     "machines": [
-      {
-       "id": "surface",
-       "name": "Surface Book 2"
-      },
-      {
-       "id": "laptop",
-       "name": "Laptop"
-      }
-     ],
-     "wadspaces": [
-      {
-       "version": 4,
-       "id": "iq",
-       "owner": "u1",
-       "sharedWith": [],
-       "machine": "surface",
-       "order": 0,
-       "templates": [
-        {
-         "id": "dev",
-         "name": "Dev",
-         "apps": [
-          {
-           "app": "wadbrowser",
-           "extras": [
-            {
-             "id": "github",
-             "name": "GitHub",
-             "url": "https://github.com"
-            }
-           ]
-          },
-          {
-           "app": "vscode",
-           "extras": [
-            {
-             "id": "anthropic.claude-code"
-            }
-           ]
-          }
-         ]
-        },
-        {
-         "id": "cpp",
-         "name": "C++",
-         "apps": [
-          {
-           "app": "vscode",
-           "extras": [
-            {
-             "id": "ms-vscode.cpptools"
-            }
-           ]
-          },
-          {
-           "app": "terminal",
-           "extras": [
-            {
-             "id": "cpp"
-            }
-           ]
-          }
-         ]
-        },
-        {
-         "id": "art",
-         "name": "Game art",
-         "apps": [
-          {
-           "app": "libresprite",
-           "extras": []
-          },
-          {
-           "app": "tiled",
-           "extras": []
-          }
-         ]
-        }
-       ],
-       "customization": {
-        "description": "A game.",
-        "wallpaper": {
-         "type": "texture",
-         "value": "stars"
-        },
-        "projects": [
-         {
-          "id": "project-iq",
-          "kind": "github",
-          "repo": "HungGod/IntelligenceQuest",
-          "as": "IntelligenceQuest"
-         }
-        ],
-        "secrets": {
-         "bySlot": {
-          "ext:anthropic.claude-code": {
-           "id": "iq-claude",
-           "name": "IQ-claude",
-           "kind": "vscode-claude-code"
-          }
-         },
-         "groups": [
-          {
-           "id": "g1",
-           "members": [
-            "browser",
-            "web:github"
-           ],
-           "key": {
-            "id": "hunggod",
-            "name": "hunggod",
-            "kind": "web"
-           }
-          }
-         ]
-        },
-        "name": "IntelligenceQuest"
-       },
-       "createdAt": "2026-10-20T00:00:00Z",
-       "updatedAt": "2026-10-20T00:00:00Z"
-      },
-      {
-       "version": 4,
-       "id": "cosmic",
-       "owner": "u1",
-       "sharedWith": [],
-       "machine": "surface",
-       "order": 0,
-       "templates": [
-        {
-         "id": "writing",
-         "name": "Writing",
-         "apps": [
-          {
-           "app": "obsidian",
-           "extras": []
-          },
-          {
-           "app": "wadbrowser",
-           "extras": []
-          }
-         ]
-        }
-       ],
-       "customization": {
-        "name": "Cosmic Bodybuilding"
-       },
-       "createdAt": "2026-10-20T00:00:00Z",
-       "updatedAt": "2026-10-20T00:00:00Z"
-      },
-      {
-       "version": 4,
-       "id": "vanua",
-       "owner": "u1",
-       "sharedWith": [],
-       "machine": "laptop",
-       "order": 0,
-       "templates": [
-        {
-         "id": "dev",
-         "name": "Dev",
-         "apps": [
-          {
-           "app": "vscode",
-           "extras": []
-          }
-         ]
-        }
-       ],
-       "customization": {
-        "name": "VanuaAcademy"
-       },
-       "createdAt": "2026-10-20T00:00:00Z",
-       "updatedAt": "2026-10-20T00:00:00Z"
-      }
-     ],
-     "now": "2026-10-21T10:00:00Z"
-    },
-    "ops": [
-     {
-      "op": "drop",
-      "payload": {
-       "kind": "templates",
-       "ws": "iq",
-       "ids": [
-        "art"
-       ]
-      },
-      "into": "iq",
-      "where": {
-       "at": 0
-      }
-     },
-     {
-      "op": "drop",
-      "payload": {
-       "kind": "templates",
-       "ws": "iq",
-       "ids": [
-        "dev"
-       ]
-      },
-      "into": "iq",
-      "where": {
-       "at": 3
-      }
-     }
-    ],
-    "now": "2026-10-21T11:00:00Z"
-   }
-  ]
- },
- {
-  "name": "apps and extras onto templates and into new ones",
-  "fn": "bRun",
-  "args": [
-   {
-    "board": {
-     "machines": [
-      {
-       "id": "surface",
-       "name": "Surface Book 2"
-      },
-      {
-       "id": "laptop",
-       "name": "Laptop"
-      }
-     ],
-     "wadspaces": [
-      {
-       "version": 4,
-       "id": "iq",
-       "owner": "u1",
-       "sharedWith": [],
-       "machine": "surface",
-       "order": 0,
-       "templates": [
-        {
-         "id": "dev",
-         "name": "Dev",
-         "apps": [
-          {
-           "app": "wadbrowser",
-           "extras": [
-            {
-             "id": "github",
-             "name": "GitHub",
-             "url": "https://github.com"
-            }
-           ]
-          },
-          {
-           "app": "vscode",
-           "extras": [
-            {
-             "id": "anthropic.claude-code"
-            }
-           ]
-          }
-         ]
-        },
-        {
-         "id": "cpp",
-         "name": "C++",
-         "apps": [
-          {
-           "app": "vscode",
-           "extras": [
-            {
-             "id": "ms-vscode.cpptools"
-            }
-           ]
-          },
-          {
-           "app": "terminal",
-           "extras": [
-            {
-             "id": "cpp"
-            }
-           ]
-          }
-         ]
-        },
-        {
-         "id": "art",
-         "name": "Game art",
-         "apps": [
-          {
-           "app": "libresprite",
-           "extras": []
-          },
-          {
-           "app": "tiled",
-           "extras": []
-          }
-         ]
-        }
-       ],
-       "customization": {
-        "description": "A game.",
-        "wallpaper": {
-         "type": "texture",
-         "value": "stars"
-        },
-        "projects": [
-         {
-          "id": "project-iq",
-          "kind": "github",
-          "repo": "HungGod/IntelligenceQuest",
-          "as": "IntelligenceQuest"
-         }
-        ],
-        "secrets": {
-         "bySlot": {
-          "ext:anthropic.claude-code": {
-           "id": "iq-claude",
-           "name": "IQ-claude",
-           "kind": "vscode-claude-code"
-          }
-         },
-         "groups": [
-          {
-           "id": "g1",
-           "members": [
-            "browser",
-            "web:github"
-           ],
-           "key": {
-            "id": "hunggod",
-            "name": "hunggod",
-            "kind": "web"
-           }
-          }
-         ]
-        },
-        "name": "IntelligenceQuest"
-       },
-       "createdAt": "2026-10-20T00:00:00Z",
-       "updatedAt": "2026-10-20T00:00:00Z"
-      },
-      {
-       "version": 4,
-       "id": "cosmic",
-       "owner": "u1",
-       "sharedWith": [],
-       "machine": "surface",
-       "order": 0,
-       "templates": [
-        {
-         "id": "writing",
-         "name": "Writing",
-         "apps": [
-          {
-           "app": "obsidian",
-           "extras": []
-          },
-          {
-           "app": "wadbrowser",
-           "extras": []
-          }
-         ]
-        }
-       ],
-       "customization": {
-        "name": "Cosmic Bodybuilding"
-       },
-       "createdAt": "2026-10-20T00:00:00Z",
-       "updatedAt": "2026-10-20T00:00:00Z"
-      },
-      {
-       "version": 4,
-       "id": "vanua",
-       "owner": "u1",
-       "sharedWith": [],
-       "machine": "laptop",
-       "order": 0,
-       "templates": [
-        {
-         "id": "dev",
-         "name": "Dev",
-         "apps": [
-          {
-           "app": "vscode",
-           "extras": []
-          }
-         ]
-        }
-       ],
-       "customization": {
-        "name": "VanuaAcademy"
-       },
-       "createdAt": "2026-10-20T00:00:00Z",
-       "updatedAt": "2026-10-20T00:00:00Z"
-      }
-     ],
-     "now": "2026-10-21T10:00:00Z"
-    },
-    "ops": [
-     {
-      "op": "drop",
-      "payload": {
-       "kind": "catalogExtra",
-       "app": "terminal",
-       "extra": {
-        "id": "rust"
-       }
-      },
-      "into": "iq",
-      "where": {
-       "template": "cpp"
-      }
-     },
-     {
-      "op": "drop",
-      "payload": {
-       "kind": "catalogExtra",
-       "app": "vscode",
-       "extra": {
-        "id": "rust-lang.rust-analyzer"
-       }
-      },
-      "into": "iq"
-     },
-     {
-      "op": "drop",
-      "payload": {
-       "kind": "catalogApp",
-       "app": "audacity"
-      },
-      "into": "iq",
-      "where": {
-       "newTemplate": true
-      }
-     },
-     {
-      "op": "drop",
-      "payload": {
-       "kind": "app",
-       "ws": "iq",
-       "template": "art",
-       "app": "tiled"
-      },
-      "into": "iq",
-      "where": {
-       "template": "audacity"
-      }
-     },
-     {
-      "op": "drop",
-      "payload": {
-       "kind": "app",
-       "ws": "iq",
-       "template": "audacity",
-       "app": "tiled"
-      },
-      "into": "cosmic",
-      "where": {
-       "template": "writing"
-      }
-     },
-     {
-      "op": "drop",
-      "payload": {
-       "kind": "extra",
-       "ws": "iq",
-       "template": "dev",
-       "app": "wadbrowser",
-       "id": "github"
-      },
-      "into": "cosmic"
-     }
-    ],
-    "now": "2026-10-21T11:00:00Z"
-   }
-  ]
- },
- {
-  "name": "a customizations pile on the open board, then just the bucket",
-  "fn": "bRun",
-  "args": [
-   {
-    "board": {
-     "machines": [
-      {
-       "id": "surface",
-       "name": "Surface Book 2"
-      },
-      {
-       "id": "laptop",
-       "name": "Laptop"
-      }
-     ],
-     "wadspaces": [
-      {
-       "version": 4,
-       "id": "iq",
-       "owner": "u1",
-       "sharedWith": [],
-       "machine": "surface",
-       "order": 0,
-       "templates": [
-        {
-         "id": "dev",
-         "name": "Dev",
-         "apps": [
-          {
-           "app": "wadbrowser",
-           "extras": [
-            {
-             "id": "github",
-             "name": "GitHub",
-             "url": "https://github.com"
-            }
-           ]
-          },
-          {
-           "app": "vscode",
-           "extras": [
-            {
-             "id": "anthropic.claude-code"
-            }
-           ]
-          }
-         ]
-        },
-        {
-         "id": "cpp",
-         "name": "C++",
-         "apps": [
-          {
-           "app": "vscode",
-           "extras": [
-            {
-             "id": "ms-vscode.cpptools"
-            }
-           ]
-          },
-          {
-           "app": "terminal",
-           "extras": [
-            {
-             "id": "cpp"
-            }
-           ]
-          }
-         ]
-        },
-        {
-         "id": "art",
-         "name": "Game art",
-         "apps": [
-          {
-           "app": "libresprite",
-           "extras": []
-          },
-          {
-           "app": "tiled",
-           "extras": []
-          }
-         ]
-        }
-       ],
-       "customization": {
-        "description": "A game.",
-        "wallpaper": {
-         "type": "texture",
-         "value": "stars"
-        },
-        "projects": [
-         {
-          "id": "project-iq",
-          "kind": "github",
-          "repo": "HungGod/IntelligenceQuest",
-          "as": "IntelligenceQuest"
-         }
-        ],
-        "secrets": {
-         "bySlot": {
-          "ext:anthropic.claude-code": {
-           "id": "iq-claude",
-           "name": "IQ-claude",
-           "kind": "vscode-claude-code"
-          }
-         },
-         "groups": [
-          {
-           "id": "g1",
-           "members": [
-            "browser",
-            "web:github"
-           ],
-           "key": {
-            "id": "hunggod",
-            "name": "hunggod",
-            "kind": "web"
-           }
-          }
-         ]
-        },
-        "name": "IntelligenceQuest"
-       },
-       "createdAt": "2026-10-20T00:00:00Z",
-       "updatedAt": "2026-10-20T00:00:00Z"
-      },
-      {
-       "version": 4,
-       "id": "cosmic",
-       "owner": "u1",
-       "sharedWith": [],
-       "machine": "surface",
-       "order": 0,
-       "templates": [
-        {
-         "id": "writing",
-         "name": "Writing",
-         "apps": [
-          {
-           "app": "obsidian",
-           "extras": []
-          },
-          {
-           "app": "wadbrowser",
-           "extras": []
-          }
-         ]
-        }
-       ],
-       "customization": {
-        "name": "Cosmic Bodybuilding"
-       },
-       "createdAt": "2026-10-20T00:00:00Z",
-       "updatedAt": "2026-10-20T00:00:00Z"
-      },
-      {
-       "version": 4,
-       "id": "vanua",
-       "owner": "u1",
-       "sharedWith": [],
-       "machine": "laptop",
-       "order": 0,
-       "templates": [
-        {
-         "id": "dev",
-         "name": "Dev",
-         "apps": [
-          {
-           "app": "vscode",
-           "extras": []
-          }
-         ]
-        }
-       ],
-       "customization": {
-        "name": "VanuaAcademy"
-       },
-       "createdAt": "2026-10-20T00:00:00Z",
-       "updatedAt": "2026-10-20T00:00:00Z"
-      }
-     ],
-     "now": "2026-10-21T10:00:00Z"
-    },
-    "ops": [
-     {
-      "op": "fresh",
-      "payload": {
-       "kind": "bucket",
-       "ws": "iq",
-       "which": "customs",
-       "pile": true
-      },
-      "machine": "surface"
-     },
-     {
-      "op": "fresh",
-      "payload": {
-       "kind": "bucket",
-       "ws": "iq",
-       "which": "customs"
-      },
-      "machine": "surface",
-      "before": "cosmic"
-     },
-     {
-      "op": "fresh",
-      "payload": {
-       "kind": "catalogApp",
-       "app": "steam"
-      },
-      "machine": "laptop"
-     }
-    ],
-    "now": "2026-10-21T11:00:00Z"
-   }
-  ]
- },
- {
-  "name": "copied to another machine, then undone, then again",
-  "fn": "bRun",
-  "args": [
-   {
-    "board": {
-     "machines": [
-      {
-       "id": "surface",
-       "name": "Surface Book 2"
-      },
-      {
-       "id": "laptop",
-       "name": "Laptop"
-      }
-     ],
-     "wadspaces": [
-      {
-       "version": 4,
-       "id": "iq",
-       "owner": "u1",
-       "sharedWith": [],
-       "machine": "surface",
-       "order": 0,
-       "templates": [
-        {
-         "id": "dev",
-         "name": "Dev",
-         "apps": [
-          {
-           "app": "wadbrowser",
-           "extras": [
-            {
-             "id": "github",
-             "name": "GitHub",
-             "url": "https://github.com"
-            }
-           ]
-          },
-          {
-           "app": "vscode",
-           "extras": [
-            {
-             "id": "anthropic.claude-code"
-            }
-           ]
-          }
-         ]
-        },
-        {
-         "id": "cpp",
-         "name": "C++",
-         "apps": [
-          {
-           "app": "vscode",
-           "extras": [
-            {
-             "id": "ms-vscode.cpptools"
-            }
-           ]
-          },
-          {
-           "app": "terminal",
-           "extras": [
-            {
-             "id": "cpp"
-            }
-           ]
-          }
-         ]
-        },
-        {
-         "id": "art",
-         "name": "Game art",
-         "apps": [
-          {
-           "app": "libresprite",
-           "extras": []
-          },
-          {
-           "app": "tiled",
-           "extras": []
-          }
-         ]
-        }
-       ],
-       "customization": {
-        "description": "A game.",
-        "wallpaper": {
-         "type": "texture",
-         "value": "stars"
-        },
-        "projects": [
-         {
-          "id": "project-iq",
-          "kind": "github",
-          "repo": "HungGod/IntelligenceQuest",
-          "as": "IntelligenceQuest"
-         }
-        ],
-        "secrets": {
-         "bySlot": {
-          "ext:anthropic.claude-code": {
-           "id": "iq-claude",
-           "name": "IQ-claude",
-           "kind": "vscode-claude-code"
-          }
-         },
-         "groups": [
-          {
-           "id": "g1",
-           "members": [
-            "browser",
-            "web:github"
-           ],
-           "key": {
-            "id": "hunggod",
-            "name": "hunggod",
-            "kind": "web"
-           }
-          }
-         ]
-        },
-        "name": "IntelligenceQuest"
-       },
-       "createdAt": "2026-10-20T00:00:00Z",
-       "updatedAt": "2026-10-20T00:00:00Z"
-      },
-      {
-       "version": 4,
-       "id": "cosmic",
-       "owner": "u1",
-       "sharedWith": [],
-       "machine": "surface",
-       "order": 0,
-       "templates": [
-        {
-         "id": "writing",
-         "name": "Writing",
-         "apps": [
-          {
-           "app": "obsidian",
-           "extras": []
-          },
-          {
-           "app": "wadbrowser",
-           "extras": []
-          }
-         ]
-        }
-       ],
-       "customization": {
-        "name": "Cosmic Bodybuilding"
-       },
-       "createdAt": "2026-10-20T00:00:00Z",
-       "updatedAt": "2026-10-20T00:00:00Z"
-      },
-      {
-       "version": 4,
-       "id": "vanua",
-       "owner": "u1",
-       "sharedWith": [],
-       "machine": "laptop",
-       "order": 0,
-       "templates": [
-        {
-         "id": "dev",
-         "name": "Dev",
-         "apps": [
-          {
-           "app": "vscode",
-           "extras": []
-          }
-         ]
-        }
-       ],
-       "customization": {
-        "name": "VanuaAcademy"
-       },
-       "createdAt": "2026-10-20T00:00:00Z",
-       "updatedAt": "2026-10-20T00:00:00Z"
-      }
-     ],
-     "now": "2026-10-21T10:00:00Z"
-    },
-    "ops": [
-     {
-      "op": "copyTo",
-      "ids": [
-       "iq",
-       "cosmic"
-      ],
-      "machine": "laptop"
-     },
-     {
-      "op": "undo"
-     },
-     {
-      "op": "copyTo",
-      "ids": [
-       "iq"
-      ],
-      "machine": "laptop"
-     }
-    ],
-    "now": "2026-10-21T11:00:00Z"
-   }
-  ]
- },
- {
-  "name": "deleted and restored",
-  "fn": "bRun",
-  "args": [
-   {
-    "board": {
-     "machines": [
-      {
-       "id": "surface",
-       "name": "Surface Book 2"
-      },
-      {
-       "id": "laptop",
-       "name": "Laptop"
-      }
-     ],
-     "wadspaces": [
-      {
-       "version": 4,
-       "id": "iq",
-       "owner": "u1",
-       "sharedWith": [],
-       "machine": "surface",
-       "order": 0,
-       "templates": [
-        {
-         "id": "dev",
-         "name": "Dev",
-         "apps": [
-          {
-           "app": "wadbrowser",
-           "extras": [
-            {
-             "id": "github",
-             "name": "GitHub",
-             "url": "https://github.com"
-            }
-           ]
-          },
-          {
-           "app": "vscode",
-           "extras": [
-            {
-             "id": "anthropic.claude-code"
-            }
-           ]
-          }
-         ]
-        },
-        {
-         "id": "cpp",
-         "name": "C++",
-         "apps": [
-          {
-           "app": "vscode",
-           "extras": [
-            {
-             "id": "ms-vscode.cpptools"
-            }
-           ]
-          },
-          {
-           "app": "terminal",
-           "extras": [
-            {
-             "id": "cpp"
-            }
-           ]
-          }
-         ]
-        },
-        {
-         "id": "art",
-         "name": "Game art",
-         "apps": [
-          {
-           "app": "libresprite",
-           "extras": []
-          },
-          {
-           "app": "tiled",
-           "extras": []
-          }
-         ]
-        }
-       ],
-       "customization": {
-        "description": "A game.",
-        "wallpaper": {
-         "type": "texture",
-         "value": "stars"
-        },
-        "projects": [
-         {
-          "id": "project-iq",
-          "kind": "github",
-          "repo": "HungGod/IntelligenceQuest",
-          "as": "IntelligenceQuest"
-         }
-        ],
-        "secrets": {
-         "bySlot": {
-          "ext:anthropic.claude-code": {
-           "id": "iq-claude",
-           "name": "IQ-claude",
-           "kind": "vscode-claude-code"
-          }
-         },
-         "groups": [
-          {
-           "id": "g1",
-           "members": [
-            "browser",
-            "web:github"
-           ],
-           "key": {
-            "id": "hunggod",
-            "name": "hunggod",
-            "kind": "web"
-           }
-          }
-         ]
-        },
-        "name": "IntelligenceQuest"
-       },
-       "createdAt": "2026-10-20T00:00:00Z",
-       "updatedAt": "2026-10-20T00:00:00Z"
-      },
-      {
-       "version": 4,
-       "id": "cosmic",
-       "owner": "u1",
-       "sharedWith": [],
-       "machine": "surface",
-       "order": 0,
-       "templates": [
-        {
-         "id": "writing",
-         "name": "Writing",
-         "apps": [
-          {
-           "app": "obsidian",
-           "extras": []
-          },
-          {
-           "app": "wadbrowser",
-           "extras": []
-          }
-         ]
-        }
-       ],
-       "customization": {
-        "name": "Cosmic Bodybuilding"
-       },
-       "createdAt": "2026-10-20T00:00:00Z",
-       "updatedAt": "2026-10-20T00:00:00Z"
-      },
-      {
-       "version": 4,
-       "id": "vanua",
-       "owner": "u1",
-       "sharedWith": [],
-       "machine": "laptop",
-       "order": 0,
-       "templates": [
-        {
-         "id": "dev",
-         "name": "Dev",
-         "apps": [
-          {
-           "app": "vscode",
-           "extras": []
-          }
-         ]
-        }
-       ],
-       "customization": {
-        "name": "VanuaAcademy"
-       },
-       "createdAt": "2026-10-20T00:00:00Z",
-       "updatedAt": "2026-10-20T00:00:00Z"
-      }
-     ],
-     "now": "2026-10-21T10:00:00Z"
-    },
-    "ops": [
-     {
-      "op": "delete",
-      "picks": [
-       {
-        "kind": "wadspace",
-        "ws": "cosmic"
-       },
-       {
-        "kind": "template",
-        "ws": "iq",
-        "id": "art"
-       },
-       {
-        "kind": "project",
-        "ws": "iq",
-        "id": "project-iq"
-       },
-       {
-        "kind": "background",
-        "ws": "iq"
-       }
-      ]
-     },
-     {
-      "op": "restore",
-      "ws": "cosmic"
-     },
-     {
-      "op": "delete",
-      "picks": [
-       {
-        "kind": "wadspace",
-        "ws": "vanua"
-       }
-      ]
-     }
-    ],
-    "now": "2026-10-21T11:00:00Z"
-   }
-  ]
- },
- {
-  "name": "keys and WadBrowser's groups",
-  "fn": "bRun",
-  "args": [
-   {
-    "board": {
-     "machines": [
-      {
-       "id": "surface",
-       "name": "Surface Book 2"
-      },
-      {
-       "id": "laptop",
-       "name": "Laptop"
-      }
-     ],
-     "wadspaces": [
-      {
-       "version": 4,
-       "id": "iq",
-       "owner": "u1",
-       "sharedWith": [],
-       "machine": "surface",
-       "order": 0,
-       "templates": [
-        {
-         "id": "dev",
-         "name": "Dev",
-         "apps": [
-          {
-           "app": "wadbrowser",
-           "extras": [
-            {
-             "id": "github",
-             "name": "GitHub",
-             "url": "https://github.com"
-            }
-           ]
-          },
-          {
-           "app": "vscode",
-           "extras": [
-            {
-             "id": "anthropic.claude-code"
-            }
-           ]
-          }
-         ]
-        },
-        {
-         "id": "cpp",
-         "name": "C++",
-         "apps": [
-          {
-           "app": "vscode",
-           "extras": [
-            {
-             "id": "ms-vscode.cpptools"
-            }
-           ]
-          },
-          {
-           "app": "terminal",
-           "extras": [
-            {
-             "id": "cpp"
-            }
-           ]
-          }
-         ]
-        },
-        {
-         "id": "art",
-         "name": "Game art",
-         "apps": [
-          {
-           "app": "libresprite",
-           "extras": []
-          },
-          {
-           "app": "tiled",
-           "extras": []
-          }
-         ]
-        }
-       ],
-       "customization": {
-        "description": "A game.",
-        "wallpaper": {
-         "type": "texture",
-         "value": "stars"
-        },
-        "projects": [
-         {
-          "id": "project-iq",
-          "kind": "github",
-          "repo": "HungGod/IntelligenceQuest",
-          "as": "IntelligenceQuest"
-         }
-        ],
-        "secrets": {
-         "bySlot": {
-          "ext:anthropic.claude-code": {
-           "id": "iq-claude",
-           "name": "IQ-claude",
-           "kind": "vscode-claude-code"
-          }
-         },
-         "groups": [
-          {
-           "id": "g1",
-           "members": [
-            "browser",
-            "web:github"
-           ],
-           "key": {
-            "id": "hunggod",
-            "name": "hunggod",
-            "kind": "web"
-           }
-          }
-         ]
-        },
-        "name": "IntelligenceQuest"
-       },
-       "createdAt": "2026-10-20T00:00:00Z",
-       "updatedAt": "2026-10-20T00:00:00Z"
-      },
-      {
-       "version": 4,
-       "id": "cosmic",
-       "owner": "u1",
-       "sharedWith": [],
-       "machine": "surface",
-       "order": 0,
-       "templates": [
-        {
-         "id": "writing",
-         "name": "Writing",
-         "apps": [
-          {
-           "app": "obsidian",
-           "extras": []
-          },
-          {
-           "app": "wadbrowser",
-           "extras": []
-          }
-         ]
-        }
-       ],
-       "customization": {
-        "name": "Cosmic Bodybuilding"
-       },
-       "createdAt": "2026-10-20T00:00:00Z",
-       "updatedAt": "2026-10-20T00:00:00Z"
-      },
-      {
-       "version": 4,
-       "id": "vanua",
-       "owner": "u1",
-       "sharedWith": [],
-       "machine": "laptop",
-       "order": 0,
-       "templates": [
-        {
-         "id": "dev",
-         "name": "Dev",
-         "apps": [
-          {
-           "app": "vscode",
-           "extras": []
-          }
-         ]
-        }
-       ],
-       "customization": {
-        "name": "VanuaAcademy"
-       },
-       "createdAt": "2026-10-20T00:00:00Z",
-       "updatedAt": "2026-10-20T00:00:00Z"
-      }
-     ],
-     "now": "2026-10-21T10:00:00Z"
-    },
-    "ops": [
-     {
-      "op": "moveMember",
-      "ws": "iq",
-      "member": "web:github",
-      "to": null
-     },
-     {
-      "op": "moveMember",
-      "ws": "iq",
-      "member": "web:github",
-      "to": "g1"
-     },
-     {
-      "op": "newGroup",
-      "ws": "iq"
-     },
-     {
-      "op": "setGroupKey",
-      "ws": "iq",
-      "group": "g2",
-      "key": {
-       "id": "work",
-       "name": "Work",
-       "kind": "web"
-      }
-     },
-     {
-      "op": "setKey",
-      "ws": "cosmic",
-      "slot": "app:obsidian",
-      "key": {
-       "id": "hunggod",
-       "name": "hunggod",
-       "kind": "obsidian"
-      }
-     },
-     {
-      "op": "renameKey",
-      "id": "hunggod",
-      "name": "Doug"
-     },
-     {
-      "op": "setKey",
-      "ws": "iq",
-      "slot": "ext:anthropic.claude-code",
-      "key": null
-     },
-     {
-      "op": "removeGroup",
-      "ws": "iq",
-      "group": "g1"
-     }
-    ],
-    "now": "2026-10-21T11:00:00Z"
-   }
-  ]
- },
- {
-  "name": "names, backgrounds, projects and WadBrowser's mode",
-  "fn": "bRun",
-  "args": [
-   {
-    "board": {
-     "machines": [
-      {
-       "id": "surface",
-       "name": "Surface Book 2"
-      },
-      {
-       "id": "laptop",
-       "name": "Laptop"
-      }
-     ],
-     "wadspaces": [
-      {
-       "version": 4,
-       "id": "iq",
-       "owner": "u1",
-       "sharedWith": [],
-       "machine": "surface",
-       "order": 0,
-       "templates": [
-        {
-         "id": "dev",
-         "name": "Dev",
-         "apps": [
-          {
-           "app": "wadbrowser",
-           "extras": [
-            {
-             "id": "github",
-             "name": "GitHub",
-             "url": "https://github.com"
-            }
-           ]
-          },
-          {
-           "app": "vscode",
-           "extras": [
-            {
-             "id": "anthropic.claude-code"
-            }
-           ]
-          }
-         ]
-        },
-        {
-         "id": "cpp",
-         "name": "C++",
-         "apps": [
-          {
-           "app": "vscode",
-           "extras": [
-            {
-             "id": "ms-vscode.cpptools"
-            }
-           ]
-          },
-          {
-           "app": "terminal",
-           "extras": [
-            {
-             "id": "cpp"
-            }
-           ]
-          }
-         ]
-        },
-        {
-         "id": "art",
-         "name": "Game art",
-         "apps": [
-          {
-           "app": "libresprite",
-           "extras": []
-          },
-          {
-           "app": "tiled",
-           "extras": []
-          }
-         ]
-        }
-       ],
-       "customization": {
-        "description": "A game.",
-        "wallpaper": {
-         "type": "texture",
-         "value": "stars"
-        },
-        "projects": [
-         {
-          "id": "project-iq",
-          "kind": "github",
-          "repo": "HungGod/IntelligenceQuest",
-          "as": "IntelligenceQuest"
-         }
-        ],
-        "secrets": {
-         "bySlot": {
-          "ext:anthropic.claude-code": {
-           "id": "iq-claude",
-           "name": "IQ-claude",
-           "kind": "vscode-claude-code"
-          }
-         },
-         "groups": [
-          {
-           "id": "g1",
-           "members": [
-            "browser",
-            "web:github"
-           ],
-           "key": {
-            "id": "hunggod",
-            "name": "hunggod",
-            "kind": "web"
-           }
-          }
-         ]
-        },
-        "name": "IntelligenceQuest"
-       },
-       "createdAt": "2026-10-20T00:00:00Z",
-       "updatedAt": "2026-10-20T00:00:00Z"
-      },
-      {
-       "version": 4,
-       "id": "cosmic",
-       "owner": "u1",
-       "sharedWith": [],
-       "machine": "surface",
-       "order": 0,
-       "templates": [
-        {
-         "id": "writing",
-         "name": "Writing",
-         "apps": [
-          {
-           "app": "obsidian",
-           "extras": []
-          },
-          {
-           "app": "wadbrowser",
-           "extras": []
-          }
-         ]
-        }
-       ],
-       "customization": {
-        "name": "Cosmic Bodybuilding"
-       },
-       "createdAt": "2026-10-20T00:00:00Z",
-       "updatedAt": "2026-10-20T00:00:00Z"
-      },
-      {
-       "version": 4,
-       "id": "vanua",
-       "owner": "u1",
-       "sharedWith": [],
-       "machine": "laptop",
-       "order": 0,
-       "templates": [
-        {
-         "id": "dev",
-         "name": "Dev",
-         "apps": [
-          {
-           "app": "vscode",
-           "extras": []
-          }
-         ]
-        }
-       ],
-       "customization": {
-        "name": "VanuaAcademy"
-       },
-       "createdAt": "2026-10-20T00:00:00Z",
-       "updatedAt": "2026-10-20T00:00:00Z"
-      }
-     ],
-     "now": "2026-10-21T10:00:00Z"
-    },
-    "ops": [
-     {
-      "op": "rename",
-      "ws": "cosmic",
-      "name": "Cosmic"
-     },
-     {
-      "op": "describe",
-      "ws": "cosmic",
-      "description": "The comic."
-     },
-     {
-      "op": "renameTemplate",
-      "ws": "iq",
-      "template": "cpp",
-      "name": "Rust"
-     },
-     {
-      "op": "removeExtra",
-      "ws": "iq",
-      "template": "cpp",
-      "app": "vscode",
-      "id": "ms-vscode.cpptools"
-     },
-     {
-      "op": "removeApp",
-      "ws": "iq",
-      "template": "art",
-      "app": "tiled"
-     },
-     {
-      "op": "setMode",
-      "ws": "iq",
-      "mode": "focus"
-     },
-     {
-      "op": "setBackground",
-      "ws": "cosmic",
-      "texture": "halftone"
-     },
-     {
-      "op": "setBackground",
-      "ws": "iq",
-      "texture": null
-     },
-     {
-      "op": "toggleProject",
-      "ws": "cosmic",
-      "project": {
-       "id": "project-cb",
-       "kind": "github",
-       "repo": "HungGod/Cosmic",
-       "as": "Cosmic"
-      }
-     },
-     {
-      "op": "toggleProject",
-      "ws": "iq",
-      "project": {
-       "id": "project-iq"
-      }
-     }
-    ],
-    "now": "2026-10-21T11:00:00Z"
-   }
-  ]
- },
- {
-  "name": "saving: what changed, each row's order",
-  "fn": "bRun",
-  "args": [
-   {
-    "board": {
-     "machines": [
-      {
-       "id": "surface",
-       "name": "Surface Book 2"
-      },
-      {
-       "id": "laptop",
-       "name": "Laptop"
-      }
-     ],
-     "wadspaces": [
-      {
-       "version": 4,
-       "id": "iq",
-       "owner": "u1",
-       "sharedWith": [],
-       "machine": "surface",
-       "order": 0,
-       "templates": [
-        {
-         "id": "dev",
-         "name": "Dev",
-         "apps": [
-          {
-           "app": "wadbrowser",
-           "extras": [
-            {
-             "id": "github",
-             "name": "GitHub",
-             "url": "https://github.com"
-            }
-           ]
-          },
-          {
-           "app": "vscode",
-           "extras": [
-            {
-             "id": "anthropic.claude-code"
-            }
-           ]
-          }
-         ]
-        },
-        {
-         "id": "cpp",
-         "name": "C++",
-         "apps": [
-          {
-           "app": "vscode",
-           "extras": [
-            {
-             "id": "ms-vscode.cpptools"
-            }
-           ]
-          },
-          {
-           "app": "terminal",
-           "extras": [
-            {
-             "id": "cpp"
-            }
-           ]
-          }
-         ]
-        },
-        {
-         "id": "art",
-         "name": "Game art",
-         "apps": [
-          {
-           "app": "libresprite",
-           "extras": []
-          },
-          {
-           "app": "tiled",
-           "extras": []
-          }
-         ]
-        }
-       ],
-       "customization": {
-        "description": "A game.",
-        "wallpaper": {
-         "type": "texture",
-         "value": "stars"
-        },
-        "projects": [
-         {
-          "id": "project-iq",
-          "kind": "github",
-          "repo": "HungGod/IntelligenceQuest",
-          "as": "IntelligenceQuest"
-         }
-        ],
-        "secrets": {
-         "bySlot": {
-          "ext:anthropic.claude-code": {
-           "id": "iq-claude",
-           "name": "IQ-claude",
-           "kind": "vscode-claude-code"
-          }
-         },
-         "groups": [
-          {
-           "id": "g1",
-           "members": [
-            "browser",
-            "web:github"
-           ],
-           "key": {
-            "id": "hunggod",
-            "name": "hunggod",
-            "kind": "web"
-           }
-          }
-         ]
-        },
-        "name": "IntelligenceQuest"
-       },
-       "createdAt": "2026-10-20T00:00:00Z",
-       "updatedAt": "2026-10-20T00:00:00Z"
-      },
-      {
-       "version": 4,
-       "id": "cosmic",
-       "owner": "u1",
-       "sharedWith": [],
-       "machine": "surface",
-       "order": 0,
-       "templates": [
-        {
-         "id": "writing",
-         "name": "Writing",
-         "apps": [
-          {
-           "app": "obsidian",
-           "extras": []
-          },
-          {
-           "app": "wadbrowser",
-           "extras": []
-          }
-         ]
-        }
-       ],
-       "customization": {
-        "name": "Cosmic Bodybuilding"
-       },
-       "createdAt": "2026-10-20T00:00:00Z",
-       "updatedAt": "2026-10-20T00:00:00Z"
-      },
-      {
-       "version": 4,
-       "id": "vanua",
-       "owner": "u1",
-       "sharedWith": [],
-       "machine": "laptop",
-       "order": 0,
-       "templates": [
-        {
-         "id": "dev",
-         "name": "Dev",
-         "apps": [
-          {
-           "app": "vscode",
-           "extras": []
-          }
-         ]
-        }
-       ],
-       "customization": {
-        "name": "VanuaAcademy"
-       },
-       "createdAt": "2026-10-20T00:00:00Z",
-       "updatedAt": "2026-10-20T00:00:00Z"
-      }
-     ],
-     "now": "2026-10-21T10:00:00Z"
-    },
-    "ops": [
-     {
-      "op": "rename",
-      "ws": "cosmic",
-      "name": "Cosmic"
-     }
-    ],
-    "now": "2026-10-21T11:00:00Z",
-    "saved": [
-     {
-      "version": 4,
-      "id": "iq",
-      "owner": "u1",
-      "sharedWith": [],
-      "machine": "surface",
-      "order": 1,
-      "templates": [
-       {
-        "id": "dev",
-        "name": "Dev",
-        "apps": [
-         {
-          "app": "wadbrowser",
-          "extras": [
-           {
-            "id": "github",
-            "name": "GitHub",
-            "url": "https://github.com"
-           }
-          ]
-         },
-         {
-          "app": "vscode",
-          "extras": [
-           {
-            "id": "anthropic.claude-code"
-           }
-          ]
-         }
-        ]
-       },
-       {
-        "id": "cpp",
-        "name": "C++",
-        "apps": [
-         {
-          "app": "vscode",
-          "extras": [
-           {
-            "id": "ms-vscode.cpptools"
-           }
-          ]
-         },
-         {
-          "app": "terminal",
-          "extras": [
-           {
-            "id": "cpp"
-           }
-          ]
-         }
-        ]
-       },
-       {
-        "id": "art",
-        "name": "Game art",
-        "apps": [
-         {
-          "app": "libresprite",
-          "extras": []
-         },
-         {
-          "app": "tiled",
-          "extras": []
-         }
-        ]
-       }
-      ],
-      "customization": {
-       "description": "A game.",
-       "wallpaper": {
-        "type": "texture",
-        "value": "stars"
-       },
-       "projects": [
-        {
-         "id": "project-iq",
-         "kind": "github",
-         "repo": "HungGod/IntelligenceQuest",
-         "as": "IntelligenceQuest"
-        }
-       ],
-       "secrets": {
-        "bySlot": {
-         "ext:anthropic.claude-code": {
-          "id": "iq-claude",
-          "name": "IQ-claude",
-          "kind": "vscode-claude-code"
-         }
-        },
-        "groups": [
-         {
-          "id": "g1",
-          "members": [
-           "browser",
-           "web:github"
           ],
-          "key": {
-           "id": "hunggod",
-           "name": "hunggod",
-           "kind": "web"
+          "wadspaces": [
+            {
+              "version": 5,
+              "id": "iq",
+              "owner": "u1",
+              "sharedWith": [],
+              "machine": "surface",
+              "order": 0,
+              "apps": [
+                {
+                  "app": "wadbrowser"
+                },
+                {
+                  "app": "vscode"
+                },
+                {
+                  "app": "terminal"
+                },
+                {
+                  "app": "libresprite"
+                },
+                {
+                  "app": "tiled"
+                }
+              ],
+              "exts": [
+                {
+                  "app": "wadbrowser",
+                  "id": "github",
+                  "name": "GitHub",
+                  "url": "https://github.com"
+                },
+                {
+                  "app": "vscode",
+                  "id": "anthropic.claude-code"
+                },
+                {
+                  "app": "vscode",
+                  "id": "ms-vscode.cpptools"
+                },
+                {
+                  "app": "terminal",
+                  "id": "cpp"
+                }
+              ],
+              "customization": {
+                "description": "A game.",
+                "wallpaper": {
+                  "type": "texture",
+                  "value": "stars"
+                },
+                "projects": [
+                  {
+                    "id": "project-iq",
+                    "kind": "github",
+                    "repo": "HungGod/IntelligenceQuest",
+                    "as": "IntelligenceQuest"
+                  }
+                ],
+                "secrets": {
+                  "bySlot": {
+                    "ext:anthropic.claude-code": {
+                      "id": "iq-claude",
+                      "name": "IQ-claude",
+                      "kind": "vscode-claude-code"
+                    }
+                  },
+                  "groups": [
+                    {
+                      "id": "g1",
+                      "members": [
+                        "browser",
+                        "web:github"
+                      ],
+                      "key": {
+                        "id": "hunggod",
+                        "name": "hunggod",
+                        "kind": "web"
+                      }
+                    }
+                  ]
+                },
+                "name": "IntelligenceQuest"
+              },
+              "createdAt": "2026-10-20T00:00:00Z",
+              "updatedAt": "2026-10-20T00:00:00Z"
+            },
+            {
+              "version": 5,
+              "id": "cosmic",
+              "owner": "u1",
+              "sharedWith": [],
+              "machine": "surface",
+              "order": 0,
+              "apps": [
+                {
+                  "app": "obsidian"
+                },
+                {
+                  "app": "wadbrowser"
+                }
+              ],
+              "exts": [],
+              "customization": {
+                "name": "Cosmic Bodybuilding"
+              },
+              "createdAt": "2026-10-20T00:00:00Z",
+              "updatedAt": "2026-10-20T00:00:00Z"
+            },
+            {
+              "version": 5,
+              "id": "vanua",
+              "owner": "u1",
+              "sharedWith": [],
+              "machine": "laptop",
+              "order": 0,
+              "apps": [
+                {
+                  "app": "vscode"
+                }
+              ],
+              "exts": [],
+              "customization": {
+                "name": "VanuaAcademy"
+              },
+              "createdAt": "2026-10-20T00:00:00Z",
+              "updatedAt": "2026-10-20T00:00:00Z"
+            }
+          ],
+          "now": "2026-10-21T10:00:00Z"
+        },
+        "ops": [
+          {
+            "op": "drop",
+            "payload": {
+              "kind": "wadspace",
+              "ws": "iq"
+            },
+            "into": "cosmic"
+          },
+          {
+            "op": "drop",
+            "payload": {
+              "kind": "app",
+              "ws": "iq",
+              "app": "tiled"
+            },
+            "into": "iq"
           }
-         }
-        ]
-       },
-       "name": "IntelligenceQuest"
-      },
-      "createdAt": "2026-10-20T00:00:00Z",
-      "updatedAt": "2026-10-20T00:00:00Z"
-     },
-     {
-      "version": 4,
-      "id": "cosmic",
-      "owner": "u1",
-      "sharedWith": [],
-      "machine": "surface",
-      "order": 2,
-      "templates": [
-       {
-        "id": "writing",
-        "name": "Writing",
-        "apps": [
-         {
-          "app": "obsidian",
-          "extras": []
-         },
-         {
-          "app": "wadbrowser",
-          "extras": []
-         }
-        ]
-       }
-      ],
-      "customization": {
-       "name": "Cosmic Bodybuilding"
-      },
-      "createdAt": "2026-10-20T00:00:00Z",
-      "updatedAt": "2026-10-20T00:00:00Z"
-     },
-     {
-      "version": 4,
-      "id": "vanua",
-      "owner": "u1",
-      "sharedWith": [],
-      "machine": "laptop",
-      "order": 1,
-      "templates": [
-       {
-        "id": "dev",
-        "name": "Dev",
-        "apps": [
-         {
-          "app": "vscode",
-          "extras": []
-         }
-        ]
-       }
-      ],
-      "customization": {
-       "name": "VanuaAcademy"
-      },
-      "createdAt": "2026-10-20T00:00:00Z",
-      "updatedAt": "2026-10-20T00:00:00Z"
-     }
+        ],
+        "now": "2026-10-21T10:00:00Z"
+      }
     ]
-   }
-  ]
- },
- {
-  "name": "edits that can't be made",
-  "fn": "bRun",
-  "args": [
-   {
-    "board": {
-     "machines": [
+  },
+  {
+    "name": "an add-on brings its app; apps and add-ons on their own",
+    "fn": "bRun",
+    "args": [
       {
-       "id": "surface",
-       "name": "Surface Book 2"
-      },
-      {
-       "id": "laptop",
-       "name": "Laptop"
-      }
-     ],
-     "wadspaces": [
-      {
-       "version": 4,
-       "id": "iq",
-       "owner": "u1",
-       "sharedWith": [],
-       "machine": "surface",
-       "order": 0,
-       "templates": [
-        {
-         "id": "dev",
-         "name": "Dev",
-         "apps": [
-          {
-           "app": "wadbrowser",
-           "extras": [
+        "board": {
+          "machines": [
             {
-             "id": "github",
-             "name": "GitHub",
-             "url": "https://github.com"
-            }
-           ]
-          },
-          {
-           "app": "vscode",
-           "extras": [
+              "id": "surface",
+              "name": "Surface Book 2"
+            },
             {
-             "id": "anthropic.claude-code"
+              "id": "laptop",
+              "name": "Laptop"
             }
-           ]
-          }
-         ]
-        },
-        {
-         "id": "cpp",
-         "name": "C++",
-         "apps": [
-          {
-           "app": "vscode",
-           "extras": [
-            {
-             "id": "ms-vscode.cpptools"
-            }
-           ]
-          },
-          {
-           "app": "terminal",
-           "extras": [
-            {
-             "id": "cpp"
-            }
-           ]
-          }
-         ]
-        },
-        {
-         "id": "art",
-         "name": "Game art",
-         "apps": [
-          {
-           "app": "libresprite",
-           "extras": []
-          },
-          {
-           "app": "tiled",
-           "extras": []
-          }
-         ]
-        }
-       ],
-       "customization": {
-        "description": "A game.",
-        "wallpaper": {
-         "type": "texture",
-         "value": "stars"
-        },
-        "projects": [
-         {
-          "id": "project-iq",
-          "kind": "github",
-          "repo": "HungGod/IntelligenceQuest",
-          "as": "IntelligenceQuest"
-         }
-        ],
-        "secrets": {
-         "bySlot": {
-          "ext:anthropic.claude-code": {
-           "id": "iq-claude",
-           "name": "IQ-claude",
-           "kind": "vscode-claude-code"
-          }
-         },
-         "groups": [
-          {
-           "id": "g1",
-           "members": [
-            "browser",
-            "web:github"
-           ],
-           "key": {
-            "id": "hunggod",
-            "name": "hunggod",
-            "kind": "web"
-           }
-          }
-         ]
-        },
-        "name": "IntelligenceQuest"
-       },
-       "createdAt": "2026-10-20T00:00:00Z",
-       "updatedAt": "2026-10-20T00:00:00Z"
-      },
-      {
-       "version": 4,
-       "id": "cosmic",
-       "owner": "u1",
-       "sharedWith": [],
-       "machine": "surface",
-       "order": 0,
-       "templates": [
-        {
-         "id": "writing",
-         "name": "Writing",
-         "apps": [
-          {
-           "app": "obsidian",
-           "extras": []
-          },
-          {
-           "app": "wadbrowser",
-           "extras": []
-          }
-         ]
-        }
-       ],
-       "customization": {
-        "name": "Cosmic Bodybuilding"
-       },
-       "createdAt": "2026-10-20T00:00:00Z",
-       "updatedAt": "2026-10-20T00:00:00Z"
-      },
-      {
-       "version": 4,
-       "id": "vanua",
-       "owner": "u1",
-       "sharedWith": [],
-       "machine": "laptop",
-       "order": 0,
-       "templates": [
-        {
-         "id": "dev",
-         "name": "Dev",
-         "apps": [
-          {
-           "app": "vscode",
-           "extras": []
-          }
-         ]
-        }
-       ],
-       "customization": {
-        "name": "VanuaAcademy"
-       },
-       "createdAt": "2026-10-20T00:00:00Z",
-       "updatedAt": "2026-10-20T00:00:00Z"
-      }
-     ],
-     "now": "2026-10-21T10:00:00Z"
-    },
-    "ops": [
-     {
-      "op": "setBackground",
-      "ws": "iq",
-      "texture": "plaid"
-     },
-     {
-      "op": "drop",
-      "payload": {
-       "kind": "templates",
-       "ws": "nope",
-       "ids": []
-      },
-      "into": "iq"
-     },
-     {
-      "op": "setMode",
-      "ws": "iq",
-      "mode": "kiosk"
-     },
-     {
-      "op": "undo"
-     }
-    ],
-    "now": "2026-10-21T11:00:00Z"
-   }
-  ]
- },
- {
-  "name": "a wadspace from nothing, filled in",
-  "fn": "bRun",
-  "args": [
-   {
-    "board": {
-     "machines": [
-      {
-       "id": "surface",
-       "name": "Surface Book 2"
-      },
-      {
-       "id": "laptop",
-       "name": "Laptop"
-      }
-     ],
-     "wadspaces": [
-      {
-       "version": 4,
-       "id": "iq",
-       "owner": "u1",
-       "sharedWith": [],
-       "machine": "surface",
-       "order": 0,
-       "templates": [
-        {
-         "id": "dev",
-         "name": "Dev",
-         "apps": [
-          {
-           "app": "wadbrowser",
-           "extras": [
-            {
-             "id": "github",
-             "name": "GitHub",
-             "url": "https://github.com"
-            }
-           ]
-          },
-          {
-           "app": "vscode",
-           "extras": [
-            {
-             "id": "anthropic.claude-code"
-            }
-           ]
-          }
-         ]
-        },
-        {
-         "id": "cpp",
-         "name": "C++",
-         "apps": [
-          {
-           "app": "vscode",
-           "extras": [
-            {
-             "id": "ms-vscode.cpptools"
-            }
-           ]
-          },
-          {
-           "app": "terminal",
-           "extras": [
-            {
-             "id": "cpp"
-            }
-           ]
-          }
-         ]
-        },
-        {
-         "id": "art",
-         "name": "Game art",
-         "apps": [
-          {
-           "app": "libresprite",
-           "extras": []
-          },
-          {
-           "app": "tiled",
-           "extras": []
-          }
-         ]
-        }
-       ],
-       "customization": {
-        "description": "A game.",
-        "wallpaper": {
-         "type": "texture",
-         "value": "stars"
-        },
-        "projects": [
-         {
-          "id": "project-iq",
-          "kind": "github",
-          "repo": "HungGod/IntelligenceQuest",
-          "as": "IntelligenceQuest"
-         }
-        ],
-        "secrets": {
-         "bySlot": {
-          "ext:anthropic.claude-code": {
-           "id": "iq-claude",
-           "name": "IQ-claude",
-           "kind": "vscode-claude-code"
-          }
-         },
-         "groups": [
-          {
-           "id": "g1",
-           "members": [
-            "browser",
-            "web:github"
-           ],
-           "key": {
-            "id": "hunggod",
-            "name": "hunggod",
-            "kind": "web"
-           }
-          }
-         ]
-        },
-        "name": "IntelligenceQuest"
-       },
-       "createdAt": "2026-10-20T00:00:00Z",
-       "updatedAt": "2026-10-20T00:00:00Z"
-      },
-      {
-       "version": 4,
-       "id": "cosmic",
-       "owner": "u1",
-       "sharedWith": [],
-       "machine": "surface",
-       "order": 0,
-       "templates": [
-        {
-         "id": "writing",
-         "name": "Writing",
-         "apps": [
-          {
-           "app": "obsidian",
-           "extras": []
-          },
-          {
-           "app": "wadbrowser",
-           "extras": []
-          }
-         ]
-        }
-       ],
-       "customization": {
-        "name": "Cosmic Bodybuilding"
-       },
-       "createdAt": "2026-10-20T00:00:00Z",
-       "updatedAt": "2026-10-20T00:00:00Z"
-      },
-      {
-       "version": 4,
-       "id": "vanua",
-       "owner": "u1",
-       "sharedWith": [],
-       "machine": "laptop",
-       "order": 0,
-       "templates": [
-        {
-         "id": "dev",
-         "name": "Dev",
-         "apps": [
-          {
-           "app": "vscode",
-           "extras": []
-          }
-         ]
-        }
-       ],
-       "customization": {
-        "name": "VanuaAcademy"
-       },
-       "createdAt": "2026-10-20T00:00:00Z",
-       "updatedAt": "2026-10-20T00:00:00Z"
-      }
-     ],
-     "now": "2026-10-21T10:00:00Z"
-    },
-    "ops": [
-     {
-      "op": "create",
-      "machine": "laptop"
-     },
-     {
-      "op": "drop",
-      "payload": {
-       "kind": "catalogApp",
-       "app": "obsidian"
-      },
-      "into": "new-wadspace",
-      "where": {
-       "template": "template"
-      }
-     },
-     {
-      "op": "rename",
-      "ws": "new-wadspace",
-      "name": "Notes"
-     },
-     {
-      "op": "create",
-      "machine": "laptop"
-     }
-    ],
-    "now": "2026-10-21T11:00:00Z"
-   }
-  ]
- },
- {
-  "name": "groups with loose web apps",
-  "fn": "bGroups",
-  "args": [
-   {
-    "machines": [
-     {
-      "id": "surface",
-      "name": "Surface Book 2"
-     },
-     {
-      "id": "laptop",
-      "name": "Laptop"
-     }
-    ],
-    "wadspaces": [
-     {
-      "version": 4,
-      "id": "iq",
-      "owner": "u1",
-      "sharedWith": [],
-      "machine": "surface",
-      "order": 0,
-      "templates": [
-       {
-        "id": "dev",
-        "name": "Dev",
-        "apps": [
-         {
-          "app": "wadbrowser",
-          "extras": [
-           {
-            "id": "github",
-            "name": "GitHub",
-            "url": "https://github.com"
-           }
-          ]
-         },
-         {
-          "app": "vscode",
-          "extras": [
-           {
-            "id": "anthropic.claude-code"
-           }
-          ]
-         }
-        ]
-       },
-       {
-        "id": "cpp",
-        "name": "C++",
-        "apps": [
-         {
-          "app": "vscode",
-          "extras": [
-           {
-            "id": "ms-vscode.cpptools"
-           }
-          ]
-         },
-         {
-          "app": "terminal",
-          "extras": [
-           {
-            "id": "cpp"
-           }
-          ]
-         }
-        ]
-       },
-       {
-        "id": "art",
-        "name": "Game art",
-        "apps": [
-         {
-          "app": "libresprite",
-          "extras": []
-         },
-         {
-          "app": "tiled",
-          "extras": []
-         }
-        ]
-       }
-      ],
-      "customization": {
-       "description": "A game.",
-       "wallpaper": {
-        "type": "texture",
-        "value": "stars"
-       },
-       "projects": [
-        {
-         "id": "project-iq",
-         "kind": "github",
-         "repo": "HungGod/IntelligenceQuest",
-         "as": "IntelligenceQuest"
-        }
-       ],
-       "secrets": {
-        "bySlot": {
-         "ext:anthropic.claude-code": {
-          "id": "iq-claude",
-          "name": "IQ-claude",
-          "kind": "vscode-claude-code"
-         }
-        },
-        "groups": [
-         {
-          "id": "g1",
-          "members": [
-           "browser",
-           "web:github"
           ],
-          "key": {
-           "id": "hunggod",
-           "name": "hunggod",
-           "kind": "web"
-          }
-         }
-        ]
-       },
-       "name": "IntelligenceQuest"
-      },
-      "createdAt": "2026-10-20T00:00:00Z",
-      "updatedAt": "2026-10-20T00:00:00Z"
-     },
-     {
-      "version": 4,
-      "id": "cosmic",
-      "owner": "u1",
-      "sharedWith": [],
-      "machine": "surface",
-      "order": 0,
-      "templates": [
-       {
-        "id": "writing",
-        "name": "Writing",
-        "apps": [
-         {
-          "app": "obsidian",
-          "extras": []
-         },
-         {
-          "app": "wadbrowser",
-          "extras": []
-         }
-        ]
-       }
-      ],
-      "customization": {
-       "name": "Cosmic Bodybuilding"
-      },
-      "createdAt": "2026-10-20T00:00:00Z",
-      "updatedAt": "2026-10-20T00:00:00Z"
-     },
-     {
-      "version": 4,
-      "id": "vanua",
-      "owner": "u1",
-      "sharedWith": [],
-      "machine": "laptop",
-      "order": 0,
-      "templates": [
-       {
-        "id": "dev",
-        "name": "Dev",
-        "apps": [
-         {
-          "app": "vscode",
-          "extras": []
-         }
-        ]
-       }
-      ],
-      "customization": {
-       "name": "VanuaAcademy"
-      },
-      "createdAt": "2026-10-20T00:00:00Z",
-      "updatedAt": "2026-10-20T00:00:00Z"
-     }
-    ],
-    "now": "2026-10-21T10:00:00Z"
-   },
-   "iq"
-  ]
- },
- {
-  "name": "a new key's name and id",
-  "fn": "bNewKey",
-  "args": [
-   {
-    "machines": [
-     {
-      "id": "surface",
-      "name": "Surface Book 2"
-     },
-     {
-      "id": "laptop",
-      "name": "Laptop"
-     }
-    ],
-    "wadspaces": [
-     {
-      "version": 4,
-      "id": "iq",
-      "owner": "u1",
-      "sharedWith": [],
-      "machine": "surface",
-      "order": 0,
-      "templates": [
-       {
-        "id": "dev",
-        "name": "Dev",
-        "apps": [
-         {
-          "app": "wadbrowser",
-          "extras": [
-           {
-            "id": "github",
-            "name": "GitHub",
-            "url": "https://github.com"
-           }
-          ]
-         },
-         {
-          "app": "vscode",
-          "extras": [
-           {
-            "id": "anthropic.claude-code"
-           }
-          ]
-         }
-        ]
-       },
-       {
-        "id": "cpp",
-        "name": "C++",
-        "apps": [
-         {
-          "app": "vscode",
-          "extras": [
-           {
-            "id": "ms-vscode.cpptools"
-           }
-          ]
-         },
-         {
-          "app": "terminal",
-          "extras": [
-           {
-            "id": "cpp"
-           }
-          ]
-         }
-        ]
-       },
-       {
-        "id": "art",
-        "name": "Game art",
-        "apps": [
-         {
-          "app": "libresprite",
-          "extras": []
-         },
-         {
-          "app": "tiled",
-          "extras": []
-         }
-        ]
-       }
-      ],
-      "customization": {
-       "description": "A game.",
-       "wallpaper": {
-        "type": "texture",
-        "value": "stars"
-       },
-       "projects": [
-        {
-         "id": "project-iq",
-         "kind": "github",
-         "repo": "HungGod/IntelligenceQuest",
-         "as": "IntelligenceQuest"
-        }
-       ],
-       "secrets": {
-        "bySlot": {
-         "ext:anthropic.claude-code": {
-          "id": "iq-claude",
-          "name": "IQ-claude",
-          "kind": "vscode-claude-code"
-         }
-        },
-        "groups": [
-         {
-          "id": "g1",
-          "members": [
-           "browser",
-           "web:github"
+          "wadspaces": [
+            {
+              "version": 5,
+              "id": "iq",
+              "owner": "u1",
+              "sharedWith": [],
+              "machine": "surface",
+              "order": 0,
+              "apps": [
+                {
+                  "app": "wadbrowser"
+                },
+                {
+                  "app": "vscode"
+                },
+                {
+                  "app": "terminal"
+                },
+                {
+                  "app": "libresprite"
+                },
+                {
+                  "app": "tiled"
+                }
+              ],
+              "exts": [
+                {
+                  "app": "wadbrowser",
+                  "id": "github",
+                  "name": "GitHub",
+                  "url": "https://github.com"
+                },
+                {
+                  "app": "vscode",
+                  "id": "anthropic.claude-code"
+                },
+                {
+                  "app": "vscode",
+                  "id": "ms-vscode.cpptools"
+                },
+                {
+                  "app": "terminal",
+                  "id": "cpp"
+                }
+              ],
+              "customization": {
+                "description": "A game.",
+                "wallpaper": {
+                  "type": "texture",
+                  "value": "stars"
+                },
+                "projects": [
+                  {
+                    "id": "project-iq",
+                    "kind": "github",
+                    "repo": "HungGod/IntelligenceQuest",
+                    "as": "IntelligenceQuest"
+                  }
+                ],
+                "secrets": {
+                  "bySlot": {
+                    "ext:anthropic.claude-code": {
+                      "id": "iq-claude",
+                      "name": "IQ-claude",
+                      "kind": "vscode-claude-code"
+                    }
+                  },
+                  "groups": [
+                    {
+                      "id": "g1",
+                      "members": [
+                        "browser",
+                        "web:github"
+                      ],
+                      "key": {
+                        "id": "hunggod",
+                        "name": "hunggod",
+                        "kind": "web"
+                      }
+                    }
+                  ]
+                },
+                "name": "IntelligenceQuest"
+              },
+              "createdAt": "2026-10-20T00:00:00Z",
+              "updatedAt": "2026-10-20T00:00:00Z"
+            },
+            {
+              "version": 5,
+              "id": "cosmic",
+              "owner": "u1",
+              "sharedWith": [],
+              "machine": "surface",
+              "order": 0,
+              "apps": [
+                {
+                  "app": "obsidian"
+                },
+                {
+                  "app": "wadbrowser"
+                }
+              ],
+              "exts": [],
+              "customization": {
+                "name": "Cosmic Bodybuilding"
+              },
+              "createdAt": "2026-10-20T00:00:00Z",
+              "updatedAt": "2026-10-20T00:00:00Z"
+            },
+            {
+              "version": 5,
+              "id": "vanua",
+              "owner": "u1",
+              "sharedWith": [],
+              "machine": "laptop",
+              "order": 0,
+              "apps": [
+                {
+                  "app": "vscode"
+                }
+              ],
+              "exts": [],
+              "customization": {
+                "name": "VanuaAcademy"
+              },
+              "createdAt": "2026-10-20T00:00:00Z",
+              "updatedAt": "2026-10-20T00:00:00Z"
+            }
           ],
-          "key": {
-           "id": "hunggod",
-           "name": "hunggod",
-           "kind": "web"
-          }
-         }
-        ]
-       },
-       "name": "IntelligenceQuest"
-      },
-      "createdAt": "2026-10-20T00:00:00Z",
-      "updatedAt": "2026-10-20T00:00:00Z"
-     },
-     {
-      "version": 4,
-      "id": "cosmic",
-      "owner": "u1",
-      "sharedWith": [],
-      "machine": "surface",
-      "order": 0,
-      "templates": [
-       {
-        "id": "writing",
-        "name": "Writing",
-        "apps": [
-         {
-          "app": "obsidian",
-          "extras": []
-         },
-         {
-          "app": "wadbrowser",
-          "extras": []
-         }
-        ]
-       }
-      ],
-      "customization": {
-       "name": "Cosmic Bodybuilding"
-      },
-      "createdAt": "2026-10-20T00:00:00Z",
-      "updatedAt": "2026-10-20T00:00:00Z"
-     },
-     {
-      "version": 4,
-      "id": "vanua",
-      "owner": "u1",
-      "sharedWith": [],
-      "machine": "laptop",
-      "order": 0,
-      "templates": [
-       {
-        "id": "dev",
-        "name": "Dev",
-        "apps": [
-         {
-          "app": "vscode",
-          "extras": []
-         }
-        ]
-       }
-      ],
-      "customization": {
-       "name": "VanuaAcademy"
-      },
-      "createdAt": "2026-10-20T00:00:00Z",
-      "updatedAt": "2026-10-20T00:00:00Z"
-     }
-    ],
-    "now": "2026-10-21T10:00:00Z"
-   },
-   "hunggod",
-   "web"
-  ]
- },
- {
-  "name": "WadBrowser's mode per template: the top one decides",
-  "fn": "bRun",
-  "args": [
-   {
-    "board": {
-     "machines": [
-      {
-       "id": "surface",
-       "name": "Surface Book 2"
-      },
-      {
-       "id": "laptop",
-       "name": "Laptop"
-      }
-     ],
-     "wadspaces": [
-      {
-       "version": 4,
-       "id": "iq",
-       "owner": "u1",
-       "sharedWith": [],
-       "machine": "surface",
-       "order": 0,
-       "templates": [
-        {
-         "id": "dev",
-         "name": "Dev",
-         "apps": [
+          "now": "2026-10-21T10:00:00Z"
+        },
+        "ops": [
           {
-           "app": "wadbrowser",
-           "extras": [
-            {
-             "id": "github",
-             "name": "GitHub",
-             "url": "https://github.com"
-            }
-           ]
+            "op": "drop",
+            "payload": {
+              "kind": "ext",
+              "ws": "iq",
+              "app": "vscode",
+              "id": "ms-vscode.cpptools"
+            },
+            "into": "cosmic"
           },
           {
-           "app": "vscode",
-           "extras": [
-            {
-             "id": "anthropic.claude-code"
-            }
-           ]
-          }
-         ]
-        },
-        {
-         "id": "cpp",
-         "name": "C++",
-         "apps": [
-          {
-           "app": "vscode",
-           "extras": [
-            {
-             "id": "ms-vscode.cpptools"
-            }
-           ]
+            "op": "drop",
+            "payload": {
+              "kind": "catalogExt",
+              "ext": {
+                "app": "wadbrowser",
+                "id": "focus",
+                "name": "Focus"
+              }
+            },
+            "into": "vanua"
           },
           {
-           "app": "terminal",
-           "extras": [
-            {
-             "id": "cpp"
-            }
-           ]
-          }
-         ]
-        },
-        {
-         "id": "art",
-         "name": "Game art",
-         "apps": [
-          {
-           "app": "libresprite",
-           "extras": []
+            "op": "drop",
+            "payload": {
+              "kind": "exts",
+              "ws": "iq",
+              "app": "vscode"
+            },
+            "into": "vanua"
           },
           {
-           "app": "tiled",
-           "extras": []
+            "op": "drop",
+            "payload": {
+              "kind": "apps",
+              "ws": "iq"
+            },
+            "into": "cosmic"
+          },
+          {
+            "op": "drop",
+            "payload": {
+              "kind": "catalogApp",
+              "app": "krita"
+            },
+            "into": "vanua"
+          },
+          {
+            "op": "removeExt",
+            "ws": "cosmic",
+            "app": "vscode",
+            "id": "ms-vscode.cpptools"
+          },
+          {
+            "op": "removeApp",
+            "ws": "vanua",
+            "app": "vscode"
           }
-         ]
-        }
-       ],
-       "customization": {
-        "description": "A game.",
-        "wallpaper": {
-         "type": "texture",
-         "value": "stars"
-        },
-        "projects": [
-         {
-          "id": "project-iq",
-          "kind": "github",
-          "repo": "HungGod/IntelligenceQuest",
-          "as": "IntelligenceQuest"
-         }
         ],
-        "secrets": {
-         "bySlot": {
-          "ext:anthropic.claude-code": {
-           "id": "iq-claude",
-           "name": "IQ-claude",
-           "kind": "vscode-claude-code"
-          }
-         },
-         "groups": [
-          {
-           "id": "g1",
-           "members": [
-            "browser",
-            "web:github"
-           ],
-           "key": {
-            "id": "hunggod",
-            "name": "hunggod",
-            "kind": "web"
-           }
-          }
-         ]
-        },
-        "name": "IntelligenceQuest"
-       },
-       "createdAt": "2026-10-20T00:00:00Z",
-       "updatedAt": "2026-10-20T00:00:00Z"
-      },
+        "now": "2026-10-21T10:00:00Z"
+      }
+    ]
+  },
+  {
+    "name": "customization, secrets, background and projects on their own",
+    "fn": "bRun",
+    "args": [
       {
-       "version": 4,
-       "id": "cosmic",
-       "owner": "u1",
-       "sharedWith": [],
-       "machine": "surface",
-       "order": 0,
-       "templates": [
-        {
-         "id": "writing",
-         "name": "Writing",
-         "apps": [
+        "board": {
+          "machines": [
+            {
+              "id": "surface",
+              "name": "Surface Book 2"
+            },
+            {
+              "id": "laptop",
+              "name": "Laptop"
+            }
+          ],
+          "wadspaces": [
+            {
+              "version": 5,
+              "id": "iq",
+              "owner": "u1",
+              "sharedWith": [],
+              "machine": "surface",
+              "order": 0,
+              "apps": [
+                {
+                  "app": "wadbrowser"
+                },
+                {
+                  "app": "vscode"
+                },
+                {
+                  "app": "terminal"
+                },
+                {
+                  "app": "libresprite"
+                },
+                {
+                  "app": "tiled"
+                }
+              ],
+              "exts": [
+                {
+                  "app": "wadbrowser",
+                  "id": "github",
+                  "name": "GitHub",
+                  "url": "https://github.com"
+                },
+                {
+                  "app": "vscode",
+                  "id": "anthropic.claude-code"
+                },
+                {
+                  "app": "vscode",
+                  "id": "ms-vscode.cpptools"
+                },
+                {
+                  "app": "terminal",
+                  "id": "cpp"
+                }
+              ],
+              "customization": {
+                "description": "A game.",
+                "wallpaper": {
+                  "type": "texture",
+                  "value": "stars"
+                },
+                "projects": [
+                  {
+                    "id": "project-iq",
+                    "kind": "github",
+                    "repo": "HungGod/IntelligenceQuest",
+                    "as": "IntelligenceQuest"
+                  }
+                ],
+                "secrets": {
+                  "bySlot": {
+                    "ext:anthropic.claude-code": {
+                      "id": "iq-claude",
+                      "name": "IQ-claude",
+                      "kind": "vscode-claude-code"
+                    }
+                  },
+                  "groups": [
+                    {
+                      "id": "g1",
+                      "members": [
+                        "browser",
+                        "web:github"
+                      ],
+                      "key": {
+                        "id": "hunggod",
+                        "name": "hunggod",
+                        "kind": "web"
+                      }
+                    }
+                  ]
+                },
+                "name": "IntelligenceQuest"
+              },
+              "createdAt": "2026-10-20T00:00:00Z",
+              "updatedAt": "2026-10-20T00:00:00Z"
+            },
+            {
+              "version": 5,
+              "id": "cosmic",
+              "owner": "u1",
+              "sharedWith": [],
+              "machine": "surface",
+              "order": 0,
+              "apps": [
+                {
+                  "app": "obsidian"
+                },
+                {
+                  "app": "wadbrowser"
+                }
+              ],
+              "exts": [],
+              "customization": {
+                "name": "Cosmic Bodybuilding"
+              },
+              "createdAt": "2026-10-20T00:00:00Z",
+              "updatedAt": "2026-10-20T00:00:00Z"
+            },
+            {
+              "version": 5,
+              "id": "vanua",
+              "owner": "u1",
+              "sharedWith": [],
+              "machine": "laptop",
+              "order": 0,
+              "apps": [
+                {
+                  "app": "vscode"
+                }
+              ],
+              "exts": [],
+              "customization": {
+                "name": "VanuaAcademy"
+              },
+              "createdAt": "2026-10-20T00:00:00Z",
+              "updatedAt": "2026-10-20T00:00:00Z"
+            }
+          ],
+          "now": "2026-10-21T10:00:00Z"
+        },
+        "ops": [
           {
-           "app": "obsidian",
-           "extras": []
+            "op": "drop",
+            "payload": {
+              "kind": "customs",
+              "ws": "iq"
+            },
+            "into": "vanua"
           },
           {
-           "app": "wadbrowser",
-           "extras": []
-          }
-         ]
-        }
-       ],
-       "customization": {
-        "name": "Cosmic Bodybuilding"
-       },
-       "createdAt": "2026-10-20T00:00:00Z",
-       "updatedAt": "2026-10-20T00:00:00Z"
-      },
-      {
-       "version": 4,
-       "id": "vanua",
-       "owner": "u1",
-       "sharedWith": [],
-       "machine": "laptop",
-       "order": 0,
-       "templates": [
-        {
-         "id": "dev",
-         "name": "Dev",
-         "apps": [
-          {
-           "app": "vscode",
-           "extras": []
-          }
-         ]
-        }
-       ],
-       "customization": {
-        "name": "VanuaAcademy"
-       },
-       "createdAt": "2026-10-20T00:00:00Z",
-       "updatedAt": "2026-10-20T00:00:00Z"
-      }
-     ],
-     "now": "2026-10-21T10:00:00Z"
-    },
-    "ops": [
-     {
-      "op": "drop",
-      "payload": {
-       "kind": "catalogApp",
-       "app": "wadbrowser"
-      },
-      "into": "iq",
-      "where": {
-       "template": "art"
-      }
-     },
-     {
-      "op": "setMode",
-      "ws": "iq",
-      "mode": "focus",
-      "template": "art"
-     },
-     {
-      "op": "drop",
-      "payload": {
-       "kind": "templates",
-       "ws": "iq",
-       "ids": [
-        "art"
-       ]
-      },
-      "into": "iq",
-      "where": {
-       "at": 0
-      }
-     },
-     {
-      "op": "setMode",
-      "ws": "iq",
-      "mode": "focus",
-      "template": "cpp"
-     },
-     {
-      "op": "setMode",
-      "ws": "iq",
-      "mode": "focus",
-      "template": "nope"
-     }
-    ],
-    "now": "2026-10-21T11:00:00Z"
-   }
-  ]
- },
- {
-  "name": "Recently deleted: what's taken out waits in its wadspace",
-  "fn": "bRun",
-  "args": [
-   {
-    "board": {
-     "machines": [
-      {
-       "id": "surface",
-       "name": "Surface Book 2"
-      },
-      {
-       "id": "laptop",
-       "name": "Laptop"
-      }
-     ],
-     "wadspaces": [
-      {
-       "version": 4,
-       "id": "iq",
-       "owner": "u1",
-       "sharedWith": [],
-       "machine": "surface",
-       "order": 0,
-       "templates": [
-        {
-         "id": "dev",
-         "name": "Dev",
-         "apps": [
-          {
-           "app": "wadbrowser",
-           "extras": [
-            {
-             "id": "github",
-             "name": "GitHub",
-             "url": "https://github.com"
-            }
-           ]
+            "op": "drop",
+            "payload": {
+              "kind": "secrets",
+              "ws": "iq"
+            },
+            "into": "cosmic"
           },
           {
-           "app": "vscode",
-           "extras": [
-            {
-             "id": "anthropic.claude-code"
-            }
-           ]
-          }
-         ]
-        },
-        {
-         "id": "cpp",
-         "name": "C++",
-         "apps": [
-          {
-           "app": "vscode",
-           "extras": [
-            {
-             "id": "ms-vscode.cpptools"
-            }
-           ]
+            "op": "drop",
+            "payload": {
+              "kind": "background",
+              "ws": "iq"
+            },
+            "into": "cosmic"
           },
           {
-           "app": "terminal",
-           "extras": [
-            {
-             "id": "cpp"
-            }
-           ]
-          }
-         ]
-        },
-        {
-         "id": "art",
-         "name": "Game art",
-         "apps": [
-          {
-           "app": "libresprite",
-           "extras": []
+            "op": "drop",
+            "payload": {
+              "kind": "project",
+              "ws": "iq",
+              "id": "project-iq"
+            },
+            "into": "cosmic"
           },
           {
-           "app": "tiled",
-           "extras": []
+            "op": "drop",
+            "payload": {
+              "kind": "texture",
+              "value": "grid"
+            },
+            "into": "vanua"
+          },
+          {
+            "op": "setBackground",
+            "ws": "cosmic",
+            "texture": null
+          },
+          {
+            "op": "toggleProject",
+            "ws": "vanua",
+            "project": {
+              "id": "project-iq"
+            }
+          },
+          {
+            "op": "rename",
+            "ws": "vanua",
+            "name": "Vanua"
+          },
+          {
+            "op": "describe",
+            "ws": "vanua",
+            "description": "School."
           }
-         ]
-        }
-       ],
-       "customization": {
-        "description": "A game.",
-        "wallpaper": {
-         "type": "texture",
-         "value": "stars"
-        },
-        "projects": [
-         {
-          "id": "project-iq",
-          "kind": "github",
-          "repo": "HungGod/IntelligenceQuest",
-          "as": "IntelligenceQuest"
-         }
         ],
-        "secrets": {
-         "bySlot": {
-          "ext:anthropic.claude-code": {
-           "id": "iq-claude",
-           "name": "IQ-claude",
-           "kind": "vscode-claude-code"
-          }
-         },
-         "groups": [
-          {
-           "id": "g1",
-           "members": [
-            "browser",
-            "web:github"
-           ],
-           "key": {
-            "id": "hunggod",
-            "name": "hunggod",
-            "kind": "web"
-           }
-          }
-         ]
-        },
-        "name": "IntelligenceQuest"
-       },
-       "createdAt": "2026-10-20T00:00:00Z",
-       "updatedAt": "2026-10-20T00:00:00Z"
-      },
+        "now": "2026-10-21T10:00:00Z"
+      }
+    ]
+  },
+  {
+    "name": "new wadspaces between cards, after them and from nothing",
+    "fn": "bRun",
+    "args": [
       {
-       "version": 4,
-       "id": "cosmic",
-       "owner": "u1",
-       "sharedWith": [],
-       "machine": "surface",
-       "order": 0,
-       "templates": [
-        {
-         "id": "writing",
-         "name": "Writing",
-         "apps": [
+        "board": {
+          "machines": [
+            {
+              "id": "surface",
+              "name": "Surface Book 2"
+            },
+            {
+              "id": "laptop",
+              "name": "Laptop"
+            }
+          ],
+          "wadspaces": [
+            {
+              "version": 5,
+              "id": "iq",
+              "owner": "u1",
+              "sharedWith": [],
+              "machine": "surface",
+              "order": 0,
+              "apps": [
+                {
+                  "app": "wadbrowser"
+                },
+                {
+                  "app": "vscode"
+                },
+                {
+                  "app": "terminal"
+                },
+                {
+                  "app": "libresprite"
+                },
+                {
+                  "app": "tiled"
+                }
+              ],
+              "exts": [
+                {
+                  "app": "wadbrowser",
+                  "id": "github",
+                  "name": "GitHub",
+                  "url": "https://github.com"
+                },
+                {
+                  "app": "vscode",
+                  "id": "anthropic.claude-code"
+                },
+                {
+                  "app": "vscode",
+                  "id": "ms-vscode.cpptools"
+                },
+                {
+                  "app": "terminal",
+                  "id": "cpp"
+                }
+              ],
+              "customization": {
+                "description": "A game.",
+                "wallpaper": {
+                  "type": "texture",
+                  "value": "stars"
+                },
+                "projects": [
+                  {
+                    "id": "project-iq",
+                    "kind": "github",
+                    "repo": "HungGod/IntelligenceQuest",
+                    "as": "IntelligenceQuest"
+                  }
+                ],
+                "secrets": {
+                  "bySlot": {
+                    "ext:anthropic.claude-code": {
+                      "id": "iq-claude",
+                      "name": "IQ-claude",
+                      "kind": "vscode-claude-code"
+                    }
+                  },
+                  "groups": [
+                    {
+                      "id": "g1",
+                      "members": [
+                        "browser",
+                        "web:github"
+                      ],
+                      "key": {
+                        "id": "hunggod",
+                        "name": "hunggod",
+                        "kind": "web"
+                      }
+                    }
+                  ]
+                },
+                "name": "IntelligenceQuest"
+              },
+              "createdAt": "2026-10-20T00:00:00Z",
+              "updatedAt": "2026-10-20T00:00:00Z"
+            },
+            {
+              "version": 5,
+              "id": "cosmic",
+              "owner": "u1",
+              "sharedWith": [],
+              "machine": "surface",
+              "order": 0,
+              "apps": [
+                {
+                  "app": "obsidian"
+                },
+                {
+                  "app": "wadbrowser"
+                }
+              ],
+              "exts": [],
+              "customization": {
+                "name": "Cosmic Bodybuilding"
+              },
+              "createdAt": "2026-10-20T00:00:00Z",
+              "updatedAt": "2026-10-20T00:00:00Z"
+            },
+            {
+              "version": 5,
+              "id": "vanua",
+              "owner": "u1",
+              "sharedWith": [],
+              "machine": "laptop",
+              "order": 0,
+              "apps": [
+                {
+                  "app": "vscode"
+                }
+              ],
+              "exts": [],
+              "customization": {
+                "name": "VanuaAcademy"
+              },
+              "createdAt": "2026-10-20T00:00:00Z",
+              "updatedAt": "2026-10-20T00:00:00Z"
+            }
+          ],
+          "now": "2026-10-21T10:00:00Z"
+        },
+        "ops": [
           {
-           "app": "obsidian",
-           "extras": []
+            "op": "fresh",
+            "payload": {
+              "kind": "app",
+              "ws": "iq",
+              "app": "tiled"
+            },
+            "machine": "surface",
+            "before": "cosmic"
           },
           {
-           "app": "wadbrowser",
-           "extras": []
-          }
-         ]
-        }
-       ],
-       "customization": {
-        "name": "Cosmic Bodybuilding"
-       },
-       "createdAt": "2026-10-20T00:00:00Z",
-       "updatedAt": "2026-10-20T00:00:00Z"
-      },
-      {
-       "version": 4,
-       "id": "vanua",
-       "owner": "u1",
-       "sharedWith": [],
-       "machine": "laptop",
-       "order": 0,
-       "templates": [
-        {
-         "id": "dev",
-         "name": "Dev",
-         "apps": [
+            "op": "fresh",
+            "payload": {
+              "kind": "catalogApp",
+              "app": "krita"
+            },
+            "machine": "surface"
+          },
           {
-           "app": "vscode",
-           "extras": []
+            "op": "create",
+            "machine": "surface"
+          },
+          {
+            "op": "fresh",
+            "payload": {
+              "kind": "customs",
+              "ws": "iq"
+            },
+            "machine": "laptop"
           }
-         ]
-        }
-       ],
-       "customization": {
-        "name": "VanuaAcademy"
-       },
-       "createdAt": "2026-10-20T00:00:00Z",
-       "updatedAt": "2026-10-20T00:00:00Z"
+        ],
+        "now": "2026-10-21T10:00:00Z"
       }
-     ],
-     "now": "2026-10-21T10:00:00Z"
-    },
-    "ops": [
-     {
-      "op": "delete",
-      "picks": [
-       {
-        "kind": "template",
-        "ws": "iq",
-        "id": "art"
-       }
-      ]
-     },
-     {
-      "op": "removeApp",
-      "ws": "iq",
-      "template": "cpp",
-      "app": "terminal"
-     },
-     {
-      "op": "toggleProject",
-      "ws": "iq",
-      "project": {
-       "id": "project-iq"
+    ]
+  },
+  {
+    "name": "copied to another machine, then undone, then again",
+    "fn": "bRun",
+    "args": [
+      {
+        "board": {
+          "machines": [
+            {
+              "id": "surface",
+              "name": "Surface Book 2"
+            },
+            {
+              "id": "laptop",
+              "name": "Laptop"
+            }
+          ],
+          "wadspaces": [
+            {
+              "version": 5,
+              "id": "iq",
+              "owner": "u1",
+              "sharedWith": [],
+              "machine": "surface",
+              "order": 0,
+              "apps": [
+                {
+                  "app": "wadbrowser"
+                },
+                {
+                  "app": "vscode"
+                },
+                {
+                  "app": "terminal"
+                },
+                {
+                  "app": "libresprite"
+                },
+                {
+                  "app": "tiled"
+                }
+              ],
+              "exts": [
+                {
+                  "app": "wadbrowser",
+                  "id": "github",
+                  "name": "GitHub",
+                  "url": "https://github.com"
+                },
+                {
+                  "app": "vscode",
+                  "id": "anthropic.claude-code"
+                },
+                {
+                  "app": "vscode",
+                  "id": "ms-vscode.cpptools"
+                },
+                {
+                  "app": "terminal",
+                  "id": "cpp"
+                }
+              ],
+              "customization": {
+                "description": "A game.",
+                "wallpaper": {
+                  "type": "texture",
+                  "value": "stars"
+                },
+                "projects": [
+                  {
+                    "id": "project-iq",
+                    "kind": "github",
+                    "repo": "HungGod/IntelligenceQuest",
+                    "as": "IntelligenceQuest"
+                  }
+                ],
+                "secrets": {
+                  "bySlot": {
+                    "ext:anthropic.claude-code": {
+                      "id": "iq-claude",
+                      "name": "IQ-claude",
+                      "kind": "vscode-claude-code"
+                    }
+                  },
+                  "groups": [
+                    {
+                      "id": "g1",
+                      "members": [
+                        "browser",
+                        "web:github"
+                      ],
+                      "key": {
+                        "id": "hunggod",
+                        "name": "hunggod",
+                        "kind": "web"
+                      }
+                    }
+                  ]
+                },
+                "name": "IntelligenceQuest"
+              },
+              "createdAt": "2026-10-20T00:00:00Z",
+              "updatedAt": "2026-10-20T00:00:00Z"
+            },
+            {
+              "version": 5,
+              "id": "cosmic",
+              "owner": "u1",
+              "sharedWith": [],
+              "machine": "surface",
+              "order": 0,
+              "apps": [
+                {
+                  "app": "obsidian"
+                },
+                {
+                  "app": "wadbrowser"
+                }
+              ],
+              "exts": [],
+              "customization": {
+                "name": "Cosmic Bodybuilding"
+              },
+              "createdAt": "2026-10-20T00:00:00Z",
+              "updatedAt": "2026-10-20T00:00:00Z"
+            },
+            {
+              "version": 5,
+              "id": "vanua",
+              "owner": "u1",
+              "sharedWith": [],
+              "machine": "laptop",
+              "order": 0,
+              "apps": [
+                {
+                  "app": "vscode"
+                }
+              ],
+              "exts": [],
+              "customization": {
+                "name": "VanuaAcademy"
+              },
+              "createdAt": "2026-10-20T00:00:00Z",
+              "updatedAt": "2026-10-20T00:00:00Z"
+            }
+          ],
+          "now": "2026-10-21T10:00:00Z"
+        },
+        "ops": [
+          {
+            "op": "copyTo",
+            "ids": [
+              "iq"
+            ],
+            "machine": "laptop"
+          },
+          {
+            "op": "undo"
+          },
+          {
+            "op": "copyTo",
+            "ids": [
+              "iq"
+            ],
+            "machine": "laptop"
+          }
+        ],
+        "now": "2026-10-21T10:00:00Z"
       }
-     },
-     {
-      "op": "delete",
-      "picks": [
-       {
-        "kind": "background",
-        "ws": "iq"
-       }
-      ]
-     },
-     {
-      "op": "putBack",
-      "ws": "iq",
-      "kept": "k1"
-     },
-     {
-      "op": "putBack",
-      "ws": "iq",
-      "kept": "k2"
-     },
-     {
-      "op": "forget",
-      "ws": "iq",
-      "kept": "k3"
-     },
-     {
-      "op": "putBack",
-      "ws": "iq",
-      "kept": "nope"
-     },
-     {
-      "op": "drop",
-      "payload": {
-       "kind": "templates",
-       "ws": "iq",
-       "ids": [
-        "dev"
-       ]
+    ]
+  },
+  {
+    "name": "deleted and restored",
+    "fn": "bRun",
+    "args": [
+      {
+        "board": {
+          "machines": [
+            {
+              "id": "surface",
+              "name": "Surface Book 2"
+            },
+            {
+              "id": "laptop",
+              "name": "Laptop"
+            }
+          ],
+          "wadspaces": [
+            {
+              "version": 5,
+              "id": "iq",
+              "owner": "u1",
+              "sharedWith": [],
+              "machine": "surface",
+              "order": 0,
+              "apps": [
+                {
+                  "app": "wadbrowser"
+                },
+                {
+                  "app": "vscode"
+                },
+                {
+                  "app": "terminal"
+                },
+                {
+                  "app": "libresprite"
+                },
+                {
+                  "app": "tiled"
+                }
+              ],
+              "exts": [
+                {
+                  "app": "wadbrowser",
+                  "id": "github",
+                  "name": "GitHub",
+                  "url": "https://github.com"
+                },
+                {
+                  "app": "vscode",
+                  "id": "anthropic.claude-code"
+                },
+                {
+                  "app": "vscode",
+                  "id": "ms-vscode.cpptools"
+                },
+                {
+                  "app": "terminal",
+                  "id": "cpp"
+                }
+              ],
+              "customization": {
+                "description": "A game.",
+                "wallpaper": {
+                  "type": "texture",
+                  "value": "stars"
+                },
+                "projects": [
+                  {
+                    "id": "project-iq",
+                    "kind": "github",
+                    "repo": "HungGod/IntelligenceQuest",
+                    "as": "IntelligenceQuest"
+                  }
+                ],
+                "secrets": {
+                  "bySlot": {
+                    "ext:anthropic.claude-code": {
+                      "id": "iq-claude",
+                      "name": "IQ-claude",
+                      "kind": "vscode-claude-code"
+                    }
+                  },
+                  "groups": [
+                    {
+                      "id": "g1",
+                      "members": [
+                        "browser",
+                        "web:github"
+                      ],
+                      "key": {
+                        "id": "hunggod",
+                        "name": "hunggod",
+                        "kind": "web"
+                      }
+                    }
+                  ]
+                },
+                "name": "IntelligenceQuest"
+              },
+              "createdAt": "2026-10-20T00:00:00Z",
+              "updatedAt": "2026-10-20T00:00:00Z"
+            },
+            {
+              "version": 5,
+              "id": "cosmic",
+              "owner": "u1",
+              "sharedWith": [],
+              "machine": "surface",
+              "order": 0,
+              "apps": [
+                {
+                  "app": "obsidian"
+                },
+                {
+                  "app": "wadbrowser"
+                }
+              ],
+              "exts": [],
+              "customization": {
+                "name": "Cosmic Bodybuilding"
+              },
+              "createdAt": "2026-10-20T00:00:00Z",
+              "updatedAt": "2026-10-20T00:00:00Z"
+            },
+            {
+              "version": 5,
+              "id": "vanua",
+              "owner": "u1",
+              "sharedWith": [],
+              "machine": "laptop",
+              "order": 0,
+              "apps": [
+                {
+                  "app": "vscode"
+                }
+              ],
+              "exts": [],
+              "customization": {
+                "name": "VanuaAcademy"
+              },
+              "createdAt": "2026-10-20T00:00:00Z",
+              "updatedAt": "2026-10-20T00:00:00Z"
+            }
+          ],
+          "now": "2026-10-21T10:00:00Z"
+        },
+        "ops": [
+          {
+            "op": "delete",
+            "picks": [
+              {
+                "kind": "wadspace",
+                "ws": "cosmic"
+              },
+              {
+                "kind": "background",
+                "ws": "iq"
+              }
+            ]
+          },
+          {
+            "op": "restore",
+            "ws": "cosmic"
+          }
+        ],
+        "now": "2026-10-21T10:00:00Z"
+      }
+    ]
+  },
+  {
+    "name": "Recently deleted: what's taken out waits in its wadspace",
+    "fn": "bRun",
+    "args": [
+      {
+        "board": {
+          "machines": [
+            {
+              "id": "surface",
+              "name": "Surface Book 2"
+            },
+            {
+              "id": "laptop",
+              "name": "Laptop"
+            }
+          ],
+          "wadspaces": [
+            {
+              "version": 5,
+              "id": "iq",
+              "owner": "u1",
+              "sharedWith": [],
+              "machine": "surface",
+              "order": 0,
+              "apps": [
+                {
+                  "app": "wadbrowser"
+                },
+                {
+                  "app": "vscode"
+                },
+                {
+                  "app": "terminal"
+                },
+                {
+                  "app": "libresprite"
+                },
+                {
+                  "app": "tiled"
+                }
+              ],
+              "exts": [
+                {
+                  "app": "wadbrowser",
+                  "id": "github",
+                  "name": "GitHub",
+                  "url": "https://github.com"
+                },
+                {
+                  "app": "vscode",
+                  "id": "anthropic.claude-code"
+                },
+                {
+                  "app": "vscode",
+                  "id": "ms-vscode.cpptools"
+                },
+                {
+                  "app": "terminal",
+                  "id": "cpp"
+                }
+              ],
+              "customization": {
+                "description": "A game.",
+                "wallpaper": {
+                  "type": "texture",
+                  "value": "stars"
+                },
+                "projects": [
+                  {
+                    "id": "project-iq",
+                    "kind": "github",
+                    "repo": "HungGod/IntelligenceQuest",
+                    "as": "IntelligenceQuest"
+                  }
+                ],
+                "secrets": {
+                  "bySlot": {
+                    "ext:anthropic.claude-code": {
+                      "id": "iq-claude",
+                      "name": "IQ-claude",
+                      "kind": "vscode-claude-code"
+                    }
+                  },
+                  "groups": [
+                    {
+                      "id": "g1",
+                      "members": [
+                        "browser",
+                        "web:github"
+                      ],
+                      "key": {
+                        "id": "hunggod",
+                        "name": "hunggod",
+                        "kind": "web"
+                      }
+                    }
+                  ]
+                },
+                "name": "IntelligenceQuest"
+              },
+              "createdAt": "2026-10-20T00:00:00Z",
+              "updatedAt": "2026-10-20T00:00:00Z"
+            },
+            {
+              "version": 5,
+              "id": "cosmic",
+              "owner": "u1",
+              "sharedWith": [],
+              "machine": "surface",
+              "order": 0,
+              "apps": [
+                {
+                  "app": "obsidian"
+                },
+                {
+                  "app": "wadbrowser"
+                }
+              ],
+              "exts": [],
+              "customization": {
+                "name": "Cosmic Bodybuilding"
+              },
+              "createdAt": "2026-10-20T00:00:00Z",
+              "updatedAt": "2026-10-20T00:00:00Z"
+            },
+            {
+              "version": 5,
+              "id": "vanua",
+              "owner": "u1",
+              "sharedWith": [],
+              "machine": "laptop",
+              "order": 0,
+              "apps": [
+                {
+                  "app": "vscode"
+                }
+              ],
+              "exts": [],
+              "customization": {
+                "name": "VanuaAcademy"
+              },
+              "createdAt": "2026-10-20T00:00:00Z",
+              "updatedAt": "2026-10-20T00:00:00Z"
+            }
+          ],
+          "now": "2026-10-21T10:00:00Z"
+        },
+        "ops": [
+          {
+            "op": "delete",
+            "picks": [
+              {
+                "kind": "exts",
+                "ws": "iq",
+                "app": "vscode"
+              },
+              {
+                "kind": "project",
+                "ws": "iq",
+                "id": "project-iq"
+              },
+              {
+                "kind": "background",
+                "ws": "iq"
+              }
+            ]
+          },
+          {
+            "op": "removeApp",
+            "ws": "iq",
+            "app": "tiled"
+          },
+          {
+            "op": "putBack",
+            "ws": "iq",
+            "kept": "k1"
+          },
+          {
+            "op": "putBack",
+            "ws": "iq",
+            "kept": "k4"
+          },
+          {
+            "op": "forget",
+            "ws": "iq",
+            "kept": "k2"
+          },
+          {
+            "op": "putBack",
+            "ws": "iq",
+            "kept": "k2"
+          }
+        ],
+        "now": "2026-10-21T10:00:00Z"
+      }
+    ]
+  },
+  {
+    "name": "keys onto things, things onto keys",
+    "fn": "bRun",
+    "args": [
+      {
+        "board": {
+          "machines": [
+            {
+              "id": "surface",
+              "name": "Surface Book 2"
+            },
+            {
+              "id": "laptop",
+              "name": "Laptop"
+            }
+          ],
+          "wadspaces": [
+            {
+              "version": 5,
+              "id": "iq",
+              "owner": "u1",
+              "sharedWith": [],
+              "machine": "surface",
+              "order": 0,
+              "apps": [
+                {
+                  "app": "wadbrowser"
+                },
+                {
+                  "app": "vscode"
+                },
+                {
+                  "app": "terminal"
+                },
+                {
+                  "app": "libresprite"
+                },
+                {
+                  "app": "tiled"
+                }
+              ],
+              "exts": [
+                {
+                  "app": "wadbrowser",
+                  "id": "github",
+                  "name": "GitHub",
+                  "url": "https://github.com"
+                },
+                {
+                  "app": "vscode",
+                  "id": "anthropic.claude-code"
+                },
+                {
+                  "app": "vscode",
+                  "id": "ms-vscode.cpptools"
+                },
+                {
+                  "app": "terminal",
+                  "id": "cpp"
+                }
+              ],
+              "customization": {
+                "description": "A game.",
+                "wallpaper": {
+                  "type": "texture",
+                  "value": "stars"
+                },
+                "projects": [
+                  {
+                    "id": "project-iq",
+                    "kind": "github",
+                    "repo": "HungGod/IntelligenceQuest",
+                    "as": "IntelligenceQuest"
+                  }
+                ],
+                "secrets": {
+                  "bySlot": {
+                    "ext:anthropic.claude-code": {
+                      "id": "iq-claude",
+                      "name": "IQ-claude",
+                      "kind": "vscode-claude-code"
+                    }
+                  },
+                  "groups": [
+                    {
+                      "id": "g1",
+                      "members": [
+                        "browser",
+                        "web:github"
+                      ],
+                      "key": {
+                        "id": "hunggod",
+                        "name": "hunggod",
+                        "kind": "web"
+                      }
+                    }
+                  ]
+                },
+                "name": "IntelligenceQuest"
+              },
+              "createdAt": "2026-10-20T00:00:00Z",
+              "updatedAt": "2026-10-20T00:00:00Z"
+            },
+            {
+              "version": 5,
+              "id": "cosmic",
+              "owner": "u1",
+              "sharedWith": [],
+              "machine": "surface",
+              "order": 0,
+              "apps": [
+                {
+                  "app": "obsidian"
+                },
+                {
+                  "app": "wadbrowser"
+                }
+              ],
+              "exts": [],
+              "customization": {
+                "name": "Cosmic Bodybuilding"
+              },
+              "createdAt": "2026-10-20T00:00:00Z",
+              "updatedAt": "2026-10-20T00:00:00Z"
+            },
+            {
+              "version": 5,
+              "id": "vanua",
+              "owner": "u1",
+              "sharedWith": [],
+              "machine": "laptop",
+              "order": 0,
+              "apps": [
+                {
+                  "app": "vscode"
+                }
+              ],
+              "exts": [],
+              "customization": {
+                "name": "VanuaAcademy"
+              },
+              "createdAt": "2026-10-20T00:00:00Z",
+              "updatedAt": "2026-10-20T00:00:00Z"
+            }
+          ],
+          "now": "2026-10-21T10:00:00Z"
+        },
+        "ops": [
+          {
+            "op": "drop",
+            "payload": {
+              "kind": "key",
+              "ws": "iq",
+              "key": "hunggod"
+            },
+            "into": "cosmic"
+          },
+          {
+            "op": "drop",
+            "payload": {
+              "kind": "holder",
+              "ws": "iq",
+              "key": "iq-claude",
+              "slot": "ext:anthropic.claude-code"
+            },
+            "into": "vanua"
+          },
+          {
+            "op": "moveMember",
+            "ws": "iq",
+            "member": "web:github",
+            "to": null
+          },
+          {
+            "op": "setGroupKey",
+            "ws": "iq",
+            "group": "g2",
+            "key": {
+              "id": "work",
+              "name": "Work",
+              "kind": "web"
+            }
+          },
+          {
+            "op": "assignKey",
+            "ws": "iq",
+            "holders": [
+              {
+                "slot": "group:g1",
+                "member": "browser"
+              }
+            ],
+            "key": {
+              "id": "work",
+              "name": "Work",
+              "kind": "web"
+            }
+          },
+          {
+            "op": "assignKey",
+            "ws": "iq",
+            "holders": [
+              {
+                "slot": "app:vscode"
+              }
+            ],
+            "key": {
+              "id": "code",
+              "name": "Code",
+              "kind": "vscode"
+            }
+          },
+          {
+            "op": "setKey",
+            "ws": "cosmic",
+            "slot": "app:obsidian",
+            "key": {
+              "id": "notes",
+              "name": "Notes",
+              "kind": "obsidian"
+            }
+          },
+          {
+            "op": "renameKey",
+            "id": "work",
+            "name": "Work stuff"
+          },
+          {
+            "op": "assignKey",
+            "ws": "iq",
+            "holders": [
+              {
+                "slot": "ext:anthropic.claude-code"
+              }
+            ],
+            "key": null
+          },
+          {
+            "op": "assignKey",
+            "ws": "iq",
+            "holders": [
+              {
+                "slot": "app:vscode"
+              }
+            ],
+            "key": {
+              "id": "work",
+              "name": "Work",
+              "kind": "web"
+            }
+          }
+        ],
+        "now": "2026-10-21T10:00:00Z"
+      }
+    ]
+  },
+  {
+    "name": "saving: what changed, each row's order",
+    "fn": "bRun",
+    "args": [
+      {
+        "board": {
+          "machines": [
+            {
+              "id": "surface",
+              "name": "Surface Book 2"
+            },
+            {
+              "id": "laptop",
+              "name": "Laptop"
+            }
+          ],
+          "wadspaces": [
+            {
+              "version": 5,
+              "id": "iq",
+              "owner": "u1",
+              "sharedWith": [],
+              "machine": "surface",
+              "order": 0,
+              "apps": [
+                {
+                  "app": "wadbrowser"
+                },
+                {
+                  "app": "vscode"
+                },
+                {
+                  "app": "terminal"
+                },
+                {
+                  "app": "libresprite"
+                },
+                {
+                  "app": "tiled"
+                }
+              ],
+              "exts": [
+                {
+                  "app": "wadbrowser",
+                  "id": "github",
+                  "name": "GitHub",
+                  "url": "https://github.com"
+                },
+                {
+                  "app": "vscode",
+                  "id": "anthropic.claude-code"
+                },
+                {
+                  "app": "vscode",
+                  "id": "ms-vscode.cpptools"
+                },
+                {
+                  "app": "terminal",
+                  "id": "cpp"
+                }
+              ],
+              "customization": {
+                "description": "A game.",
+                "wallpaper": {
+                  "type": "texture",
+                  "value": "stars"
+                },
+                "projects": [
+                  {
+                    "id": "project-iq",
+                    "kind": "github",
+                    "repo": "HungGod/IntelligenceQuest",
+                    "as": "IntelligenceQuest"
+                  }
+                ],
+                "secrets": {
+                  "bySlot": {
+                    "ext:anthropic.claude-code": {
+                      "id": "iq-claude",
+                      "name": "IQ-claude",
+                      "kind": "vscode-claude-code"
+                    }
+                  },
+                  "groups": [
+                    {
+                      "id": "g1",
+                      "members": [
+                        "browser",
+                        "web:github"
+                      ],
+                      "key": {
+                        "id": "hunggod",
+                        "name": "hunggod",
+                        "kind": "web"
+                      }
+                    }
+                  ]
+                },
+                "name": "IntelligenceQuest"
+              },
+              "createdAt": "2026-10-20T00:00:00Z",
+              "updatedAt": "2026-10-20T00:00:00Z"
+            },
+            {
+              "version": 5,
+              "id": "cosmic",
+              "owner": "u1",
+              "sharedWith": [],
+              "machine": "surface",
+              "order": 0,
+              "apps": [
+                {
+                  "app": "obsidian"
+                },
+                {
+                  "app": "wadbrowser"
+                }
+              ],
+              "exts": [],
+              "customization": {
+                "name": "Cosmic Bodybuilding"
+              },
+              "createdAt": "2026-10-20T00:00:00Z",
+              "updatedAt": "2026-10-20T00:00:00Z"
+            },
+            {
+              "version": 5,
+              "id": "vanua",
+              "owner": "u1",
+              "sharedWith": [],
+              "machine": "laptop",
+              "order": 0,
+              "apps": [
+                {
+                  "app": "vscode"
+                }
+              ],
+              "exts": [],
+              "customization": {
+                "name": "VanuaAcademy"
+              },
+              "createdAt": "2026-10-20T00:00:00Z",
+              "updatedAt": "2026-10-20T00:00:00Z"
+            }
+          ],
+          "now": "2026-10-21T10:00:00Z"
+        },
+        "ops": [
+          {
+            "op": "rename",
+            "ws": "cosmic",
+            "name": "Cosmic"
+          }
+        ],
+        "now": "2026-10-21T10:00:00Z",
+        "saved": [
+          {
+            "version": 5,
+            "id": "iq",
+            "owner": "u1",
+            "sharedWith": [],
+            "machine": "surface",
+            "order": 1,
+            "apps": [
+              {
+                "app": "wadbrowser"
+              },
+              {
+                "app": "vscode"
+              },
+              {
+                "app": "terminal"
+              },
+              {
+                "app": "libresprite"
+              },
+              {
+                "app": "tiled"
+              }
+            ],
+            "exts": [
+              {
+                "app": "wadbrowser",
+                "id": "github",
+                "name": "GitHub",
+                "url": "https://github.com"
+              },
+              {
+                "app": "vscode",
+                "id": "anthropic.claude-code"
+              },
+              {
+                "app": "vscode",
+                "id": "ms-vscode.cpptools"
+              },
+              {
+                "app": "terminal",
+                "id": "cpp"
+              }
+            ],
+            "customization": {
+              "description": "A game.",
+              "wallpaper": {
+                "type": "texture",
+                "value": "stars"
+              },
+              "projects": [
+                {
+                  "id": "project-iq",
+                  "kind": "github",
+                  "repo": "HungGod/IntelligenceQuest",
+                  "as": "IntelligenceQuest"
+                }
+              ],
+              "secrets": {
+                "bySlot": {
+                  "ext:anthropic.claude-code": {
+                    "id": "iq-claude",
+                    "name": "IQ-claude",
+                    "kind": "vscode-claude-code"
+                  }
+                },
+                "groups": [
+                  {
+                    "id": "g1",
+                    "members": [
+                      "browser",
+                      "web:github"
+                    ],
+                    "key": {
+                      "id": "hunggod",
+                      "name": "hunggod",
+                      "kind": "web"
+                    }
+                  }
+                ]
+              },
+              "name": "IntelligenceQuest"
+            },
+            "createdAt": "2026-10-20T00:00:00Z",
+            "updatedAt": "2026-10-20T00:00:00Z"
+          },
+          {
+            "version": 5,
+            "id": "cosmic",
+            "owner": "u1",
+            "sharedWith": [],
+            "machine": "surface",
+            "order": 2,
+            "apps": [
+              {
+                "app": "obsidian"
+              },
+              {
+                "app": "wadbrowser"
+              }
+            ],
+            "exts": [],
+            "customization": {
+              "name": "Cosmic Bodybuilding"
+            },
+            "createdAt": "2026-10-20T00:00:00Z",
+            "updatedAt": "2026-10-20T00:00:00Z"
+          },
+          {
+            "version": 5,
+            "id": "vanua",
+            "owner": "u1",
+            "sharedWith": [],
+            "machine": "laptop",
+            "order": 1,
+            "apps": [
+              {
+                "app": "vscode"
+              }
+            ],
+            "exts": [],
+            "customization": {
+              "name": "VanuaAcademy"
+            },
+            "createdAt": "2026-10-20T00:00:00Z",
+            "updatedAt": "2026-10-20T00:00:00Z"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "edits that can't be made",
+    "fn": "bRun",
+    "args": [
+      {
+        "board": {
+          "machines": [
+            {
+              "id": "surface",
+              "name": "Surface Book 2"
+            },
+            {
+              "id": "laptop",
+              "name": "Laptop"
+            }
+          ],
+          "wadspaces": [
+            {
+              "version": 5,
+              "id": "iq",
+              "owner": "u1",
+              "sharedWith": [],
+              "machine": "surface",
+              "order": 0,
+              "apps": [
+                {
+                  "app": "wadbrowser"
+                },
+                {
+                  "app": "vscode"
+                },
+                {
+                  "app": "terminal"
+                },
+                {
+                  "app": "libresprite"
+                },
+                {
+                  "app": "tiled"
+                }
+              ],
+              "exts": [
+                {
+                  "app": "wadbrowser",
+                  "id": "github",
+                  "name": "GitHub",
+                  "url": "https://github.com"
+                },
+                {
+                  "app": "vscode",
+                  "id": "anthropic.claude-code"
+                },
+                {
+                  "app": "vscode",
+                  "id": "ms-vscode.cpptools"
+                },
+                {
+                  "app": "terminal",
+                  "id": "cpp"
+                }
+              ],
+              "customization": {
+                "description": "A game.",
+                "wallpaper": {
+                  "type": "texture",
+                  "value": "stars"
+                },
+                "projects": [
+                  {
+                    "id": "project-iq",
+                    "kind": "github",
+                    "repo": "HungGod/IntelligenceQuest",
+                    "as": "IntelligenceQuest"
+                  }
+                ],
+                "secrets": {
+                  "bySlot": {
+                    "ext:anthropic.claude-code": {
+                      "id": "iq-claude",
+                      "name": "IQ-claude",
+                      "kind": "vscode-claude-code"
+                    }
+                  },
+                  "groups": [
+                    {
+                      "id": "g1",
+                      "members": [
+                        "browser",
+                        "web:github"
+                      ],
+                      "key": {
+                        "id": "hunggod",
+                        "name": "hunggod",
+                        "kind": "web"
+                      }
+                    }
+                  ]
+                },
+                "name": "IntelligenceQuest"
+              },
+              "createdAt": "2026-10-20T00:00:00Z",
+              "updatedAt": "2026-10-20T00:00:00Z"
+            },
+            {
+              "version": 5,
+              "id": "cosmic",
+              "owner": "u1",
+              "sharedWith": [],
+              "machine": "surface",
+              "order": 0,
+              "apps": [
+                {
+                  "app": "obsidian"
+                },
+                {
+                  "app": "wadbrowser"
+                }
+              ],
+              "exts": [],
+              "customization": {
+                "name": "Cosmic Bodybuilding"
+              },
+              "createdAt": "2026-10-20T00:00:00Z",
+              "updatedAt": "2026-10-20T00:00:00Z"
+            },
+            {
+              "version": 5,
+              "id": "vanua",
+              "owner": "u1",
+              "sharedWith": [],
+              "machine": "laptop",
+              "order": 0,
+              "apps": [
+                {
+                  "app": "vscode"
+                }
+              ],
+              "exts": [],
+              "customization": {
+                "name": "VanuaAcademy"
+              },
+              "createdAt": "2026-10-20T00:00:00Z",
+              "updatedAt": "2026-10-20T00:00:00Z"
+            }
+          ],
+          "now": "2026-10-21T10:00:00Z"
+        },
+        "ops": [
+          {
+            "op": "setBackground",
+            "ws": "iq",
+            "texture": "plaid"
+          },
+          {
+            "op": "drop",
+            "payload": {
+              "kind": "apps",
+              "ws": "nope"
+            },
+            "into": "iq"
+          },
+          {
+            "op": "drop",
+            "payload": {
+              "kind": "ext",
+              "ws": "iq",
+              "app": "vscode",
+              "id": "nope.nope"
+            },
+            "into": "cosmic"
+          },
+          {
+            "op": "undo"
+          }
+        ],
+        "now": "2026-10-21T10:00:00Z"
+      }
+    ]
+  },
+  {
+    "name": "a wadspace from nothing, filled in",
+    "fn": "bRun",
+    "args": [
+      {
+        "board": {
+          "machines": [
+            {
+              "id": "surface",
+              "name": "Surface Book 2"
+            },
+            {
+              "id": "laptop",
+              "name": "Laptop"
+            }
+          ],
+          "wadspaces": [
+            {
+              "version": 5,
+              "id": "iq",
+              "owner": "u1",
+              "sharedWith": [],
+              "machine": "surface",
+              "order": 0,
+              "apps": [
+                {
+                  "app": "wadbrowser"
+                },
+                {
+                  "app": "vscode"
+                },
+                {
+                  "app": "terminal"
+                },
+                {
+                  "app": "libresprite"
+                },
+                {
+                  "app": "tiled"
+                }
+              ],
+              "exts": [
+                {
+                  "app": "wadbrowser",
+                  "id": "github",
+                  "name": "GitHub",
+                  "url": "https://github.com"
+                },
+                {
+                  "app": "vscode",
+                  "id": "anthropic.claude-code"
+                },
+                {
+                  "app": "vscode",
+                  "id": "ms-vscode.cpptools"
+                },
+                {
+                  "app": "terminal",
+                  "id": "cpp"
+                }
+              ],
+              "customization": {
+                "description": "A game.",
+                "wallpaper": {
+                  "type": "texture",
+                  "value": "stars"
+                },
+                "projects": [
+                  {
+                    "id": "project-iq",
+                    "kind": "github",
+                    "repo": "HungGod/IntelligenceQuest",
+                    "as": "IntelligenceQuest"
+                  }
+                ],
+                "secrets": {
+                  "bySlot": {
+                    "ext:anthropic.claude-code": {
+                      "id": "iq-claude",
+                      "name": "IQ-claude",
+                      "kind": "vscode-claude-code"
+                    }
+                  },
+                  "groups": [
+                    {
+                      "id": "g1",
+                      "members": [
+                        "browser",
+                        "web:github"
+                      ],
+                      "key": {
+                        "id": "hunggod",
+                        "name": "hunggod",
+                        "kind": "web"
+                      }
+                    }
+                  ]
+                },
+                "name": "IntelligenceQuest"
+              },
+              "createdAt": "2026-10-20T00:00:00Z",
+              "updatedAt": "2026-10-20T00:00:00Z"
+            },
+            {
+              "version": 5,
+              "id": "cosmic",
+              "owner": "u1",
+              "sharedWith": [],
+              "machine": "surface",
+              "order": 0,
+              "apps": [
+                {
+                  "app": "obsidian"
+                },
+                {
+                  "app": "wadbrowser"
+                }
+              ],
+              "exts": [],
+              "customization": {
+                "name": "Cosmic Bodybuilding"
+              },
+              "createdAt": "2026-10-20T00:00:00Z",
+              "updatedAt": "2026-10-20T00:00:00Z"
+            },
+            {
+              "version": 5,
+              "id": "vanua",
+              "owner": "u1",
+              "sharedWith": [],
+              "machine": "laptop",
+              "order": 0,
+              "apps": [
+                {
+                  "app": "vscode"
+                }
+              ],
+              "exts": [],
+              "customization": {
+                "name": "VanuaAcademy"
+              },
+              "createdAt": "2026-10-20T00:00:00Z",
+              "updatedAt": "2026-10-20T00:00:00Z"
+            }
+          ],
+          "now": "2026-10-21T10:00:00Z"
+        },
+        "ops": [
+          {
+            "op": "create",
+            "machine": "laptop"
+          },
+          {
+            "op": "drop",
+            "payload": {
+              "kind": "catalogApp",
+              "app": "obsidian"
+            },
+            "into": "new-wadspace"
+          },
+          {
+            "op": "drop",
+            "payload": {
+              "kind": "catalogExt",
+              "ext": {
+                "app": "wadbrowser",
+                "id": "notion",
+                "name": "Notion",
+                "url": "https://notion.so"
+              }
+            },
+            "into": "new-wadspace"
+          },
+          {
+            "op": "rename",
+            "ws": "new-wadspace",
+            "name": "Notes"
+          }
+        ],
+        "now": "2026-10-21T10:00:00Z"
+      }
+    ]
+  },
+  {
+    "name": "groups with loose web apps",
+    "fn": "bGroups",
+    "args": [
+      {
+        "machines": [
+          {
+            "id": "surface",
+            "name": "Surface Book 2"
+          },
+          {
+            "id": "laptop",
+            "name": "Laptop"
+          }
+        ],
+        "wadspaces": [
+          {
+            "version": 5,
+            "id": "iq",
+            "owner": "u1",
+            "sharedWith": [],
+            "machine": "surface",
+            "order": 0,
+            "apps": [
+              {
+                "app": "wadbrowser"
+              },
+              {
+                "app": "vscode"
+              },
+              {
+                "app": "terminal"
+              },
+              {
+                "app": "libresprite"
+              },
+              {
+                "app": "tiled"
+              }
+            ],
+            "exts": [
+              {
+                "app": "wadbrowser",
+                "id": "github",
+                "name": "GitHub",
+                "url": "https://github.com"
+              },
+              {
+                "app": "vscode",
+                "id": "anthropic.claude-code"
+              },
+              {
+                "app": "vscode",
+                "id": "ms-vscode.cpptools"
+              },
+              {
+                "app": "terminal",
+                "id": "cpp"
+              },
+              {
+                "app": "wadbrowser",
+                "id": "docs-rs",
+                "name": "Docs.rs",
+                "url": "https://docs.rs"
+              },
+              {
+                "app": "wadbrowser",
+                "id": "focus",
+                "name": "Focus"
+              }
+            ],
+            "customization": {
+              "description": "A game.",
+              "wallpaper": {
+                "type": "texture",
+                "value": "stars"
+              },
+              "projects": [
+                {
+                  "id": "project-iq",
+                  "kind": "github",
+                  "repo": "HungGod/IntelligenceQuest",
+                  "as": "IntelligenceQuest"
+                }
+              ],
+              "secrets": {
+                "bySlot": {
+                  "ext:anthropic.claude-code": {
+                    "id": "iq-claude",
+                    "name": "IQ-claude",
+                    "kind": "vscode-claude-code"
+                  }
+                },
+                "groups": [
+                  {
+                    "id": "g1",
+                    "members": [
+                      "web:github"
+                    ],
+                    "key": {
+                      "id": "hunggod",
+                      "name": "hunggod",
+                      "kind": "web"
+                    }
+                  },
+                  {
+                    "id": "g2",
+                    "members": [
+                      "web:gone"
+                    ]
+                  }
+                ]
+              },
+              "name": "IntelligenceQuest"
+            },
+            "createdAt": "2026-10-20T00:00:00Z",
+            "updatedAt": "2026-10-20T00:00:00Z"
+          },
+          {
+            "version": 5,
+            "id": "cosmic",
+            "owner": "u1",
+            "sharedWith": [],
+            "machine": "surface",
+            "order": 0,
+            "apps": [
+              {
+                "app": "obsidian"
+              },
+              {
+                "app": "wadbrowser"
+              }
+            ],
+            "exts": [],
+            "customization": {
+              "name": "Cosmic Bodybuilding"
+            },
+            "createdAt": "2026-10-20T00:00:00Z",
+            "updatedAt": "2026-10-20T00:00:00Z"
+          },
+          {
+            "version": 5,
+            "id": "vanua",
+            "owner": "u1",
+            "sharedWith": [],
+            "machine": "laptop",
+            "order": 0,
+            "apps": [
+              {
+                "app": "vscode"
+              }
+            ],
+            "exts": [],
+            "customization": {
+              "name": "VanuaAcademy"
+            },
+            "createdAt": "2026-10-20T00:00:00Z",
+            "updatedAt": "2026-10-20T00:00:00Z"
+          }
+        ],
+        "now": "2026-10-21T10:00:00Z"
       },
-      "into": "vanua",
-      "where": {
-       "at": 0
-      }
-     },
-     {
-      "op": "undo"
-     }
-    ],
-    "now": "2026-10-21T11:00:00Z"
-   }
-  ]
- }
+      "iq"
+    ]
+  },
+  {
+    "name": "a new key's name and id",
+    "fn": "bNewKey",
+    "args": [
+      {
+        "machines": [
+          {
+            "id": "surface",
+            "name": "Surface Book 2"
+          },
+          {
+            "id": "laptop",
+            "name": "Laptop"
+          }
+        ],
+        "wadspaces": [
+          {
+            "version": 5,
+            "id": "iq",
+            "owner": "u1",
+            "sharedWith": [],
+            "machine": "surface",
+            "order": 0,
+            "apps": [
+              {
+                "app": "wadbrowser"
+              },
+              {
+                "app": "vscode"
+              },
+              {
+                "app": "terminal"
+              },
+              {
+                "app": "libresprite"
+              },
+              {
+                "app": "tiled"
+              }
+            ],
+            "exts": [
+              {
+                "app": "wadbrowser",
+                "id": "github",
+                "name": "GitHub",
+                "url": "https://github.com"
+              },
+              {
+                "app": "vscode",
+                "id": "anthropic.claude-code"
+              },
+              {
+                "app": "vscode",
+                "id": "ms-vscode.cpptools"
+              },
+              {
+                "app": "terminal",
+                "id": "cpp"
+              }
+            ],
+            "customization": {
+              "description": "A game.",
+              "wallpaper": {
+                "type": "texture",
+                "value": "stars"
+              },
+              "projects": [
+                {
+                  "id": "project-iq",
+                  "kind": "github",
+                  "repo": "HungGod/IntelligenceQuest",
+                  "as": "IntelligenceQuest"
+                }
+              ],
+              "secrets": {
+                "bySlot": {
+                  "ext:anthropic.claude-code": {
+                    "id": "iq-claude",
+                    "name": "IQ-claude",
+                    "kind": "vscode-claude-code"
+                  }
+                },
+                "groups": [
+                  {
+                    "id": "g1",
+                    "members": [
+                      "browser",
+                      "web:github"
+                    ],
+                    "key": {
+                      "id": "hunggod",
+                      "name": "hunggod",
+                      "kind": "web"
+                    }
+                  }
+                ]
+              },
+              "name": "IntelligenceQuest"
+            },
+            "createdAt": "2026-10-20T00:00:00Z",
+            "updatedAt": "2026-10-20T00:00:00Z"
+          },
+          {
+            "version": 5,
+            "id": "cosmic",
+            "owner": "u1",
+            "sharedWith": [],
+            "machine": "surface",
+            "order": 0,
+            "apps": [
+              {
+                "app": "obsidian"
+              },
+              {
+                "app": "wadbrowser"
+              }
+            ],
+            "exts": [],
+            "customization": {
+              "name": "Cosmic Bodybuilding"
+            },
+            "createdAt": "2026-10-20T00:00:00Z",
+            "updatedAt": "2026-10-20T00:00:00Z"
+          },
+          {
+            "version": 5,
+            "id": "vanua",
+            "owner": "u1",
+            "sharedWith": [],
+            "machine": "laptop",
+            "order": 0,
+            "apps": [
+              {
+                "app": "vscode"
+              }
+            ],
+            "exts": [],
+            "customization": {
+              "name": "VanuaAcademy"
+            },
+            "createdAt": "2026-10-20T00:00:00Z",
+            "updatedAt": "2026-10-20T00:00:00Z"
+          }
+        ],
+        "now": "2026-10-21T10:00:00Z"
+      },
+      "IntelligenceQuest-WadBrowser",
+      "web",
+      [
+        {
+          "id": "intelligencequest-wadbrowser",
+          "name": "IntelligenceQuest-WadBrowser",
+          "kind": "web"
+        }
+      ]
+    ]
+  },
+  {
+    "name": "its keys by app",
+    "fn": "bKeyMap",
+    "args": [
+      {
+        "machines": [
+          {
+            "id": "surface",
+            "name": "Surface Book 2"
+          },
+          {
+            "id": "laptop",
+            "name": "Laptop"
+          }
+        ],
+        "wadspaces": [
+          {
+            "version": 5,
+            "id": "iq",
+            "owner": "u1",
+            "sharedWith": [],
+            "machine": "surface",
+            "order": 0,
+            "apps": [
+              {
+                "app": "wadbrowser"
+              },
+              {
+                "app": "vscode"
+              },
+              {
+                "app": "terminal"
+              },
+              {
+                "app": "libresprite"
+              },
+              {
+                "app": "tiled"
+              }
+            ],
+            "exts": [
+              {
+                "app": "wadbrowser",
+                "id": "github",
+                "name": "GitHub",
+                "url": "https://github.com"
+              },
+              {
+                "app": "vscode",
+                "id": "anthropic.claude-code"
+              },
+              {
+                "app": "vscode",
+                "id": "ms-vscode.cpptools"
+              },
+              {
+                "app": "terminal",
+                "id": "cpp"
+              }
+            ],
+            "customization": {
+              "description": "A game.",
+              "wallpaper": {
+                "type": "texture",
+                "value": "stars"
+              },
+              "projects": [
+                {
+                  "id": "project-iq",
+                  "kind": "github",
+                  "repo": "HungGod/IntelligenceQuest",
+                  "as": "IntelligenceQuest"
+                }
+              ],
+              "secrets": {
+                "bySlot": {
+                  "ext:anthropic.claude-code": {
+                    "id": "iq-claude",
+                    "name": "IQ-claude",
+                    "kind": "vscode-claude-code"
+                  }
+                },
+                "groups": [
+                  {
+                    "id": "g1",
+                    "members": [
+                      "browser",
+                      "web:github"
+                    ],
+                    "key": {
+                      "id": "hunggod",
+                      "name": "hunggod",
+                      "kind": "web"
+                    }
+                  }
+                ]
+              },
+              "name": "IntelligenceQuest"
+            },
+            "createdAt": "2026-10-20T00:00:00Z",
+            "updatedAt": "2026-10-20T00:00:00Z"
+          },
+          {
+            "version": 5,
+            "id": "cosmic",
+            "owner": "u1",
+            "sharedWith": [],
+            "machine": "surface",
+            "order": 0,
+            "apps": [
+              {
+                "app": "obsidian"
+              },
+              {
+                "app": "wadbrowser"
+              }
+            ],
+            "exts": [],
+            "customization": {
+              "name": "Cosmic Bodybuilding"
+            },
+            "createdAt": "2026-10-20T00:00:00Z",
+            "updatedAt": "2026-10-20T00:00:00Z"
+          },
+          {
+            "version": 5,
+            "id": "vanua",
+            "owner": "u1",
+            "sharedWith": [],
+            "machine": "laptop",
+            "order": 0,
+            "apps": [
+              {
+                "app": "vscode"
+              }
+            ],
+            "exts": [],
+            "customization": {
+              "name": "VanuaAcademy"
+            },
+            "createdAt": "2026-10-20T00:00:00Z",
+            "updatedAt": "2026-10-20T00:00:00Z"
+          }
+        ],
+        "now": "2026-10-21T10:00:00Z"
+      },
+      "iq"
+    ]
+  },
+  {
+    "name": "each key with what signs in with it",
+    "fn": "bSecrets",
+    "args": [
+      {
+        "machines": [
+          {
+            "id": "surface",
+            "name": "Surface Book 2"
+          },
+          {
+            "id": "laptop",
+            "name": "Laptop"
+          }
+        ],
+        "wadspaces": [
+          {
+            "version": 5,
+            "id": "iq",
+            "owner": "u1",
+            "sharedWith": [],
+            "machine": "surface",
+            "order": 0,
+            "apps": [
+              {
+                "app": "wadbrowser"
+              },
+              {
+                "app": "vscode"
+              },
+              {
+                "app": "terminal"
+              },
+              {
+                "app": "libresprite"
+              },
+              {
+                "app": "tiled"
+              }
+            ],
+            "exts": [
+              {
+                "app": "wadbrowser",
+                "id": "github",
+                "name": "GitHub",
+                "url": "https://github.com"
+              },
+              {
+                "app": "vscode",
+                "id": "anthropic.claude-code"
+              },
+              {
+                "app": "vscode",
+                "id": "ms-vscode.cpptools"
+              },
+              {
+                "app": "terminal",
+                "id": "cpp"
+              }
+            ],
+            "customization": {
+              "description": "A game.",
+              "wallpaper": {
+                "type": "texture",
+                "value": "stars"
+              },
+              "projects": [
+                {
+                  "id": "project-iq",
+                  "kind": "github",
+                  "repo": "HungGod/IntelligenceQuest",
+                  "as": "IntelligenceQuest"
+                }
+              ],
+              "secrets": {
+                "bySlot": {
+                  "ext:anthropic.claude-code": {
+                    "id": "iq-claude",
+                    "name": "IQ-claude",
+                    "kind": "vscode-claude-code"
+                  }
+                },
+                "groups": [
+                  {
+                    "id": "g1",
+                    "members": [
+                      "browser",
+                      "web:github"
+                    ],
+                    "key": {
+                      "id": "hunggod",
+                      "name": "hunggod",
+                      "kind": "web"
+                    }
+                  }
+                ]
+              },
+              "name": "IntelligenceQuest"
+            },
+            "createdAt": "2026-10-20T00:00:00Z",
+            "updatedAt": "2026-10-20T00:00:00Z"
+          },
+          {
+            "version": 5,
+            "id": "cosmic",
+            "owner": "u1",
+            "sharedWith": [],
+            "machine": "surface",
+            "order": 0,
+            "apps": [
+              {
+                "app": "obsidian"
+              },
+              {
+                "app": "wadbrowser"
+              }
+            ],
+            "exts": [],
+            "customization": {
+              "name": "Cosmic Bodybuilding"
+            },
+            "createdAt": "2026-10-20T00:00:00Z",
+            "updatedAt": "2026-10-20T00:00:00Z"
+          },
+          {
+            "version": 5,
+            "id": "vanua",
+            "owner": "u1",
+            "sharedWith": [],
+            "machine": "laptop",
+            "order": 0,
+            "apps": [
+              {
+                "app": "vscode"
+              }
+            ],
+            "exts": [],
+            "customization": {
+              "name": "VanuaAcademy"
+            },
+            "createdAt": "2026-10-20T00:00:00Z",
+            "updatedAt": "2026-10-20T00:00:00Z"
+          }
+        ],
+        "now": "2026-10-21T10:00:00Z"
+      },
+      "iq"
+    ]
+  }
 ]

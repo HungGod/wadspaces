@@ -1,10 +1,11 @@
 //! What the board knows of the catalog (wad-core's catalog.json) and works
-//! out from it (the client's builder/catalog.ts): keys and WadBrowser's key
-//! groups, misconfiguration and its fixes, what a desktop shows.
+//! out from it: keys and WadBrowser's key groups, and add-ons (what each is
+//! called, its picture, what it does).
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+use crate::b::Ext;
 use crate::model::KeyGroup;
 
 /// An app of the catalog, as the board shows it.
@@ -55,6 +56,7 @@ pub const TERMINAL_ICON: &str = "/icons/terminal.png";
 pub struct Extension {
     pub id: String,
     pub name: String,
+    pub description: Option<String>,
     pub icon: Option<String>,
     pub secret: Option<String>,
 }
@@ -76,6 +78,7 @@ fn to_extension(e: &Value) -> Extension {
     Extension {
         id: s(e, "id").into(),
         name: s(e, "name").into(),
+        description: e.get("description").and_then(Value::as_str).map(String::from),
         icon: extension_icon(s(e, "id")).map(String::from),
         secret: e.get("secret").and_then(|x| x.get("kind")).and_then(Value::as_str).map(String::from),
     }
@@ -87,7 +90,7 @@ pub fn extension(id: &str) -> Extension {
         .as_array()
         .and_then(|l| l.iter().find(|e| s(e, "id") == id))
         .map(to_extension)
-        .unwrap_or_else(|| Extension { id: id.into(), name: id.into(), icon: None, secret: None })
+        .unwrap_or_else(|| Extension { id: id.into(), name: id.into(), description: None, icon: None, secret: None })
 }
 
 /// The catalog's command-line tools: (id, name).
@@ -102,6 +105,11 @@ pub fn tools() -> Vec<(String, String)> {
 
 pub fn tool_name(id: &str) -> String {
     tools().into_iter().find(|(t, _)| t == id).map(|(_, n)| n).unwrap_or_else(|| id.to_string())
+}
+
+/// What a command-line tool brings.
+pub fn tool_what(id: &str) -> Option<String> {
+    wad_core::catalog::tool(id).and_then(|t| t.get("description").and_then(Value::as_str).map(String::from))
 }
 
 /// A web app's icon (the client's siteIcon): one the catalog brings for its
@@ -121,22 +129,116 @@ pub fn site_icon(url: &str) -> String {
     }
 }
 
-/// A web app's id from its name.
+/// A web app's id from its name (never "focus": that's WadBrowser's Focus).
 pub fn webapp_id(name: &str) -> String {
-    let lower = name.to_lowercase();
-    let mut out = String::new();
-    let mut dash = false;
-    for c in lower.chars() {
-        if c.is_ascii_lowercase() || c.is_ascii_digit() {
-            out.push(c);
-            dash = false;
-        } else if !dash {
-            out.push('-');
-            dash = true;
-        }
+    wad_core::layers::webapp_id(name)
+}
+
+/// A site's host ("https://www.notion.so/x" → "www.notion.so").
+fn host_of(url: &str) -> String {
+    let rest = url.strip_prefix("https://").or_else(|| url.strip_prefix("http://")).unwrap_or("");
+    let host = rest.split(['/', '?', '#']).next().unwrap_or("").rsplit('@').next().unwrap_or("");
+    host.split(':').next().unwrap_or("").to_ascii_lowercase()
+}
+
+/// A site typed in ("notion.so"): a web app named after it.
+pub fn site_webapp(text: &str) -> Option<Ext> {
+    let text = text.trim();
+    let url = if text.starts_with("http://") || text.starts_with("https://") {
+        text.to_string()
+    } else {
+        format!("https://{text}")
+    };
+    let host = host_of(&url);
+    let host = host.strip_prefix("www.").unwrap_or(&host);
+    if host.is_empty() || host.contains(char::is_whitespace) {
+        return None;
     }
-    let out = out.trim_matches('-');
-    if out.is_empty() { "app".into() } else { out.to_string() }
+    let first = host.split('.').next()?;
+    let mut name: String = first.chars().take(1).flat_map(char::to_uppercase).collect();
+    name.push_str(&first.chars().skip(1).collect::<String>());
+    Some(Ext { id: webapp_id(&name), name: Some(name), url: Some(url), ..Ext::plain("wadbrowser", "") })
+}
+
+/// Web apps worth offering even when no wadspace has them: (id, name, url).
+pub const COMMON_WEBAPPS: [(&str, &str, &str); 4] = [
+    ("github", "GitHub", "https://github.com"),
+    ("gmail", "Gmail", "https://mail.google.com"),
+    ("google-drive", "Google Drive", "https://drive.google.com"),
+    ("claude", "Claude", "https://claude.ai"),
+];
+
+/// What common web apps are for (any other: its site).
+const WEB_WHAT: [(&str, &str); 6] = [
+    ("github", "Code, issues and pull requests"),
+    ("claude", "Anthropic's AI assistant"),
+    ("gmail", "Email"),
+    ("google-drive", "Files in the cloud"),
+    ("google-firebase", "The Firebase console"),
+    ("docs-rs", "Docs for Rust crates"),
+];
+
+// ─────────────────────────────── add-ons ───────────────────────────────
+
+/// The apps add-ons are shown by, in this order (then any other's).
+pub const EXT_ORDER: [&str; 3] = ["wadbrowser", "vscode", "terminal"];
+
+/// What an app's add-ons are called.
+pub fn ext_kind(app: &str) -> &'static str {
+    match app {
+        "wadbrowser" => "Web apps",
+        "vscode" => "VS Code extensions",
+        "terminal" => "Command-line tools",
+        _ => "Add-ons",
+    }
+}
+
+/// What an add-on is called, and its own picture: "" when it has none
+/// (Focus, VS Code extensions without one, command-line tools).
+pub fn ext_face(x: &Ext) -> (String, String) {
+    match x.app.as_str() {
+        _ if x.is_focus() => ("Focus".into(), String::new()),
+        "vscode" => {
+            let e = extension(&x.id);
+            (e.name, e.icon.unwrap_or_default())
+        }
+        "terminal" => (tool_name(&x.id), String::new()),
+        _ => (
+            x.name.clone().filter(|n| !n.is_empty()).unwrap_or_else(|| x.id.clone()),
+            x.icon_url.clone().filter(|u| !u.is_empty()).unwrap_or_else(|| site_icon(x.url.as_deref().unwrap_or(""))),
+        ),
+    }
+}
+
+/// What an add-on does, in a few words.
+pub fn ext_what(x: &Ext) -> String {
+    match x.app.as_str() {
+        _ if x.is_focus() => "Its web apps alone, no address bar".into(),
+        "vscode" => extension(&x.id).description.unwrap_or_else(|| "A VS Code extension".into()),
+        "terminal" => tool_what(&x.id).unwrap_or_else(|| "A command-line tool".into()),
+        _ => match WEB_WHAT.iter().find(|(id, _)| *id == x.id) {
+            Some((_, what)) => what.to_string(),
+            None => {
+                let host = host_of(x.url.as_deref().unwrap_or(""));
+                match host.strip_prefix("www.").unwrap_or(&host) {
+                    "" => "A web app".into(),
+                    h => h.to_string(),
+                }
+            }
+        },
+    }
+}
+
+/// A key's kind as people say it: "web", "VS Code", "Claude Code"…
+pub fn kind_label(kind: &str) -> String {
+    match kind {
+        "web" => "web".into(),
+        "vscode" => "VS Code".into(),
+        "vscode-claude-code" => "Claude Code".into(),
+        "obsidian" => "Obsidian".into(),
+        "steam" => "Steam".into(),
+        other => other.into(),
+    }
 }
 
 fn no_spaces(s: &str) -> String {

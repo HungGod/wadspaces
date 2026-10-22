@@ -17,7 +17,7 @@ pub mod state;
 pub mod trash;
 
 use gtk::{glib, prelude::*};
-use wad_board::b::{Op, Pick};
+use wad_board::b4::{Op, Pick};
 use wad_gtk::Icon;
 
 use self::state::{Standing, Tab};
@@ -80,7 +80,7 @@ pub fn show_wadspace(id: &str, copy: bool) {
     if copy {
         let before: Vec<String> = state::read(|s| s.board.wadspaces.iter().map(|x| x.id.clone()).collect());
         let op = Op::Fresh {
-            payload: wad_board::b::Payload::Wadspace { ws: w.id.clone() },
+            payload: wad_board::b4::Payload::Wadspace { ws: w.id.clone() },
             machine: w.machine.clone(),
             before: None,
         };
@@ -490,7 +490,7 @@ fn show_open(p: &Page) {
 fn draw_row(s: &AppState, row: &gtk::Box) {
     ui::clear(row);
     let shown = state::shown(s);
-    let list: Vec<wad_board::b::Wadspace> = state::read(|st| st.board.row(&shown).into_iter().cloned().collect());
+    let list: Vec<wad_board::b4::Wadspace> = state::read(|st| st.board.row(&shown).into_iter().cloned().collect());
     if !state::read(|st| st.loaded) {
         let l = gtk::Label::new(Some("Reading your wadspaces…"));
         l.add_css_class("faint");
@@ -518,7 +518,7 @@ fn draw_row(s: &AppState, row: &gtk::Box) {
 /// Drags made by hand (the snapshots).
 pub mod sim {
     use super::*;
-    use wad_board::b::Payload as Bp;
+    use wad_board::b4::Payload as Bp;
 
     fn column(id: &str) -> Option<gtk::Widget> {
         fn find(w: &gtk::Widget, id: &str) -> Option<gtk::Widget> {

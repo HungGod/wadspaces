@@ -8,7 +8,7 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 
 use gtk::{glib, prelude::*};
-use wad_board::b::{Op, Payload as Bp};
+use wad_board::b4::{Op, Payload as Bp};
 use wad_gtk::Icon;
 
 use super::buckets::{self, of, source, whole};

@@ -1,5 +1,5 @@
 //! Builder B's board in the app: the account's version 4 wadspaces (the
-//! library's `v4`) on wad_board::b's Board, each edit saved behind it as the
+//! library's `v4`) on wad_board::b4's Board, each edit saved behind it as the
 //! old board's are (../state.rs): the library at once, the account after; a
 //! change made elsewhere taken in when none of the board's writes are out.
 //! What's built comes from this machine's images and the others'
@@ -10,7 +10,7 @@ use std::collections::HashMap;
 
 use gtk::glib;
 use serde_json::Value;
-use wad_board::b::{Board, Machine, Op, Pick, Wadspace};
+use wad_board::b4::{Board, Machine, Op, Pick, Wadspace};
 use wad_proto::v1::ImageRow;
 
 use crate::launch;

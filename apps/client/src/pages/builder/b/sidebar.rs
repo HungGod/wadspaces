@@ -10,7 +10,7 @@ use std::rc::Rc;
 
 use gtk::{glib, prelude::*};
 use serde_json::Value;
-use wad_board::b::{Extra, Op, Payload as Bp, Wadspace, Where};
+use wad_board::b4::{Extra, Op, Payload as Bp, Wadspace, Where};
 use wad_board::catalog::{self, KeyApp, KeyLine};
 use wad_gtk::Icon;
 

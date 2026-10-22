@@ -11,7 +11,7 @@
 
 use gtk::{glib, prelude::*};
 use serde_json::Value;
-use wad_board::b::{self, Extra, Op, Payload as Bp, Pick, Template, Wadspace, Where, Which};
+use wad_board::b4::{self as b, Extra, Op, Payload as Bp, Pick, Template, Wadspace, Where, Which};
 use wad_board::catalog::{self, KeyLine};
 use wad_gtk::Icon;
 
