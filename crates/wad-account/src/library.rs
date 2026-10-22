@@ -1,6 +1,7 @@
 //! The person's library from their account, as the native client shows it:
-//! their wadspaces (version 4 documents: each its own templates, on one
-//! machine), their saved WadBrowser setups, and their machines' heartbeats.
+//! their wadspaces (version 5 documents: each its apps, add-ons and
+//! customization, on one machine), their saved WadBrowser setups, and their
+//! machines' heartbeats.
 //! Read as them (the rules decide), kept on disk for the next start (offline
 //! too). Documents stay JSON: wad-core's v5 code reads them as the web app's
 //! wasm does.
@@ -16,15 +17,24 @@ use crate::{Account, Error};
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct Library {
     pub browsers: Vec<Value>,
-    /// Their wadspaces (version 4: anything older is never shown).
+    /// Their wadspaces (version 5: any other is never shown).
     pub wadspaces: Vec<Value>,
+    /// The ids of their documents that aren't (a new wadspace never takes one).
+    #[serde(default)]
+    pub reserved: Vec<String>,
     /// Each machine's last heartbeat (users/{uid}/machines).
     pub machines: Vec<Value>,
 }
 
-/// A version 4 wadspace's document (wad_core::v5::is_v4), what the Builder writes.
-pub fn is_v4(w: &Value) -> bool {
-    w.get("version").and_then(Value::as_u64) == Some(4)
+/// A version 5 wadspace's document (wad_core::v5::is_v5), what the Builder writes.
+pub fn is_v5(w: &Value) -> bool {
+    w.get("version").and_then(Value::as_u64) == Some(5)
+}
+
+/// Their documents split: the version 5 wadspaces, and the others' ids.
+fn split(docs: Vec<Value>) -> (Vec<Value>, Vec<String>) {
+    let (wadspaces, others): (Vec<Value>, Vec<Value>) = docs.into_iter().partition(is_v5);
+    (wadspaces, others.iter().filter_map(|d| d["id"].as_str().map(String::from)).collect())
 }
 
 /// A document as the web app has it: its fields, and its id.
@@ -53,11 +63,8 @@ impl Account {
         let (browsers, machines, wadspaces) = futures_util::join!(list("browsers"), list("machines"), async {
             fs.query_root(&tok, owned).await.map(|d| d.iter().map(plain).collect::<Vec<_>>())
         },);
-        let lib = Library {
-            browsers: browsers?,
-            wadspaces: wadspaces?.into_iter().filter(is_v4).collect(),
-            machines: machines?,
-        };
+        let (wadspaces, reserved) = split(wadspaces?);
+        let lib = Library { browsers: browsers?, wadspaces, reserved, machines: machines? };
         if let Some(p) = self.library_file() {
             let _ = crate::write_private(&p, &serde_json::to_vec(&lib).expect("JSON"));
         }
@@ -99,10 +106,12 @@ impl Account {
     }
 
     /// The library as last read on this machine (for a quick start, or
-    /// offline). One kept before version 4 shows none of its old wadspaces.
+    /// offline). One kept before version 5 shows none of its old wadspaces.
     pub fn cached_library(&self) -> Option<Library> {
         let mut lib: Library = serde_json::from_slice(&std::fs::read(self.library_file()?).ok()?).ok()?;
-        lib.wadspaces.retain(is_v4);
+        let (wadspaces, old) = split(std::mem::take(&mut lib.wadspaces));
+        lib.wadspaces = wadspaces;
+        lib.reserved.extend(old);
         Some(lib)
     }
 

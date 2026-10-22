@@ -69,22 +69,22 @@ fn copy(s: Step, who: &str) -> (String, &'static str, Option<&'static str>) {
     match s {
         Step::Nav => (
             format!("Welcome to WadSpaces, {who}!"),
-            "Wadspaces are made in the Builder: each its Customizations (its background, projects and keys) over its Templates (its apps and what they take), on one machine. Let's make your first one.",
+            "Wadspaces are made in the Builder: each one card, on one machine, with its customization (its background and projects), its secrets, its add-ons and its apps. Let's make your first one.",
             None,
         ),
         Step::Board => (
             "The board".into(),
-            "This machine's wadspaces, your other machines along the bottom. Drag a template (and those under it) onto another wadspace to copy it there, Shift+drag for just it, or onto a machine for a new wadspace there. Click a wadspace to open it in the sidebar.",
+            "This machine's wadspaces, your other machines along the bottom. Drag a card, or a piece of one, onto another wadspace to copy it there, or onto a machine for a new wadspace there. The selected one's in the sidebar.",
             Some("Recently deleted (the clock, top right) keeps what's taken out, to put back."),
         ),
         Step::Create => (
             "Make a wadspace".into(),
-            "Click the space at the end of the row for a new wadspace, with an empty template: then pick its apps in the sidebar.",
+            "The + up top makes a new, empty wadspace: then click its apps and add-ons in the sidebar.",
             None,
         ),
         Step::Build => (
             "Build it".into(),
-            "Build all builds every wadspace here that needs it (Ctrl+click picks some, for Build selected). A wadspace says when it's out of date.",
+            "Build all builds every wadspace here that needs it (Ctrl+click selects more, for Build selected). A wadspace says when it's out of date.",
             None,
         ),
         Step::Launch => (

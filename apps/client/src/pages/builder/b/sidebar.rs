@@ -1,20 +1,21 @@
-//! The open wadspace's sidebar on Builder B: its Apps (the catalog's, each
-//! with what it takes: VS Code's extensions, the command line's tools,
-//! WadBrowser's web apps), to drag onto a template or a New template field,
-//! or click into the wadspace; and its Customization: its name and
-//! description, its background (a texture), its projects and its keys (the
-//! builder's parts, editing the board).
+//! The sidebar, always there, on the selected wadspace: its Apps (blue),
+//! the apps' Add-ons (green: WadBrowser's web apps and its Focus, VS Code's
+//! extensions, command-line tools), its Secrets (pink: a key for each thing
+//! that signs in) and its Customization (white: name, description,
+//! background, projects). An app it has is lit whole. A click puts an app or
+//! add-on in the wadspace, or drag it onto a card; on a machine with none,
+//! the first click makes one.
 
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use gtk::{glib, prelude::*};
+use gtk::prelude::*;
 use serde_json::Value;
-use wad_board::b4::{Extra, Op, Payload as Bp, Wadspace, Where};
+use wad_board::b::{Ext, Op, Payload as Bp, Wadspace};
 use wad_board::catalog::{self, KeyApp, KeyLine};
 use wad_gtk::Icon;
 
-use super::buckets::{self, act, extra_face, ghost};
+use super::card::{act, app_icon, app_name, ghost};
 use super::state::{self, Tab};
 use crate::drag::{self, Payload};
 use crate::pages::builder::parts::img;
@@ -25,8 +26,8 @@ use crate::ui;
 /// The sidebar, wide.
 pub(super) const SIDE_W: i32 = 360;
 
-/// What the open wadspace's parts keep while it stays open: their hosts
-/// (the parts hold them weakly) and their own state.
+/// What the sidebar's wadspace's parts keep while it stays the sidebar's:
+/// their hosts (the parts hold them weakly) and their own state.
 struct Open {
     ws: String,
     side: Rc<Side>,
@@ -36,8 +37,6 @@ struct Open {
 
 thread_local! {
     static OPEN: RefCell<Option<Open>> = const { RefCell::new(None) };
-    /// What the Apps tab's search has typed.
-    static QUERY: RefCell<String> = const { RefCell::new(String::new()) };
 }
 
 fn s<'a>(v: &'a Value, k: &str) -> &'a str {
@@ -60,43 +59,70 @@ fn open_parts(ws: &str) -> (Rc<Side>, Rc<projects::Projects>, Rc<keys::Keys>) {
     })
 }
 
-pub fn sidebar(s: &AppState, w: &Wadspace) -> gtk::Widget {
+/// The sidebar on `w` (None: the machine has none yet).
+pub fn sidebar(s: &AppState, w: Option<&Wadspace>) -> gtk::Widget {
     let root = gtk::Box::new(gtk::Orientation::Vertical, 0);
     root.add_css_class("wbb-side");
     let head = gtk::Box::new(gtk::Orientation::Vertical, 10);
     head.add_css_class("wbb-side-head");
-    let top = gtk::Box::new(gtk::Orientation::Horizontal, 8);
-    let name = gtk::Label::new(Some(if w.name().trim().is_empty() { "Untitled" } else { w.name() }));
+    let title = match w {
+        Some(w) if !w.name().trim().is_empty() => w.name(),
+        Some(_) => "Untitled",
+        None => wad_board::b::NEW_NAME,
+    };
+    let name = gtk::Label::new(Some(title));
     name.add_css_class("wbb-side-name");
-    name.set_hexpand(true);
     name.set_xalign(0.0);
     name.set_ellipsize(gtk::pango::EllipsizeMode::End);
-    top.append(&name);
-    let close = ui::icon_button("x", "Close", 14);
-    close.connect_clicked(|_| super::close());
-    top.append(&close);
-    head.append(&top);
+    head.append(&name);
     let tab = state::read(|st| st.tab);
     let tabs = ui::segmented(
-        &[("apps", Some("layout-grid"), "Apps"), ("custom", Some("palette"), "Customization")],
-        if tab == Tab::Apps { "apps" } else { "custom" },
+        &[
+            ("apps", Some("layout-grid"), "Apps"),
+            ("exts", Some("puzzle"), "Add-ons"),
+            ("keys", Some("key-round"), "Secrets"),
+            ("custom", Some("palette"), "Customization"),
+        ],
+        tab.part(),
         |v| {
-            state::write(|st| st.tab = if v == "apps" { Tab::Apps } else { Tab::Customization });
+            let tab = match v {
+                "exts" => Tab::AddOns,
+                "keys" => Tab::Secrets,
+                "custom" => Tab::Customization,
+                _ => Tab::Apps,
+            };
+            state::write(|st| st.tab = tab);
             state::changed();
         },
     );
+    tabs.add_css_class("wbb-tabs");
     tabs.set_halign(gtk::Align::Fill);
     tabs.set_homogeneous(true);
+    // Four to a sidebar: their names give way rather than widen it.
+    let mut b = tabs.first_child();
+    while let Some(btn) = b {
+        let mut c = btn.downcast_ref::<gtk::Button>().and_then(gtk::Button::child).and_then(|r| r.first_child());
+        while let Some(x) = c {
+            if let Some(l) = x.downcast_ref::<gtk::Label>() {
+                l.set_ellipsize(gtk::pango::EllipsizeMode::End);
+            }
+            c = x.next_sibling();
+        }
+        b = btn.next_sibling();
+    }
     head.append(&tabs);
     root.append(&head);
 
     let body = gtk::Box::new(gtk::Orientation::Vertical, 18);
     body.add_css_class("wbb-side-body");
     match tab {
-        Tab::Apps => apps_tab(s, w, &head, &body),
+        Tab::Apps => apps_tab(w, &body),
+        Tab::AddOns => exts_tab(s, w, &body),
+        Tab::Secrets => keys_tab(w, &body),
         Tab::Customization => custom_tab(w, &body),
     }
-    root.append(&scroller(&w.id, tab, &body));
+    let key = w.map_or("#new".to_string(), |w| w.id.clone());
+    root.append(&scroller(&key, tab, &body));
     let side = wad_gtk::Width::new(&root, SIDE_W);
     // As tall as the page (Width doesn't take its child's expanding).
     side.set_vexpand(true);
@@ -108,8 +134,8 @@ thread_local! {
     /// and tab: the sidebar's drawn anew with every change (and with the
     /// library's news every half minute), its new content goes into them,
     /// and they stay where they were scrolled to.
-    static SCROLLER: std::cell::RefCell<Option<(String, Tab, gtk::ScrolledWindow, gtk::Viewport)>> =
-        const { std::cell::RefCell::new(None) };
+    static SCROLLER: RefCell<Option<(String, Tab, gtk::ScrolledWindow, gtk::Viewport)>> =
+        const { RefCell::new(None) };
 }
 
 /// `body` in the sidebar's scroller: the one it had, on the same wadspace
@@ -137,140 +163,40 @@ pub(super) fn scroller(ws: &str, tab: Tab, body: &gtk::Box) -> gtk::ScrolledWind
     sw
 }
 
+/// Something in the sidebar: dragged onto a card, or clicked into the
+/// sidebar's wadspace.
+fn item(w: &impl IsA<gtk::Widget>, p: Bp, icon: &str, label: &str) {
+    let (pd, icon, label) = (p.clone(), icon.to_string(), label.to_string());
+    drag::draggable(w, move |_| Some((Payload::B(pd.clone()), ghost(&icon, &label))));
+    let click = gtk::GestureClick::new();
+    click.set_button(1);
+    click.connect_released(move |_, n, _, _| {
+        if n == 1 {
+            state::add_from_sidebar(p.clone());
+        }
+    });
+    w.add_controller(click);
+}
+
+fn group(title: &str) -> gtk::Box {
+    let b = gtk::Box::new(gtk::Orientation::Vertical, 6);
+    let l = gtk::Label::new(Some(&title.to_uppercase()));
+    l.add_css_class("group-label");
+    l.set_xalign(0.0);
+    b.append(&l);
+    b
+}
+
+fn faint(text: &str) -> gtk::Label {
+    let l = ui::wrapping(text);
+    l.add_css_class("faint");
+    l.add_css_class("small");
+    l
+}
+
 // ─────────────────────────────── Apps ───────────────────────────────
 
-/// What an app's extras are called in its card.
-fn what(app: &str) -> &'static str {
-    match app {
-        "vscode" => "Extensions",
-        "terminal" => "Command-line tools",
-        _ => "Web apps",
-    }
-}
-
-/// The web apps on offer: those the board's wadspaces and saved WadBrowser
-/// setups have, and a few common ones.
-fn web_apps(app: &AppState) -> Vec<Extra> {
-    let mut out: Vec<Extra> = vec![];
-    let mut add = |x: Extra| {
-        if !out.iter().any(|y| y.id == x.id) {
-            out.push(x);
-        }
-    };
-    let board: Vec<Extra> = state::read(|st| {
-        st.board
-            .wadspaces
-            .iter()
-            .flat_map(|w| w.templates.iter())
-            .flat_map(|t| t.apps.iter())
-            .filter(|e| e.app == "wadbrowser")
-            .flat_map(|e| e.extras.clone())
-            .collect()
-    });
-    board.into_iter().for_each(&mut add);
-    for b in app.library.iter().flat_map(|l| l.browsers.iter()) {
-        for x in b["webapps"].as_array().into_iter().flatten() {
-            add(Extra {
-                id: s(x, "id").into(),
-                name: Some(s(x, "name").into()),
-                url: Some(s(x, "url").into()),
-                icon_url: None,
-            });
-        }
-    }
-    for (id, name, url) in COMMON {
-        add(Extra { id: id.into(), name: Some(name.into()), url: Some(url.into()), icon_url: None });
-    }
-    out
-}
-
-/// Web apps worth offering even when no wadspace has them.
-const COMMON: [(&str, &str, &str); 5] = [
-    ("github", "GitHub", "https://github.com"),
-    ("gmail", "Gmail", "https://mail.google.com"),
-    ("google-drive", "Google Drive", "https://drive.google.com"),
-    ("claude", "Claude", "https://claude.ai"),
-    ("youtube", "YouTube", "https://youtube.com"),
-];
-
-/// A site typed in ("notion.so"): a web app named after it.
-fn site_webapp(text: &str) -> Option<Extra> {
-    let text = text.trim();
-    let url = if text.starts_with("http://") || text.starts_with("https://") {
-        text.to_string()
-    } else {
-        format!("https://{text}")
-    };
-    let rest = url.split_once("://")?.1;
-    let host = rest.split(['/', '?', '#']).next()?.rsplit('@').next()?.split(':').next()?.to_lowercase();
-    let host = host.strip_prefix("www.").unwrap_or(&host).to_string();
-    if host.is_empty() || host.contains(char::is_whitespace) {
-        return None;
-    }
-    let first = host.split('.').next()?;
-    let mut name: String = first.chars().take(1).flat_map(char::to_uppercase).collect();
-    name.push_str(&first.chars().skip(1).collect::<String>());
-    Some(Extra { id: catalog::webapp_id(&name), name: Some(name), url: Some(url), icon_url: None })
-}
-
-/// What each app can take, as the sidebar offers it.
-fn offered(st: &AppState, app: &str) -> Vec<Extra> {
-    let plain = |id: String| Extra { id, name: None, url: None, icon_url: None };
-    match app {
-        "vscode" => catalog::extensions().into_iter().map(|e| plain(e.id)).collect(),
-        "terminal" => catalog::tools().into_iter().map(|(id, _)| plain(id)).collect(),
-        "wadbrowser" => web_apps(st),
-        _ => vec![],
-    }
-}
-
-fn apps_tab(s: &AppState, w: &Wadspace, head: &gtk::Box, body: &gtk::Box) {
-    let search = gtk::SearchEntry::new();
-    search.add_css_class("wbb-search");
-    search.set_placeholder_text(Some("Find an app or extension"));
-    search.set_text(&QUERY.with(|q| q.borrow().clone()));
-    head.append(&search);
-    let hint = ui::wrapping(&format!(
-        "Drag onto a template, or a bucket's New template field. A click puts it in {}.",
-        w.name()
-    ));
-    hint.add_css_class("muted");
-    hint.add_css_class("tiny");
-    head.append(&hint);
-    let list = gtk::Box::new(gtk::Orientation::Vertical, 18);
-    body.append(&list);
-    let (ws, bw) = (w.id.clone(), list.downgrade());
-    let fill = Rc::new(move || {
-        let Some(list) = bw.upgrade() else { return };
-        ui::clear(&list);
-        crate::store::store().read_now(|s| fill_apps(s, &ws, &list));
-    });
-    fill();
-    let f = fill.clone();
-    search.connect_search_changed(move |e| {
-        QUERY.with(|q| q.replace(e.text().to_string()));
-        f();
-    });
-    let _ = s;
-}
-
-fn fill_apps(st: &AppState, ws: &str, list: &gtk::Box) {
-    let q = QUERY.with(|q| q.borrow().trim().to_lowercase());
-    let hit = |t: &str| q.is_empty() || t.to_lowercase().contains(&q);
-    let has: Vec<(String, Vec<String>)> = state::read(|b| {
-        b.board
-            .get(ws)
-            .map(|w| {
-                wad_core::v5::apps_of(&w.doc())
-                    .iter()
-                    .map(|e| {
-                        let xs = e["extras"].as_array().into_iter().flatten().map(|x| s(x, "id").to_string());
-                        (s(e, "app").to_string(), xs.collect())
-                    })
-                    .collect()
-            })
-            .unwrap_or_default()
-    });
+fn apps_tab(w: Option<&Wadspace>, body: &gtk::Box) {
     let apps = catalog::apps();
     let mut cats: Vec<String> = vec![];
     for a in &apps {
@@ -278,164 +204,161 @@ fn fill_apps(st: &AppState, ws: &str, list: &gtk::Box) {
             cats.push(a.category.clone());
         }
     }
-    let mut any = false;
     for cat in cats {
-        let section = gtk::Box::new(gtk::Orientation::Vertical, 8);
-        let h = gtk::Label::new(Some(&cat.to_uppercase()));
-        h.add_css_class("group-label");
-        h.set_xalign(0.0);
-        section.append(&h);
-        let mut shown = 0;
+        let section = group(&cat);
         for a in apps.iter().filter(|a| a.category == cat) {
-            let extras: Vec<(Extra, String, String)> = offered(st, &a.id)
-                .into_iter()
-                .map(|x| {
-                    let (name, icon) = extra_face(&a.id, &x);
-                    (x, name, icon)
-                })
-                .filter(|(_, name, _)| hit(name) || hit(&a.name))
-                .collect();
-            if !hit(&a.name) && extras.is_empty() {
-                continue;
+            let has = w.is_some_and(|w| w.has_app(&a.id));
+            let card = gtk::Box::new(gtk::Orientation::Vertical, 0);
+            card.add_css_class("wbb-app-card");
+            if has {
+                card.add_css_class("in");
             }
-            shown += 1;
-            let mine = has.iter().find(|(x, _)| *x == a.id);
-            section.append(&app_card(ws, &a.id, &a.name, &a.icon, mine.map(|(_, xs)| xs.as_slice()), extras));
+            let row = gtk::Box::new(gtk::Orientation::Horizontal, 8);
+            row.add_css_class("wbb-app-row");
+            row.append(&img(&a.icon, 22));
+            let n = gtk::Label::new(Some(&a.name));
+            n.set_hexpand(true);
+            n.set_xalign(0.0);
+            row.append(&n);
+            if has {
+                let c = Icon::new("check", 13);
+                c.add_css_class("wbb-in");
+                row.append(&c);
+            }
+            let grip = Icon::new("grip-vertical", 13);
+            grip.add_css_class("faint");
+            row.append(&grip);
+            row.set_tooltip_text(Some(&format!("{}: click to add · or drag onto a card", a.name)));
+            item(&row, Bp::CatalogApp { app: a.id.clone() }, &a.icon, &a.name);
+            card.append(&row);
+            section.append(&card);
         }
-        if shown > 0 {
-            any = true;
-            list.append(&section);
-        }
-    }
-    if !any {
-        let l = gtk::Label::new(Some("Nothing by that name."));
-        l.add_css_class("faint");
-        l.set_xalign(0.0);
-        list.append(&l);
+        body.append(&section);
     }
 }
 
-/// One app: its row to drag or click in, and what it takes, each to drag or
-/// click in (`has`: what the wadspace has of it, when it has it).
-fn app_card(
-    ws: &str,
-    app: &str,
-    name: &str,
-    icon: &str,
-    has: Option<&[String]>,
-    extras: Vec<(Extra, String, String)>,
-) -> gtk::Box {
-    let card = gtk::Box::new(gtk::Orientation::Vertical, 4);
-    card.add_css_class("wbb-app-card");
-    let row = gtk::Box::new(gtk::Orientation::Horizontal, 8);
-    row.add_css_class("wbb-app-row");
-    if has.is_some() {
-        row.add_css_class("in");
-    }
-    row.append(&img(icon, 22));
-    let n = gtk::Label::new(Some(name));
-    n.set_hexpand(true);
-    n.set_xalign(0.0);
-    row.append(&n);
-    if has.is_some() {
-        let c = Icon::new("check", 13);
-        c.add_css_class("kc");
-        row.append(&c);
-    }
-    let grip = Icon::new("grip-vertical", 13);
-    grip.add_css_class("faint");
-    row.append(&grip);
-    row.set_tooltip_text(Some(&format!("Drag {name} onto a template · click for a template of its own")));
-    let payload = Bp::CatalogApp { app: app.into() };
-    item(&row, ws, payload, (icon.to_string(), name.to_string()));
-    card.append(&row);
+// ─────────────────────────────── Add-ons ───────────────────────────────
 
-    if app == "wadbrowser" && has.is_some() {
-        card.append(&focus_switch(ws));
+/// The web apps on offer: those the board's wadspaces and saved WadBrowser
+/// setups have, and a few common ones.
+fn web_apps(app: &AppState) -> Vec<Ext> {
+    let mut out: Vec<Ext> = vec![];
+    let mut add = |x: Ext| {
+        if !out.iter().any(|y| y.id == x.id) {
+            out.push(x);
+        }
+    };
+    let board: Vec<Ext> = state::read(|st| {
+        st.board
+            .wadspaces
+            .iter()
+            .flat_map(|w| w.exts.iter())
+            .filter(|x| x.app == "wadbrowser" && !x.is_focus())
+            .cloned()
+            .collect()
+    });
+    board.into_iter().for_each(&mut add);
+    for b in app.library.iter().flat_map(|l| l.browsers.iter()) {
+        for x in b["webapps"].as_array().into_iter().flatten() {
+            let web = Ext {
+                name: Some(s(x, "name").into()),
+                url: Some(s(x, "url").into()),
+                ..Ext::plain("wadbrowser", s(x, "id"))
+            };
+            add(web);
+        }
     }
-    if !extras.is_empty() || app == "wadbrowser" {
-        let h = gtk::Label::new(Some(&what(app).to_uppercase()));
-        h.add_css_class("wbb-what");
-        h.set_xalign(0.0);
-        card.append(&h);
+    for (id, name, url) in catalog::COMMON_WEBAPPS {
+        add(Ext { name: Some(name.into()), url: Some(url.into()), ..Ext::plain("wadbrowser", id) });
+    }
+    out
+}
+
+/// What each app takes, as the sidebar offers it.
+fn offered(st: &AppState, app: &str) -> Vec<Ext> {
+    match app {
+        "vscode" => catalog::extensions().into_iter().map(|e| Ext::plain(app, &e.id)).collect(),
+        "terminal" => catalog::tools().into_iter().map(|(id, _)| Ext::plain(app, &id)).collect(),
+        _ => web_apps(st),
+    }
+}
+
+/// An add-on on offer: lit when the wadspace has it.
+fn offer(x: Ext, has: bool) -> gtk::Box {
+    let (label, icon) = catalog::ext_face(&x);
+    let c = gtk::Box::new(gtk::Orientation::Horizontal, 5);
+    c.add_css_class("wbb-offer-chip");
+    if has {
+        c.add_css_class("in");
+    }
+    if !icon.is_empty() {
+        c.append(&img(&icon, 14));
+    }
+    let l = gtk::Label::new(Some(&label));
+    l.set_ellipsize(gtk::pango::EllipsizeMode::End);
+    l.set_max_width_chars(18);
+    c.append(&l);
+    c.set_tooltip_text(Some(&format!("{label}: {} · click to add · or drag onto a card", catalog::ext_what(&x))));
+    item(&c, Bp::CatalogExt { ext: x }, &icon, &label);
+    c
+}
+
+fn exts_tab(st: &AppState, w: Option<&Wadspace>, body: &gtk::Box) {
+    let has = |x: &Ext| w.is_some_and(|w| w.exts.iter().any(|y| y.same(x)));
+    for app in catalog::EXT_ORDER {
+        let section = group(catalog::ext_kind(app));
+        let card = gtk::Box::new(gtk::Orientation::Vertical, 6);
+        card.add_css_class("wbb-app-card");
+        let line = gtk::Box::new(gtk::Orientation::Horizontal, 6);
+        line.add_css_class("wbb-for");
+        line.append(&img(&app_icon(app), 14));
+        let mut text = format!("for {}", app_name(app));
+        if !w.is_some_and(|w| w.has_app(app)) {
+            let ws = w.map_or("it", |w| w.name());
+            text.push_str(&format!(" · not in {ws} yet: it comes along"));
+        }
+        let l = gtk::Label::new(Some(&text));
+        l.add_css_class("muted");
+        l.add_css_class("tiny");
+        l.set_wrap(true);
+        l.set_xalign(0.0);
+        line.append(&l);
+        card.append(&line);
+        if app == "wadbrowser" {
+            let row = gtk::Box::new(gtk::Orientation::Horizontal, 8);
+            row.add_css_class("wbb-focus-row");
+            let focus = offer(Ext::focus(), has(&Ext::focus()));
+            focus.set_tooltip_text(Some(
+                "Focus: WadBrowser shows its web apps alone, no address bar · click to add · or drag onto a card",
+            ));
+            row.append(&focus);
+            let t = gtk::Label::new(Some("its web apps alone, no address bar"));
+            t.add_css_class("muted");
+            t.add_css_class("tiny");
+            row.append(&t);
+            card.append(&row);
+        }
         let chips = gtk::FlowBox::new();
         chips.add_css_class("wbb-offer");
         chips.set_selection_mode(gtk::SelectionMode::None);
         chips.set_max_children_per_line(4);
         chips.set_column_spacing(4);
         chips.set_row_spacing(4);
-        for (x, label, icon) in extras {
-            let c = gtk::Box::new(gtk::Orientation::Horizontal, 5);
-            c.add_css_class("wbb-offer-chip");
-            if has.is_some_and(|h| h.contains(&x.id)) {
-                c.add_css_class("in");
-            }
-            c.append(&img(&icon, 14));
-            let l = gtk::Label::new(Some(&label));
-            l.set_ellipsize(gtk::pango::EllipsizeMode::End);
-            l.set_max_width_chars(16);
-            c.append(&l);
-            item(&c, ws, Bp::CatalogExtra { app: app.into(), extra: x }, (icon, label));
-            chips.insert(&c, -1);
+        for x in offered(st, app) {
+            let on = has(&x);
+            chips.insert(&offer(x, on), -1);
         }
         card.append(&chips);
         if app == "wadbrowser" {
-            card.append(&new_web_app(ws));
+            card.append(&new_web_app());
         }
+        section.append(&card);
+        body.append(&section);
     }
-    card
-}
-
-/// Something in the sidebar: dragged out, or clicked into the wadspace.
-fn item(w: &impl IsA<gtk::Widget>, ws: &str, p: Bp, (icon, label): (String, String)) {
-    let pd = p.clone();
-    drag::draggable(w, move |_| Some((Payload::B(pd.clone()), ghost(&icon, &label))));
-    let click = gtk::GestureClick::new();
-    click.set_button(1);
-    let ws = ws.to_string();
-    click.connect_released(move |_, n, _, _| {
-        if n == 1 {
-            act(Op::Drop { payload: p.clone(), into: ws.clone(), at: Where::default() });
-        }
-    });
-    w.add_controller(click);
-}
-
-/// WadBrowser's mode: an address bar, or Focus (its web apps alone). The
-/// top template with WadBrowser decides, so the switch shows and sets its.
-fn focus_switch(ws: &str) -> gtk::Box {
-    let (top, focus) = state::read(|st| {
-        st.board
-            .get(ws)
-            .and_then(|w| {
-                w.templates.iter().find_map(|t| Some((t.id.clone(), t.apps.iter().find(|e| e.app == "wadbrowser")?)))
-            })
-            .map(|(t, e)| (Some(t), e.mode.as_deref() == Some("focus")))
-            .unwrap_or((None, false))
-    });
-    let row = gtk::Box::new(gtk::Orientation::Horizontal, 8);
-    row.add_css_class("wbb-mode");
-    let l = gtk::Label::new(Some("Focus mode: its web apps, no address bar"));
-    l.add_css_class("muted");
-    l.add_css_class("tiny");
-    l.set_hexpand(true);
-    l.set_xalign(0.0);
-    l.set_wrap(true);
-    row.append(&l);
-    let sw = gtk::Switch::new();
-    sw.set_active(focus);
-    sw.set_valign(gtk::Align::Center);
-    let ws = ws.to_string();
-    sw.connect_state_set(move |_, on| {
-        act(Op::SetMode { ws: ws.clone(), mode: if on { "focus" } else { "browser" }.into(), template: top.clone() });
-        glib::Propagation::Proceed
-    });
-    row.append(&sw);
-    row
 }
 
 /// A site typed in, as a web app of its own.
-fn new_web_app(ws: &str) -> gtk::Box {
+fn new_web_app() -> gtk::Box {
     let row = gtk::Box::new(gtk::Orientation::Horizontal, 6);
     row.add_css_class("wbb-new-web");
     let e = ui::entry("Add a site: notion.so");
@@ -445,10 +368,10 @@ fn new_web_app(ws: &str) -> gtk::Box {
     let add = ui::icon_button("plus", "Add it", 13);
     row.append(&add);
     let go = {
-        let (ws, e) = (ws.to_string(), e.downgrade());
+        let e = e.downgrade();
         move || {
             let Some(e) = e.upgrade() else { return };
-            let Some(extra) = site_webapp(&e.text()) else {
+            let Some(ext) = catalog::site_webapp(&e.text()) else {
                 crate::toast::show(
                     "That isn't a site",
                     Some("Type its address, like notion.so"),
@@ -456,17 +379,29 @@ fn new_web_app(ws: &str) -> gtk::Box {
                 );
                 return;
             };
-            act(Op::Drop {
-                payload: Bp::CatalogExtra { app: "wadbrowser".into(), extra },
-                into: ws.clone(),
-                at: Where::default(),
-            });
+            state::add_from_sidebar(Bp::CatalogExt { ext });
         }
     };
     let g = go.clone();
     e.connect_activate(move |_| g());
     add.connect_clicked(move |_| go());
     row
+}
+
+// ─────────────────────────────── Secrets ───────────────────────────────
+
+fn keys_tab(w: Option<&Wadspace>, body: &gtk::Box) {
+    let Some(w) = w else {
+        body.append(&faint("Its secrets: once it's made (click an app that signs in)."));
+        return;
+    };
+    let (side, _, k) = open_parts(&w.id);
+    let kb = gtk::Box::new(gtk::Orientation::Vertical, 10);
+    kb.add_css_class("keys");
+    let kh: Rc<dyn keys::Host> = side;
+    keys::fill(&kh, &k, &kb);
+    k.show_in(&kb);
+    body.append(&kb);
 }
 
 // ─────────────────────────────── Customization ───────────────────────────────
@@ -510,54 +445,44 @@ fn field(label: &str, value: &str, placeholder: &str, done: impl Fn(String) + 's
     b
 }
 
-fn section(title: &str) -> gtk::Box {
-    let b = gtk::Box::new(gtk::Orientation::Vertical, 8);
-    let l = gtk::Label::new(Some(&title.to_uppercase()));
-    l.add_css_class("group-label");
-    l.set_xalign(0.0);
-    b.append(&l);
-    b
-}
-
-fn custom_tab(w: &Wadspace, body: &gtk::Box) {
-    let ws = w.id.clone();
-    body.append(&field("Title", w.name(), "Name this wadspace", move |name| act(Op::Rename { ws: ws.clone(), name })));
-    let ws = w.id.clone();
-    let desc = w.customization.get("description").and_then(Value::as_str).unwrap_or_default();
+fn custom_tab(w: Option<&Wadspace>, body: &gtk::Box) {
+    let name = w.map(|w| w.name().to_string()).unwrap_or_default();
+    body.append(&field("Title", &name, "Name this wadspace", move |name| {
+        state::edit_selected(|ws| vec![Op::Rename { ws: ws.into(), name }]);
+    }));
+    let desc = w.and_then(|w| w.customization.get("description")).and_then(Value::as_str).unwrap_or_default();
     body.append(&field("Description", desc, "What it's for", move |description| {
-        act(Op::Describe { ws: ws.clone(), description })
+        state::edit_selected(|ws| vec![Op::Describe { ws: ws.into(), description }]);
     }));
 
-    let bg = section("Background");
-    let ws = w.id.clone();
-    let current = w.customization.get("wallpaper").cloned().unwrap_or(Value::Null);
+    let bg = group("Background");
+    let current = w.and_then(|w| w.wallpaper()).cloned().unwrap_or(Value::Null);
     let picker = crate::wallpaper_picker::texture_picker(current, move |v| {
-        act(Op::SetBackground { ws: ws.clone(), texture: v["value"].as_str().map(String::from) });
+        let texture = v["value"].as_str().map(String::from);
+        if let Some(ws) = state::edit_selected(|ws| vec![Op::SetBackground { ws: ws.into(), texture }]) {
+            state::flash(&ws, "custom");
+        }
     });
     bg.append(&picker);
     body.append(&bg);
 
-    let (side, p, k) = open_parts(&w.id);
-    let proj = section("Projects");
-    let list = gtk::Box::new(gtk::Orientation::Vertical, 6);
-    list.add_css_class("cz-list");
-    let ph: Rc<dyn projects::Host> = side.clone();
-    projects::fill(&ph, &p, &list);
-    projects::load_repos_once(&ph);
-    proj.append(&list);
+    let proj = group("Projects");
+    match w {
+        Some(w) => {
+            let (side, p, _) = open_parts(&w.id);
+            let list = gtk::Box::new(gtk::Orientation::Vertical, 6);
+            list.add_css_class("cz-list");
+            let ph: Rc<dyn projects::Host> = side;
+            projects::fill(&ph, &p, &list);
+            projects::load_repos_once(&ph);
+            proj.append(&list);
+        }
+        None => proj.append(&faint("Its projects: once it's made (pick a background, or click an app).")),
+    }
     body.append(&proj);
-
-    let sec = section("Secrets");
-    let kb = gtk::Box::new(gtk::Orientation::Vertical, 10);
-    kb.add_css_class("keys");
-    let kh: Rc<dyn keys::Host> = side;
-    keys::fill(&kh, &k, &kb);
-    k.show_in(&kb);
-    sec.append(&kb);
-    body.append(&sec);
 }
 
-/// The open wadspace, as the parts edit it: each change an edit of the
+/// The sidebar's wadspace, as the parts edit it: each change an edit of the
 /// board.
 struct Side {
     ws: String,
@@ -571,7 +496,7 @@ impl Side {
 
 impl projects::Host for Side {
     fn projects(&self) -> Vec<Value> {
-        self.wadspace().map(|w| buckets::projects_of(&w)).unwrap_or_default()
+        self.wadspace().map(|w| w.projects().to_vec()).unwrap_or_default()
     }
 
     /// What changed, as projects in and out (one Undo).
@@ -599,7 +524,7 @@ impl projects::Host for Side {
                 .wadspaces
                 .iter()
                 .filter(|w| w.id != self.ws && !w.deleted())
-                .flat_map(buckets::projects_of)
+                .flat_map(|w| w.projects().to_vec())
                 .collect()
         })
     }
@@ -615,7 +540,7 @@ impl keys::Host for Side {
     }
 
     fn key_of(&self, line: &KeyLine) -> Option<Value> {
-        buckets::key_of(&self.wadspace()?, line)
+        wad_board::b::key_of(&self.wadspace()?, line)
     }
 
     fn set_key(&self, line: &KeyLine, key: Option<Value>) {
@@ -632,8 +557,7 @@ impl keys::Host for Side {
         let Some((first, rest)) = members.split_first() else { return };
         let to = to.map(String::from);
         let fresh = to.clone().unwrap_or_else(|| {
-            let ids: Vec<String> =
-                state::read(|s| s.board.groups_of(&self.ws)).iter().map(|g| s(g, "id").to_string()).collect();
+            let ids: Vec<String> = state::read(|s| s.board.groups_of(&self.ws)).into_iter().map(|g| g.id).collect();
             (1..).map(|n| format!("g{n}")).find(|g| !ids.contains(g)).unwrap_or_default()
         });
         let mut ops = vec![Op::MoveMember { ws: self.ws.clone(), member: first.clone(), to }];
@@ -645,14 +569,6 @@ impl keys::Host for Side {
         if let Err(e) = state::apply_all(ops) {
             crate::toast::error("Couldn't move them", &e);
         }
-    }
-
-    fn new_group(&self) {
-        act(Op::NewGroup { ws: self.ws.clone() });
-    }
-
-    fn remove_group(&self, id: &str) {
-        act(Op::RemoveGroup { ws: self.ws.clone(), group: id.into() });
     }
 
     fn rename_key(&self, id: &str, to: &str, known: &[Value]) -> Result<(), String> {
@@ -683,7 +599,7 @@ impl keys::Host for Side {
     }
 }
 
-/// What the sidebar's open on is gone, or closed: its parts let go.
+/// The sidebar's wadspace is gone, or another's: its parts let go.
 pub fn closed() {
     OPEN.with(|o| o.replace(None));
     SCROLLER.with(|s| s.replace(None));
@@ -692,21 +608,14 @@ pub fn closed() {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::pages::builder::b::buckets::{app_icon, app_name};
 
     #[test]
-    fn each_app_says_what_it_takes() {
-        assert_eq!(
-            (what("vscode"), what("terminal"), what("wadbrowser")),
-            ("Extensions", "Command-line tools", "Web apps")
-        );
-        let x = Extra {
-            id: "github".into(),
-            name: Some("GitHub".into()),
-            url: Some("https://github.com".into()),
-            icon_url: None,
-        };
-        assert_eq!(extra_face("wadbrowser", &x).0, "GitHub");
+    fn the_sidebar_offers_each_apps_add_ons() {
+        let st = AppState::default();
+        assert!(offered(&st, "vscode").iter().any(|x| x.id == "anthropic.claude-code"));
+        assert!(offered(&st, "terminal").iter().any(|x| x.id == "rust"));
+        let web: Vec<String> = offered(&st, "wadbrowser").into_iter().map(|x| x.id).collect();
+        assert_eq!(web, ["github", "gmail", "google-drive", "claude"], "no YouTube");
         assert_eq!(app_name("vscode"), "VS Code");
         assert!(!app_icon("vscode").is_empty());
     }

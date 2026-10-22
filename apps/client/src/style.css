@@ -1691,7 +1691,7 @@ window.theme-light .wb menubutton.key-btn.set > button { color: var(--layer-cust
 }
 .wb .key-edit > entry { min-height: 26px; border: none; box-shadow: none; background: transparent; color: var(--fg); font-size: 12px; font-weight: 600; }
 .wb .key-edit > entry.clash { color: var(--danger); }
-.wb button.key-line.new-group {
+.wb .key-line.new-group {
   all: unset;
   min-height: 34px;
   border-radius: 10px;
@@ -1700,11 +1700,11 @@ window.theme-light .wb menubutton.key-btn.set > button { color: var(--layer-cust
   font-size: 12px;
   font-weight: 600;
 }
-.wb button.key-line.new-group:hover, window.is-dragging .wb button.key-line.new-group {
+.wb .key-line.new-group:hover, window.is-dragging .wb .key-line.new-group {
   border-color: var(--layer-customization);
   background: rgb(255 61 129 / 0.06);
 }
-.wb button.key-line.new-group.drop-ok { border-style: solid; background: rgb(255 61 129 / 0.14); outline: none; }
+.wb .key-line.new-group.drop-ok { border-style: solid; background: rgb(255 61 129 / 0.14); outline: none; }
 popover.key-menu .group-label { font-size: 11px; color: var(--faint); letter-spacing: 0.06em; }
 popover.key-menu .faint { color: var(--faint); }
 popover.key-menu button.menu-item { font-size: 12.5px; }
@@ -1889,15 +1889,14 @@ image.qr {
 .stream-row:last-child { border-bottom: none; }
 
 /* ------------------------------------------------------------- builder b */
-/* Design B (pages/builder/b): a wadspace is its two buckets, acid outside
-   (--kc), with its templates in --tpl (ice blue; black in the light theme,
-   which is greys only). */
-.wbb { --kc: var(--layer-extensions); }
+/* The Builder's cards (pages/builder/b): a wadspace is one card, its
+   customization white (--c-custom), its secrets pink (--c-key), its add-ons
+   green (--c-ext) and its apps blue (--c-app); greys in the light theme.
+   Each part paints with --c-side. */
 .wbb .faint { color: var(--faint); }
 .wbb .muted { color: var(--muted); }
 .wbb .tiny { font-size: 10.5px; }
 .wbb .italic { font-style: italic; }
-.wbb wad-icon.kc { color: var(--kc); }
 .wbb .wbb-board {
   background:
     radial-gradient(ellipse 1200px 600px at 30% 0%, rgb(59 29 94 / 0.4), transparent 70%),
@@ -1906,144 +1905,25 @@ image.qr {
 window.theme-light .wbb .wbb-board { background: var(--bg); }
 .wbb .wbb-row { padding: 20px 16px 24px 16px; }
 
-.wbb .wbb-col {
-  padding: 8px;
-  border-radius: 22px;
-  transition: background 150ms, box-shadow 150ms;
-}
-.wbb .wbb-col > * { margin-bottom: 0; }
-.wbb .wbb-col:hover { background: color-mix(in srgb, var(--surface) 50%, transparent); }
-.wbb .wbb-col.open { background: color-mix(in srgb, var(--accent-soft) 40%, transparent); box-shadow: 0 0 0 2px var(--accent); }
-.wbb .wbb-col.picked, .wbb .picked { box-shadow: 0 0 0 2px var(--danger); }
-
-.wbb .wbb-bucket {
-  border-radius: 16px;
+.wbb .wbb-card {
+  padding: 10px;
+  border-radius: 20px;
   background: var(--surface);
-  border: 1px solid color-mix(in srgb, var(--kc) 45%, var(--line));
+  border: 1px solid var(--line-strong);
   box-shadow: 0 12px 28px -18px var(--shadow);
+  transition: box-shadow 150ms, border-color 150ms, background 150ms;
 }
-.wbb .wbb-bucket.drop-could { border-style: dashed; border-color: var(--kc); }
-.wbb .wbb-bucket.drop-ok { background: var(--accent-soft); border-color: var(--accent); }
-.wbb .wbb-bar {
-  min-height: 30px;
-  padding: 0 6px 0 8px;
-  border-radius: 15px 15px 0 0;
-  background: color-mix(in srgb, var(--kc) 13%, var(--surface-2));
-  border-bottom: 1px solid color-mix(in srgb, var(--kc) 22%, transparent);
+.wbb .wbb-card:hover { border-color: color-mix(in srgb, var(--fg) 32%, transparent); }
+.wbb .wbb-card.selected { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent), 0 12px 28px -18px var(--shadow); }
+.wbb .wbb-card.primary {
+  background: color-mix(in srgb, var(--accent) 4%, var(--surface));
+  box-shadow: 0 0 0 2px var(--accent), 0 16px 32px -18px var(--shadow);
 }
-.wbb .wbb-layer {
-  color: var(--kc);
-  font-family: "Space Grotesk", sans-serif;
-  font-size: 10.5px;
-  font-weight: 600;
-  letter-spacing: 0.6px;
-}
-.wbb .wbb-bucket-body { padding: 8px; }
-.wbb button.wbb-keys-toggle {
-  all: unset;
-  padding: 1px 6px;
-  border-radius: 6px;
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--muted);
-}
-.wbb button.wbb-keys-toggle:hover { background: var(--line); }
-.wbb button.wbb-keys-toggle.on { color: var(--kc); }
-.wbb .wbb-chips { margin-top: 2px; }
-.wbb .wbb-chip {
-  padding: 1px 6px;
-  border-radius: 6px;
-  background: var(--surface-2);
-  box-shadow: inset 0 0 0 1px var(--line);
-  font-size: 10px;
-}
-.wbb .wbb-chip.prompt { color: var(--faint); }
-.wbb .wbb-keys {
-  padding: 6px;
-  border-radius: 12px;
-  border: 1px dashed color-mix(in srgb, var(--kc) 45%, transparent);
-  font-size: 11px;
-}
-.wbb .wbb-key-pill {
-  padding: 0 6px;
-  border-radius: 99px;
-  border: 1px solid color-mix(in srgb, var(--kc) 60%, transparent);
-  font-weight: 600;
-}
-
-.wbb .wbb-tpl {
-  border-radius: 10px;
-  background: color-mix(in srgb, var(--tpl) 9%, var(--surface));
-  border: 1px solid color-mix(in srgb, var(--tpl) 45%, var(--line));
-}
-.wbb .wbb-tpl.drop-ok { box-shadow: 0 0 0 2px color-mix(in srgb, var(--tpl) 55%, transparent); }
-.wbb .wbb-tpl-bar { min-height: 28px; padding: 0 4px 0 6px; }
-.wbb .wbb-tpl-name {
-  padding: 0 2px;
-  border-radius: 4px;
-  font-family: "Space Grotesk", sans-serif;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--tpl);
-}
-.wbb .wbb-tpl-name:hover { background: var(--line); }
-.wbb button.icon-button.wbb-x { min-width: 18px; min-height: 18px; padding: 0; opacity: 0.6; }
-.wbb button.icon-button.wbb-x:hover { opacity: 1; }
-.wbb button.icon-button.wbb-chev { min-width: 22px; min-height: 22px; padding: 0; color: var(--tpl); }
-.wbb .wbb-tpl-icons { padding: 4px 8px 8px 8px; }
-.wbb .wbb-app { min-width: 40px; }
-.wbb .wbb-app-name { font-size: 9px; }
-.wbb .wbb-more {
-  padding: 0 4px;
-  border-radius: 99px;
-  background: var(--tpl);
-  color: var(--accent-fg);
-  font-size: 9px;
-  font-weight: 700;
-}
-.wbb .wbb-tpl-body { padding: 6px; }
-.wbb .wbb-win { border-radius: 8px; background: var(--bg-2); border: 1px solid var(--line); }
-.wbb .wbb-win-bar { padding: 3px 4px 3px 6px; font-size: 11px; border-bottom: 1px solid var(--line); }
-.wbb .wbb-extras { padding: 4px; }
-.wbb .wbb-xchip {
-  padding: 0 2px 0 5px;
-  border-radius: 6px;
-  background: var(--surface-2);
-  box-shadow: inset 0 0 0 1px var(--line);
-  font-size: 10px;
-}
-entry.wbb-rename {
-  min-height: 22px;
-  padding: 0 6px;
-  border-radius: 5px;
-  border: 1px solid var(--tpl);
-  background: var(--bg);
-  color: var(--fg);
-  font-family: "Space Grotesk", sans-serif;
-  font-size: 12px;
-  font-weight: 600;
-  box-shadow: none;
-  outline: none;
-}
-.wbb .wbb-slot { min-height: 6px; border-radius: 6px; }
-.wbb .wbb-slot.drop-could { min-height: 10px; }
-.wbb .wbb-slot.drop-ok { min-height: 30px; border: 1.5px dashed var(--accent); background: var(--accent-soft); }
-.wbb button.wbb-newtpl {
-  all: unset;
-  margin-top: 4px;
-  min-height: 28px;
-  border-radius: 10px;
-  border: 1.5px dashed color-mix(in srgb, var(--tpl) 40%, transparent);
-  color: color-mix(in srgb, var(--tpl) 75%, transparent);
-  font-size: 11.5px;
-  font-weight: 600;
-}
-.wbb button.wbb-newtpl:hover { border-color: var(--tpl); color: var(--tpl); }
-.wbb button.wbb-newtpl.drop-could { min-height: 40px; border-color: var(--tpl); color: var(--tpl); }
-.wbb button.wbb-newtpl.drop-ok { min-height: 56px; background: color-mix(in srgb, var(--tpl) 15%, transparent); }
-
-.wbb .wbb-name-row { padding: 0 4px; }
-.wbb .wbb-name { font-family: "Space Grotesk", sans-serif; font-size: 13px; font-weight: 600; }
+.wbb .wbb-card.picked { box-shadow: 0 0 0 2px var(--danger); }
+.wbb .wbb-card.drop-could { border-style: dashed; }
+.wbb .wbb-card.drop-ok { background: var(--accent-soft); border-color: var(--accent); }
+.wbb .wbb-card-head { min-height: 22px; padding: 0 2px; }
+.wbb .wbb-name { font-family: "Space Grotesk", sans-serif; font-size: 14px; font-weight: 700; }
 .wbb .wbb-tag { padding: 1px 7px; border-radius: 99px; font-size: 10px; font-weight: 700; }
 .wbb .wbb-tag.ready { background: color-mix(in srgb, var(--layer-extensions) 16%, transparent); color: var(--layer-extensions); }
 .wbb .wbb-tag.unbuilt { background: color-mix(in srgb, var(--unbuilt) 18%, transparent); color: var(--unbuilt); }
@@ -2051,22 +1931,132 @@ entry.wbb-rename {
 .wbb .wbb-tag.building { background: var(--accent-soft); color: var(--accent); }
 .wbb .wbb-tag.unknown { background: var(--line); color: var(--faint); }
 
-.wbb .wbb-gap { min-width: 12px; border-radius: 12px; }
+/* A card's parts. */
+.wbb .wbb-sec.customs { --c-side: var(--c-custom); }
+.wbb .wbb-sec.keys { --c-side: var(--c-key); }
+.wbb .wbb-sec.exts { --c-side: var(--c-ext); }
+.wbb .wbb-sec.apps { --c-side: var(--c-app); }
+.wbb .wbb-sec {
+  padding: 6px 8px;
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--c-side) 35%, var(--line));
+  background: color-mix(in srgb, var(--c-side) 4%, var(--surface));
+}
+.wbb .wbb-sec.customs { padding: 8px; border-color: color-mix(in srgb, var(--c-custom) 40%, var(--line)); }
+.wbb .wbb-sec.drop-could { border-style: dashed; border-color: var(--c-side); }
+.wbb .wbb-sec.drop-ok { background: color-mix(in srgb, var(--c-side) 16%, var(--surface)); border-color: var(--c-side); }
+.wbb .wbb-sec-head { min-height: 20px; padding: 0 2px; border-radius: 6px; transition: background-color 850ms ease-out; }
+/* Something just landed: lit at once, then fading. */
+.wbb .wbb-sec-head.flash { background-color: color-mix(in srgb, var(--c-side) 45%, transparent); transition: none; }
+.wbb .wbb-sec-head > wad-icon.wbb-sec-icon, .wbb .wbb-sec-title { color: var(--c-side); }
+.wbb .wbb-sec-title { font-family: "Space Grotesk", sans-serif; font-size: 10.5px; font-weight: 600; letter-spacing: 0.6px; }
+.wbb .wbb-sec-empty { padding: 0 4px 2px 4px; }
+.wbb flowbox > flowboxchild { padding: 0; }
+.wbb .wbb-chip {
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--c-custom) 10%, var(--surface-2));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--c-custom) 40%, transparent);
+  font-size: 10px;
+}
+.wbb .wbb-chip > wad-icon { color: var(--c-custom); }
+.wbb .wbb-chip.prompt { color: var(--faint); background: var(--surface-2); box-shadow: inset 0 0 0 1px var(--line); }
+.wbb .wbb-chip.picked { box-shadow: 0 0 0 2px var(--danger); }
+.wbb .wbb-blank-desk { border-radius: 10px; background: var(--bg-2); box-shadow: inset 0 0 0 1px var(--line); }
+
+/* A ✕ in a thing's corner, shown on hover. */
+.wbb overlay.wbb-x-wrap > button.wbb-corner-x {
+  min-width: 15px;
+  min-height: 15px;
+  padding: 0;
+  border-radius: 99px;
+  background: var(--surface-3);
+  box-shadow: inset 0 0 0 1px var(--line-strong);
+  opacity: 0;
+}
+.wbb overlay.wbb-x-wrap:hover > button.wbb-corner-x { opacity: 1; }
+.wbb overlay.wbb-x-wrap > button.wbb-corner-x:hover { background: var(--danger); color: #fff; }
+.wbb button.icon-button.wbb-x { min-width: 18px; min-height: 18px; padding: 0; opacity: 0.6; }
+.wbb button.icon-button.wbb-x:hover { opacity: 1; background: none; }
+
+/* Its apps: a row of icons, no border but on hover. */
+.wbb .wbb-tile { border-radius: 8px; background: color-mix(in srgb, var(--c-app) 12%, var(--surface-2)); }
+.wbb overlay.wbb-x-wrap:hover > .wbb-tile { box-shadow: inset 0 0 0 1.5px var(--c-side); }
+
+/* A module: an app's add-ons, or a key with what signs in with it. */
+.wbb .wbb-cluster {
+  margin-top: 6px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--c-side) 4%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--c-side) 30%, var(--line));
+}
+.wbb .wbb-cluster:hover { border-color: color-mix(in srgb, var(--c-side) 65%, var(--line)); }
+.wbb .wbb-cluster.picked { box-shadow: 0 0 0 2px var(--danger); }
+.wbb .wbb-cluster.drop-could { border-style: dashed; }
+.wbb .wbb-cluster.drop-ok { box-shadow: 0 0 0 2px var(--c-side); background: color-mix(in srgb, var(--c-side) 14%, var(--surface)); }
+.wbb .wbb-cluster.drop-no { box-shadow: 0 0 0 2px var(--danger); }
+.wbb .wbb-cluster.orphan { border-style: dashed; }
+.wbb .wbb-cluster.orphan .wbb-cluster-name { opacity: 0.5; text-decoration: line-through; }
+.wbb .wbb-cluster-head {
+  min-height: 26px;
+  padding: 0 4px 0 7px;
+  border-radius: 11px 11px 0 0;
+  background: color-mix(in srgb, var(--c-side) 10%, var(--surface-2));
+  border-bottom: 1px solid color-mix(in srgb, var(--c-side) 22%, transparent);
+}
+.wbb .wbb-cluster-name {
+  color: var(--c-app);
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.6px;
+}
+.wbb .wbb-cluster-name.key { color: var(--key-set-fg); letter-spacing: 0; font-size: 11.5px; }
+.wbb .wbb-cluster-body { padding: 6px; }
+.wbb .wbb-addon {
+  min-height: 26px;
+  padding: 0 8px 0 6px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--c-side) 10%, var(--surface-2));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--c-side) 45%, transparent);
+  font-size: 11px;
+  font-weight: 500;
+}
+.wbb overlay.wbb-x-wrap:hover > .wbb-addon { box-shadow: inset 0 0 0 1.5px var(--c-side); }
+entry.wbb-key-rename {
+  min-height: 20px;
+  padding: 0 6px;
+  border-radius: 5px;
+  border: 1px solid var(--c-key);
+  background: var(--bg);
+  color: var(--fg);
+  font-size: 11.5px;
+  font-weight: 600;
+  box-shadow: none;
+  outline: none;
+}
+/* While a key is dragged: drop it here for a key of its own. */
+.wbb .wbb-newsecret {
+  margin-top: 6px;
+  min-height: 34px;
+  border-radius: 10px;
+  border: 1.5px dashed var(--c-key);
+  color: var(--c-key);
+  font-size: 11.5px;
+  font-weight: 600;
+}
+.wbb .wbb-newsecret.drop-ok { min-height: 48px; background: color-mix(in srgb, var(--c-key) 15%, transparent); }
+
+/* Between cards, and all the room after the last: a new wadspace. */
+.wbb .wbb-gap { min-width: 14px; border-radius: 12px; transition: min-width 160ms; }
 .wbb .wbb-gap.drop-could { min-width: 30px; border: 1.5px dashed color-mix(in srgb, var(--accent) 40%, transparent); }
 .wbb .wbb-gap.drop-ok { min-width: 150px; border: 1.5px dashed var(--accent); background: var(--accent-soft); }
-.wbb .wbb-open {
-  margin-left: 12px;
-  min-width: 150px;
-  min-height: 160px;
-  padding: 16px;
-  border-radius: 16px;
-  border: 1.5px dashed color-mix(in srgb, var(--line-strong) 60%, transparent);
-  color: var(--faint);
-  font-size: 12px;
-}
-.wbb .wbb-open.drop-could { border-color: color-mix(in srgb, var(--accent) 60%, transparent); }
-.wbb .wbb-open.drop-ok { background: var(--accent-soft); border-color: var(--accent); color: var(--fg); }
+.wbb .wbb-gap.end, .wbb .wbb-gap.end.drop-could, .wbb .wbb-gap.end.drop-ok { min-width: 150px; border: none; background: none; }
+.wbb .wbb-gap-strip { border-radius: 12px; transition: min-width 160ms; }
+.wbb .wbb-gap.end.drop-could > .wbb-gap-strip { min-width: 30px; border: 1.5px dashed color-mix(in srgb, var(--accent) 40%, transparent); }
+.wbb .wbb-gap.end.drop-ok > .wbb-gap-strip { min-width: 150px; border: 1.5px dashed var(--accent); background: var(--accent-soft); }
 
+/* The machines along the bottom. */
 .wbb .wbb-machines { padding: 10px 8px; border-top: 1px solid var(--line); background: var(--bg-2); }
 .wbb .wbb-track { padding: 2px; }
 .wbb .wbb-machine {
@@ -2102,16 +2092,24 @@ entry.wbb-rename {
   font-size: 11px;
 }
 .wbb .wbb-swatch { min-width: 14px; min-height: 14px; border-radius: 3px; background: var(--fg); opacity: 0.35; }
-.wbb button.wbb-copy-here { color: var(--accent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 50%, transparent); background: var(--accent-soft); }
 
+/* The sidebar. */
 .wbb .wbb-side { border-left: 1px solid var(--line); background: var(--bg-2); }
 .wbb .wbb-side-head { padding: 12px; border-bottom: 1px solid var(--line); }
 .wbb .wbb-side-name { font-family: "Space Grotesk", sans-serif; font-size: 16px; font-weight: 700; }
+.wbb .wbb-tabs > button { padding-left: 4px; padding-right: 4px; font-size: 11px; }
+.wbb .wbb-tabs > button:nth-child(1) wad-icon { color: var(--c-app); }
+.wbb .wbb-tabs > button:nth-child(2) wad-icon { color: var(--c-ext); }
+.wbb .wbb-tabs > button:nth-child(3) wad-icon { color: var(--c-key); }
+.wbb .wbb-tabs > button:nth-child(4) wad-icon { color: var(--c-custom); }
 .wbb .wbb-side-body { padding: 12px; }
-.wbb .wbb-app-card { padding: 6px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface); }
+.wbb .wbb-app-card { padding: 4px; border-radius: 12px; border: 1px solid transparent; background: var(--surface); }
+.wbb .wbb-app-card:hover { border-color: var(--line-strong); }
+.wbb .wbb-app-card.in { background: color-mix(in srgb, var(--c-app) 12%, var(--surface)); }
 .wbb .wbb-app-row { padding: 4px 6px; border-radius: 8px; font-size: 13px; font-weight: 500; }
-.wbb .wbb-app-row:hover { background: var(--surface-2); }
-.wbb .wbb-what { padding: 4px 6px 0 6px; font-size: 10px; letter-spacing: 1px; color: var(--faint); }
+.wbb wad-icon.wbb-in { color: var(--c-app); }
+.wbb .wbb-for { padding: 2px 4px; }
+.wbb .wbb-focus-row { padding: 2px 4px; }
 .wbb .wbb-offer { padding: 2px 4px 4px 4px; }
 .wbb .wbb-offer-chip {
   min-height: 24px;
@@ -2121,10 +2119,10 @@ entry.wbb-rename {
   font-size: 11px;
 }
 .wbb .wbb-offer-chip:hover { background: var(--surface-2); }
-.wbb .wbb-offer-chip.in { box-shadow: inset 0 0 0 1px var(--kc); }
-.wbb .wbb-mode, .wbb .wbb-new-web { padding: 2px 6px; }
+.wbb .wbb-offer-chip.in { box-shadow: inset 0 0 0 1px var(--c-ext); background: color-mix(in srgb, var(--c-ext) 10%, transparent); }
+.wbb .wbb-new-web { padding: 2px 6px; }
 .wbb button.wbb-delete.armed { color: var(--danger); }
-.wbb-ghost, .wbb-ghost-pile .wbb-tpl-bar {
+.wbb-ghost {
   padding: 4px 10px;
   border-radius: 10px;
   background: var(--surface-3);
@@ -2132,7 +2130,6 @@ entry.wbb-rename {
   font-size: 12px;
   font-weight: 600;
 }
-.wbb-ghost-pile .wbb-tpl-bar { box-shadow: inset 0 0 0 1px var(--tpl); color: var(--tpl); }
 .wbb button.wbb-deleted {
   padding: 0 10px;
   min-height: 30px;
@@ -2145,18 +2142,14 @@ entry.wbb-rename {
 .wbb button.wbb-deleted:hover { background: var(--surface-2); }
 .wbb button.wbb-deleted.on { background: var(--surface-3); box-shadow: inset 0 0 0 1px var(--accent); }
 .wbb button.wbb-deleted:disabled { color: var(--faint); box-shadow: inset 0 0 0 1px var(--line); }
-/* Recently deleted, in the sidebar. */
+/* Recently deleted, in the sidebar's place. */
 .wbb .wbb-kept-card { padding: 10px; border-radius: 12px; background: var(--surface); box-shadow: inset 0 0 0 1px var(--line); }
 .wbb .wbb-kept { padding: 4px 2px; }
 .wbb .wbb-kept-name { font-weight: 600; font-size: 13px; }
 .wbb .wbb-kept-from { font-size: 11.5px; color: var(--muted); font-weight: 600; }
 .wbb .wbb-kept-part { padding: 3px 8px; }
 .wbb .wbb-kept-part:hover { box-shadow: inset 0 0 0 1px var(--line-strong); }
-/* A machine with none: a blank wadspace, made when it's used. */
-.wbb .wbb-col.blank .wbb-bucket { border-style: dashed; box-shadow: none; }
-.wbb .wbb-col.blank .wbb-tpl { border-style: dashed; }
-.wbb .wbb-col.blank .wbb-name { color: var(--muted); }
-.wbb .wbb-blank-desk { border-radius: 10px; background: var(--bg-2); box-shadow: inset 0 0 0 1px var(--line); }
+.wbb .wbb-what { padding: 4px 6px 0 6px; font-size: 10px; letter-spacing: 1px; color: var(--faint); }
 /* The HUD's bar floats over the bottom right: the machines keep clear of it. */
 window.hud-room .wbb .wbb-machines { padding-bottom: 71px; }
 window.hud-room .wbb .wbb-side-body { padding-bottom: 72px; }

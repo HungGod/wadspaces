@@ -28,8 +28,6 @@ pub trait Host {
     fn set_key(&self, line: &KeyLine, key: Option<Value>);
     /// WadBrowser's apps into group `to` (None: a new group of their own).
     fn regroup(&self, members: &[String], to: Option<&str>);
-    fn new_group(&self);
-    fn remove_group(&self, id: &str);
     /// A key renamed wherever the board keeps it, or why it can't be.
     fn rename_key(&self, id: &str, to: &str, known: &[Value]) -> Result<(), String>;
     /// The keys of a kind there are: `known` (the machine's) and the board's.
@@ -68,7 +66,7 @@ fn with(w: &Weak<dyn Host>, f: impl FnOnce(&Rc<dyn Host>)) {
 
 /// The keys there are: the machine's saved sign-ins (and those the
 /// library's wadspaces name), as `{id, name, kind}`.
-fn known() -> Vec<Value> {
+pub fn known() -> Vec<Value> {
     store()
         .read_now(signins::known)
         .into_iter()
@@ -141,21 +139,9 @@ pub fn fill(host: &Rc<dyn Host>, keys: &Rc<Keys>, b: &gtk::Box) {
                 for m in members {
                     src.insert(&member(host, keys, m, &g.id), -1);
                 }
-                if members.is_empty() {
-                    line.add_css_class("empty");
-                    let h = gtk::Label::new(Some("Drag apps here"));
-                    h.add_css_class("drop-here");
-                    src.insert(&h, -1);
-                }
                 line.append(&src);
                 line.append(&wire(value.is_some()));
                 line.append(&key_picker(host, "web", value.clone(), l.app_id.clone(), on_set));
-                if members.is_empty() {
-                    let x = ui::icon_button("x", "Remove this empty group", 13);
-                    let (w, id) = (Rc::downgrade(host), g.id.clone());
-                    x.connect_clicked(move |_| with(&w, |h| h.remove_group(&id)));
-                    line.append(&x);
-                }
                 drag::target(
                     &line,
                     GroupTarget {
@@ -178,16 +164,17 @@ pub fn fill(host: &Rc<dyn Host>, keys: &Rc<Keys>, b: &gtk::Box) {
             lines.append(&line);
         }
         if a.id == "wadbrowser" {
-            let ng = gtk::Button::new();
+            // A key always has something on it: a group is made by dragging
+            // apps into it.
+            let ng = gtk::Box::new(gtk::Orientation::Horizontal, 6);
             ng.add_css_class("key-line");
             ng.add_css_class("new-group");
             let r = gtk::Box::new(gtk::Orientation::Horizontal, 6);
             r.set_halign(gtk::Align::Center);
+            r.set_hexpand(true);
             r.append(&Icon::new("plus", 13));
-            r.append(&gtk::Label::new(Some("New group")));
-            ng.set_child(Some(&r));
-            let w = Rc::downgrade(host);
-            ng.connect_clicked(move |_| with(&w, |h| h.new_group()));
+            r.append(&gtk::Label::new(Some("Drag apps here for a key of their own")));
+            ng.append(&r);
             drag::target(&ng, NewGroupTarget { host: Rc::downgrade(host), keys: keys.clone() });
             lines.append(&ng);
         }

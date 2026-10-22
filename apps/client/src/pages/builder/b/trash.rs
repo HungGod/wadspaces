@@ -1,16 +1,16 @@
-//! Recently deleted, in the sidebar (the old Builder's panel, for design
-//! B): what was taken out of each wadspace (a template, an app off one, a
-//! project, the background), each to put back where it was or forget; and
-//! the deleted wadspaces, each to restore whole or delete for good, with
-//! its parts in it to drag into any wadspace (just those). Undo takes back
-//! any of it.
+//! Recently deleted, in the sidebar's place: what was taken out of each
+//! wadspace (an app's add-ons, an app, a project, the background), each to
+//! put back or forget; and the deleted wadspaces, each to restore whole or
+//! delete for good, with its parts in it to drag into any wadspace (just
+//! those). Undo takes back any of it.
 
 use gtk::{glib, prelude::*};
 use serde_json::Value;
-use wad_board::b4::{Kept, Op, Payload as Bp, Piece, Wadspace};
+use wad_board::b::{Kept, Op, Payload as Bp, Piece, Wadspace};
+use wad_board::catalog;
 use wad_gtk::Icon;
 
-use super::buckets::{self, act, app_icon, app_name, projects_of, texture_name, texture_of};
+use super::card::{self, act, app_icon, app_name, texture_name, texture_of};
 use super::state;
 use crate::drag::{self, Payload};
 use crate::pages::builder::parts::img;
@@ -42,19 +42,14 @@ fn label(text: &str, classes: &[&str]) -> gtk::Label {
 }
 
 /// A kept piece as it looks: its picture, what it is, and a line under it.
-fn face(w: &Wadspace, piece: &Piece) -> gtk::Box {
+fn face(piece: &Piece) -> gtk::Box {
     let (pic, title, detail): (gtk::Widget, String, String) = match piece {
-        Piece::Template { template, .. } => (
-            Icon::new("layout-grid", 14).upcast(),
-            template.name.clone(),
-            template.apps.iter().map(|e| app_name(&e.app)).collect::<Vec<_>>().join(", "),
+        Piece::Exts { app, exts } => (
+            img(&app_icon(app), 16).upcast(),
+            catalog::exts_of(app),
+            exts.iter().map(|x| catalog::ext_face(x).0).collect::<Vec<_>>().join(", "),
         ),
-        Piece::App { template, entry } => {
-            let from = w.templates.iter().find(|t| t.id == *template).map_or(template.as_str(), |t| t.name.as_str());
-            let n = entry.extras.len();
-            let more = if n > 0 { format!(" · {n} inside") } else { String::new() };
-            (img(&app_icon(&entry.app), 16).upcast(), app_name(&entry.app), format!("off {from}{more}"))
-        }
+        Piece::App { app } => (img(&app_icon(&app.app), 16).upcast(), app_name(&app.app), "An app".into()),
         Piece::Project { project } => {
             (Icon::new(project_icon(project), 14).upcast(), s(project, "as").to_string(), project_text(project))
         }
@@ -85,15 +80,15 @@ fn face(w: &Wadspace, piece: &Piece) -> gtk::Box {
 fn kept_row(w: &Wadspace, k: &Kept) -> gtk::Box {
     let row = gtk::Box::new(gtk::Orientation::Horizontal, 6);
     row.add_css_class("wbb-kept");
-    let f = face(w, &k.piece);
+    let f = face(&k.piece);
     f.set_hexpand(true);
     f.set_tooltip_text(Some(&format!("Taken out {}", ago(&k.at))));
     row.append(&f);
     let back = ui::button("Put back", None, Variant::Secondary, Size::Sm);
     back.set_valign(gtk::Align::Center);
     back.set_tooltip_text(Some(match &k.piece {
-        Piece::Template { .. } => "Back where it was among the templates",
-        Piece::App { .. } => "Back into its template (a template of its own if that's gone)",
+        Piece::Exts { .. } => "Back among its add-ons (with their app, if it's gone)",
+        Piece::App { .. } => "Back among its apps",
         Piece::Project { .. } => "Back among its projects",
         Piece::Background { .. } => "Back as its background",
     }));
@@ -121,7 +116,7 @@ fn part(icon: &'static str, text: &str, payload: Bp, ghost_icon: String) -> gtk:
     c.set_halign(gtk::Align::Start);
     c.set_tooltip_text(Some("Drag it onto a wadspace to bring just it back there"));
     let text = text.to_string();
-    drag::draggable(&c, move |_| Some((Payload::B(payload.clone()), buckets::ghost(&ghost_icon, &text))));
+    drag::draggable(&c, move |_| Some((Payload::B(payload.clone()), card::ghost(&ghost_icon, &text))));
     c
 }
 
@@ -159,14 +154,17 @@ fn deleted_card(machine: &str, w: &Wadspace) -> gtk::Box {
     if let Some(t) = texture_of(w) {
         parts.insert(&part("palette", &texture_name(&t), Bp::Background { ws: w.id.clone() }, String::new()), -1);
     }
-    for p in projects_of(w) {
-        let payload = Bp::Project { ws: w.id.clone(), id: s(&p, "id").into() };
-        parts.insert(&part(project_icon(&p), s(&p, "as"), payload, String::new()), -1);
+    for p in w.projects() {
+        let payload = Bp::Project { ws: w.id.clone(), id: s(p, "id").into() };
+        parts.insert(&part(project_icon(p), s(p, "as"), payload, String::new()), -1);
     }
-    for t in &w.templates {
-        let first = t.apps.first().map(|e| app_icon(&e.app)).unwrap_or_default();
-        let payload = Bp::Templates { ws: w.id.clone(), ids: vec![t.id.clone()] };
-        parts.insert(&part("layout-grid", &t.name, payload, first), -1);
+    if let Some(first) = w.apps.first() {
+        let names: Vec<String> = w.apps.iter().map(|a| app_name(&a.app)).collect();
+        parts.insert(&part("layout-grid", &names.join(", "), Bp::Apps { ws: w.id.clone() }, app_icon(&first.app)), -1);
+    }
+    for (app, exts) in w.exts_by_app() {
+        let text = format!("{} ({})", catalog::exts_of(&app), exts.len());
+        parts.insert(&part("puzzle", &text, Bp::Exts { ws: w.id.clone(), app: app.clone() }, app_icon(&app)), -1);
     }
     if parts.first_child().is_some() {
         card.append(&parts);
@@ -193,7 +191,7 @@ pub fn panel(s: &AppState) -> gtk::Widget {
     name.set_xalign(0.0);
     top.append(&name);
     let close = ui::icon_button("x", "Close", 14);
-    close.connect_clicked(|_| super::close());
+    close.connect_clicked(|_| super::show_trash(false));
     top.append(&close);
     head.append(&top);
     head.append(&label(

@@ -1,12 +1,11 @@
 //! The Builder's board ([`b`]): version 5 wadspaces, each on one machine,
 //! one card each (its customization, keys, add-ons and apps), and the edits
 //! made to them; what the catalog says about apps, add-ons and keys
-//! ([`catalog`]). [`b4`] is the templates' board the client still uses.
+//! ([`catalog`]).
 //! fixtures/board/b.json (the board's scenarios) keeps the WadSpaces Client
 //! and the phone's copy the same.
 
 pub mod b;
-pub mod b4;
 pub mod catalog;
 pub mod model;
 

@@ -1,21 +1,19 @@
-//! The machines along the bottom of Builder B: click one to show its
-//! wadspaces. A wadspace dropped on one (by its name, or its
-//! Customizations bar with what's under it) is copied there, those picked
-//! with it too; anything else dropped on one starts a new wadspace there.
-//! Or pick wadspaces, and press Copy on a machine.
+//! The machines along the bottom of the Builder: click one to show its
+//! wadspaces. A card dropped on one is copied there, those selected with
+//! it too; anything else dropped on one starts a new wadspace there.
 
 use std::cell::RefCell;
 use std::collections::HashMap;
 
 use gtk::{glib, prelude::*};
-use wad_board::b4::{Op, Payload as Bp};
+use wad_board::b::{Op, Payload as Bp};
 use wad_gtk::Icon;
 
-use super::buckets::{self, of, source, whole};
+use super::card::{of, texture_of};
 use super::state;
 use crate::drag::{self, Mods, Payload, Target, Verdict};
 use crate::store::AppState;
-use crate::ui::{self, Size, Variant};
+use crate::ui;
 
 thread_local! {
     /// Each machine's card, by its board id (the snapshots' drags).
@@ -104,15 +102,9 @@ pub fn bar(s: &AppState) -> gtk::Widget {
     edges();
 
     let shown = state::shown(s);
-    let picked: Vec<(String, String, String)> = state::read(|st| {
-        state::picked_wadspaces(st)
-            .into_iter()
-            .filter_map(|id| st.board.get(&id).map(|w| (w.id.clone(), w.name().to_string(), w.machine.clone())))
-            .collect()
-    });
     CARDS.with(|c| c.borrow_mut().clear());
     for m in machines(s) {
-        let c = card(&m, m.id == shown, &picked);
+        let c = card(&m, m.id == shown);
         CARDS.with(|cs| cs.borrow_mut().insert(m.id.clone(), c.downgrade()));
         // As wide as a card is, however few there are.
         track.append(&wad_gtk::Width::new(&c, CARD_W));
@@ -124,7 +116,7 @@ pub fn bar(s: &AppState) -> gtk::Widget {
     root.upcast()
 }
 
-fn card(m: &Shown, shown: bool, picked: &[(String, String, String)]) -> gtk::Box {
+fn card(m: &Shown, shown: bool) -> gtk::Box {
     let c = gtk::Box::new(gtk::Orientation::Vertical, 8);
     c.add_css_class("wbb-machine");
     if shown {
@@ -158,7 +150,7 @@ fn card(m: &Shown, shown: bool, picked: &[(String, String, String)]) -> gtk::Box
     texts.append(&d);
     top.append(&texts);
     let row: Vec<(String, Option<String>)> =
-        state::read(|st| st.board.row(&m.id).iter().map(|w| (w.name().to_string(), buckets::texture_of(w))).collect());
+        state::read(|st| st.board.row(&m.id).iter().map(|w| (w.name().to_string(), texture_of(w))).collect());
     let count = gtk::Label::new(Some(&row.len().to_string()));
     count.add_css_class("faint");
     count.add_css_class("tiny");
@@ -168,21 +160,7 @@ fn card(m: &Shown, shown: bool, picked: &[(String, String, String)]) -> gtk::Box
 
     let bottom = gtk::Box::new(gtk::Orientation::Horizontal, 6);
     bottom.add_css_class("wbb-machine-row");
-    let copy: Vec<&(String, String, String)> = picked.iter().filter(|(_, _, on)| *on != m.id).collect();
-    if !copy.is_empty() && !shown {
-        let text = if copy.len() == 1 {
-            format!("Copy {} here", copy[0].1)
-        } else {
-            format!("Copy {} wadspaces here", copy.len())
-        };
-        let b = ui::button(&text, Some("copy"), Variant::Secondary, Size::Sm);
-        b.add_css_class("wbb-copy-here");
-        b.set_hexpand(true);
-        let (ids, machine, name) =
-            (copy.iter().map(|(id, _, _)| id.clone()).collect::<Vec<_>>(), m.id.clone(), m.name.clone());
-        b.connect_clicked(move |_| copy_to(ids.clone(), &machine, &name));
-        bottom.append(&b);
-    } else if !row.is_empty() {
+    if !row.is_empty() {
         for (name, _) in row.iter().take(2) {
             let chip = gtk::Box::new(gtk::Orientation::Horizontal, 5);
             chip.add_css_class("wbb-machine-ws");
@@ -225,7 +203,9 @@ pub fn show(id: &str) {
     let here = crate::store::store().read_now(state::here);
     state::write(|s| {
         s.shown = (id != here).then(|| id.to_string());
-        s.open = None;
+        s.selected.clear();
+        s.picked.clear();
+        s.trash_open = false;
     });
     state::changed();
 }
@@ -235,11 +215,9 @@ pub fn show(id: &str) {
 fn copy_to(ids: Vec<String>, machine: &str, name: &str) {
     let first = state::read(|s| ids.first().and_then(|i| s.board.get(i)).map(|w| w.name().to_string()));
     let n = ids.len();
-    if state::apply(Op::CopyTo { ids, machine: machine.into() }).is_err() {
-        return;
+    if let Err(e) = state::apply(Op::CopyTo { ids, machine: machine.into() }) {
+        return crate::toast::error("Couldn't copy it", &e);
     }
-    state::write(|s| s.picked.clear());
-    state::changed();
     let text = match (n, first) {
         (1, Some(one)) => format!("Copied {one} to {name}"),
         _ => format!("Copied {n} wadspaces to {name}"),
@@ -264,12 +242,13 @@ struct MachineTarget {
 }
 
 impl MachineTarget {
-    /// The wadspaces a whole-wadspace drop copies: those picked, when it's
-    /// one of them, else it alone (none already on this machine).
+    /// The wadspaces a card's drop copies: those selected, when it's one of
+    /// them, else it alone (none already on this machine).
     fn copies(&self, ws: &str) -> Vec<String> {
+        let shown = crate::store::store().read_now(state::shown);
         state::read(|st| {
-            let picked = state::picked_wadspaces(st);
-            let ids = if picked.iter().any(|p| p == ws) { picked } else { vec![ws.to_string()] };
+            let selected = state::selected_ids(st, &shown);
+            let ids = if selected.iter().any(|p| p == ws) { selected } else { vec![ws.to_string()] };
             ids.into_iter().filter(|id| st.board.get(id).is_some_and(|w| w.machine != self.id)).collect()
         })
     }
@@ -278,8 +257,8 @@ impl MachineTarget {
 impl Target for MachineTarget {
     fn accepts(&self, p: &Payload, _m: Mods, _at: (f64, f64)) -> Option<Verdict> {
         let b = of(p)?;
-        let ws = source(b)?;
-        if whole(b) {
+        let ws = b.source()?;
+        if matches!(b, Bp::Wadspace { .. }) {
             let ids = self.copies(ws);
             return match ids.len() {
                 0 => Verdict::no(format!("It's on {} already", self.name)),
@@ -296,8 +275,8 @@ impl Target for MachineTarget {
 
     fn land(&self, p: &Payload, _m: Mods, _at: (f64, f64)) {
         let Some(b) = of(p) else { return };
-        let Some(ws) = source(b) else { return };
-        if whole(b) {
+        let Some(ws) = b.source() else { return };
+        if matches!(b, Bp::Wadspace { .. }) {
             copy_to(self.copies(ws), &self.id, &self.name);
             return;
         }

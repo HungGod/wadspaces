@@ -1274,11 +1274,10 @@ mod tests {
         }
     }
 
-    /// A wadspace with these apps in one template.
+    /// A wadspace with these apps.
     fn wadspace(id: &str, apps: &[&str]) -> Value {
-        let apps: Vec<Value> = apps.iter().map(|a| json!({ "app": a, "extras": [] })).collect();
-        json!({ "version": 4, "id": id, "machine": "m", "templates": [{ "id": "t", "name": "T", "apps": apps }],
-            "customization": { "name": id } })
+        let apps: Vec<Value> = apps.iter().map(|a| json!({ "app": a })).collect();
+        json!({ "version": 5, "id": id, "machine": "m", "apps": apps, "exts": [], "customization": { "name": id } })
     }
 
     /// The set those apps run on.

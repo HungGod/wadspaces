@@ -345,9 +345,9 @@ mod tests {
 
     #[test]
     fn a_wadspace_shows_on_its_own_machine() {
-        let v4 = |id: &str, machine: &str, order: u32| json!({ "version": 4, "id": id, "machine": machine, "order": order, "templates": [], "customization": { "name": id } });
+        let v5 = |id: &str, machine: &str, order: u32| json!({ "version": 5, "id": id, "machine": machine, "order": order, "apps": [], "exts": [], "customization": { "name": id } });
         let lib = wad_account::Library {
-            wadspaces: vec![v4("here", "m-here", 2), v4("there", "m-there", 3)],
+            wadspaces: vec![v5("here", "m-here", 2), v5("there", "m-there", 3)],
             ..Default::default()
         };
         let mut s = AppState { library: Some(lib), ..Default::default() };

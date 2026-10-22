@@ -1,23 +1,23 @@
-//! The Builder (design B, the UI spikes' buckets): one machine's version 4
-//! wadspaces in a row, each a Customizations bucket
-//! (its desktop: background, projects, keys) over a Templates bucket (its
-//! own templates: apps with what they take); the machines along the bottom;
-//! the open wadspace's sidebar on the right.
+//! The Builder: one machine's wadspaces in a row, each one card (its
+//! customization, secrets, add-ons and apps); the machines along the
+//! bottom; the sidebar on the selected wadspace, always there (Recently
+//! deleted in its place when that's open).
 //!
-//! A drag takes a thing and what's under it (Shift: just it): into another
-//! wadspace it's a copy, within its own a move; between wadspaces, on the
-//! open board or onto a machine it starts a new wadspace, and a whole
-//! wadspace dropped on a machine is copied there. Ctrl+click picks, for
-//! Build selected and Delete selected; Undo steps back.
+//! Dragging a card takes all of it, a piece just that: into another
+//! wadspace it's copied in; between wadspaces, after the last one or onto a
+//! machine it starts a new wadspace (a card dropped on a machine is copied
+//! there). One wadspace is always selected; Ctrl+click selects more, or
+//! picks a piece. Delete deletes what's selected and picked; Undo steps
+//! back.
 
-pub mod buckets;
+pub mod card;
 pub mod carousel;
 pub mod sidebar;
 pub mod state;
 pub mod trash;
 
 use gtk::{glib, prelude::*};
-use wad_board::b4::{Op, Pick};
+use wad_board::b::{Op, Pick};
 use wad_gtk::Icon;
 
 use self::state::{Standing, Tab};
@@ -25,46 +25,9 @@ use crate::drag;
 use crate::store::{AppState, Topic, store};
 use crate::ui::{self, Size, Variant};
 
-thread_local! {
-    /// The page's way to show the open wadspace (set when it's made).
-    static SHOW_OPEN: std::cell::RefCell<Option<Box<dyn Fn()>>> = const { std::cell::RefCell::new(None) };
-}
-
-/// Opens a wadspace in the sidebar. The board isn't drawn again for it, only
-/// its columns' marks and the sidebar: a double-click on a template's name
-/// finds the same name under its second click.
-pub fn open(id: &str) {
-    if state::read(|s| s.open.as_deref() == Some(id) && !s.trash_open) {
-        return;
-    }
-    state::write(|s| {
-        s.open = Some(id.to_string());
-        s.trash_open = false;
-    });
-    let shown = SHOW_OPEN.with(|f| f.borrow().as_ref().map(|f| f()).is_some());
-    if !shown {
-        state::changed();
-    }
-}
-
-/// Opens a wadspace in the sidebar, on a tab.
-pub fn open_on(id: &str, tab: Tab) {
-    state::write(|s| {
-        s.open = Some(id.to_string());
-        s.tab = tab;
-        s.trash_open = false;
-    });
-    state::changed();
-}
-
-/// Recently deleted in the sidebar, or not.
+/// Recently deleted in the sidebar's place, or not.
 pub fn show_trash(on: bool) {
-    state::write(|s| {
-        s.trash_open = on;
-        if on {
-            s.open = None;
-        }
-    });
+    state::write(|s| s.trash_open = on);
     if on {
         sidebar::closed();
     }
@@ -72,15 +35,15 @@ pub fn show_trash(on: bool) {
 }
 
 /// The Builder on a wadspace (from its details): its machine's row, it
-/// open in the sidebar; or (`copy`) a copy of it made at the row's end.
+/// selected; or (`copy`) a copy of it made at the row's end, selected.
 pub fn show_wadspace(id: &str, copy: bool) {
     crate::shell::go(crate::shell::Page::Builder);
     let Some(w) = state::read(|s| s.board.get(id).cloned()) else { return };
-    let mut open = w.id.clone();
+    let mut sel = w.id.clone();
     if copy {
         let before: Vec<String> = state::read(|s| s.board.wadspaces.iter().map(|x| x.id.clone()).collect());
         let op = Op::Fresh {
-            payload: wad_board::b4::Payload::Wadspace { ws: w.id.clone() },
+            payload: wad_board::b::Payload::Wadspace { ws: w.id.clone() },
             machine: w.machine.clone(),
             before: None,
         };
@@ -89,24 +52,15 @@ pub fn show_wadspace(id: &str, copy: bool) {
                 state::read(|s| s.board.wadspaces.iter().find(|x| !before.contains(&x.id)).map(|x| x.id.clone()))
         {
             crate::toast::show(&format!("Copied {}", w.name()), None, crate::toast::Tone::Info);
-            open = made;
+            sel = made;
         }
     }
     let here = store().read_now(state::here);
     state::write(|s| {
         s.shown = (w.machine != here).then(|| w.machine.clone());
-        s.open = Some(open);
+        s.selected = vec![sel];
         s.trash_open = false;
     });
-    state::changed();
-}
-
-pub fn close() {
-    state::write(|s| {
-        s.open = None;
-        s.trash_open = false;
-    });
-    sidebar::closed();
     state::changed();
 }
 
@@ -135,8 +89,6 @@ pub fn page() -> gtk::Widget {
     main.set_hexpand(true);
     let row = gtk::Box::new(gtk::Orientation::Horizontal, 0);
     row.add_css_class("wbb-row");
-    row.set_valign(gtk::Align::Start);
-    row.set_halign(gtk::Align::Start);
     let scroll = gtk::ScrolledWindow::new();
     crate::tour::target("board", &scroll);
     scroll.add_css_class("wbb-board");
@@ -144,25 +96,6 @@ pub fn page() -> gtk::Widget {
     scroll.set_hexpand(true);
     scroll.set_child(Some(&row));
     drag::autoscroll(&scroll);
-    // A click on the open board (not on a wadspace) closes the sidebar.
-    let click = gtk::GestureClick::new();
-    click.set_button(1);
-    let sw = scroll.downgrade();
-    click.connect_released(move |g, _, x, y| {
-        let Some(sw) = sw.upgrade() else { return };
-        if g.current_event_state().contains(gtk::gdk::ModifierType::CONTROL_MASK) {
-            return;
-        }
-        let mut at = sw.pick(x, y, gtk::PickFlags::DEFAULT);
-        while let Some(w) = at {
-            if w.has_css_class("wbb-col") || w.has_css_class("wbb-gap") || w.has_css_class("wbb-open") {
-                return;
-            }
-            at = w.parent();
-        }
-        close();
-    });
-    scroll.add_controller(click);
     main.append(&scroll);
     let machines = gtk::Box::new(gtk::Orientation::Vertical, 0);
     main.append(&machines);
@@ -179,8 +112,6 @@ pub fn page() -> gtk::Widget {
     // Drawn again when the board changes (the page lives as long as the app).
     let pp = p.clone();
     state::on_change(move || render(&pp));
-    let pp = p.clone();
-    SHOW_OPEN.with(|f| f.replace(Some(Box::new(move || show_open(&pp)))));
     let builds_seen: std::rc::Rc<std::cell::RefCell<String>> = Default::default();
     store().watch(&root, Topic::LIBRARY | Topic::ACTIVITY | Topic::WADD | Topic::CLOUD | Topic::MACHINE, move |s| {
         state::take_library(s);
@@ -227,10 +158,10 @@ fn topbar() -> (gtk::Box, Page) {
     hints.set_halign(gtk::Align::Start);
     hints.set_valign(gtk::Align::Center);
     for (k, text) in [
-        ("drag", "copies or moves, with what's under it"),
-        ("Shift", "just one"),
-        ("drag", "a name onto a machine"),
-        ("Ctrl+click", "picks"),
+        ("drag", "a card: all of it · a piece: just it"),
+        ("Ctrl+click", "selects more"),
+        ("click", "an app or add-on adds it"),
+        ("Delete", "deletes what's selected"),
     ] {
         let h = kbd(k, text);
         h.set_halign(gtk::Align::Start);
@@ -245,6 +176,15 @@ fn topbar() -> (gtk::Box, Page) {
     not_saved.add_css_class("not-saved");
     not_saved.connect_clicked(|_| state::retry());
     bar.append(&not_saved);
+
+    let new = gtk::Button::new();
+    new.add_css_class("wbb-deleted");
+    new.set_child(Some(&Icon::new("plus", 15)));
+    new.set_tooltip_text(Some("New wadspace: an empty one on this machine, to build from"));
+    new.update_property(&[gtk::accessible::Property::Label("New wadspace")]);
+    new.connect_clicked(|_| new_wadspace());
+    crate::tour::target("create", &new);
+    bar.append(&new);
 
     let deleted = gtk::Button::new();
     deleted.add_css_class("wbb-deleted");
@@ -276,12 +216,15 @@ fn topbar() -> (gtk::Box, Page) {
     bar.append(&build_all);
     let build_picked = ui::button("Build selected", Some("hammer"), Variant::Ghost, Size::Sm);
     build_picked.add_css_class("wb-ghost");
-    build_picked.connect_clicked(|_| state::build(state::read(state::picked_wadspaces)));
+    build_picked.connect_clicked(|_| {
+        let shown = store().read_now(state::shown);
+        state::build(state::read(|st| state::selected_ids(st, &shown)));
+    });
     bar.append(&build_picked);
     let delete_picked = ui::button("Delete selected", Some("trash"), Variant::Ghost, Size::Sm);
     delete_picked.add_css_class("wb-ghost");
     delete_picked.add_css_class("wbb-delete");
-    delete_picked.connect_clicked(|_| delete_picked_now());
+    delete_picked.connect_clicked(|_| delete_selected());
     bar.append(&delete_picked);
     let undo = ui::button("Undo", Some("undo-2"), Variant::Ghost, Size::Sm);
     undo.add_css_class("wb-ghost");
@@ -302,42 +245,58 @@ fn topbar() -> (gtk::Box, Page) {
     (bar, p)
 }
 
-/// Deletes what's picked (wadspaces go to Recently deleted), with Undo.
-fn delete_picked_now() {
-    let (picks, names) = state::read(|st| {
-        let names: Vec<String> = st
-            .picked
-            .iter()
-            .filter_map(|p| match p {
-                Pick::Wadspace { ws } => st.board.get(ws).map(|w| w.name().to_string()),
-                _ => None,
-            })
-            .collect();
-        (st.picked.clone(), names)
-    });
-    if picks.is_empty() {
-        return;
-    }
-    let n = picks.len();
-    if state::apply(Op::Delete { picks }).is_err() {
-        return;
+/// A new empty wadspace on the machine shown (one Undo): selected, the
+/// sidebar on Apps.
+fn new_wadspace() {
+    let machine = store().read_now(state::shown);
+    let id = state::read(|s| s.board.free_id(&s.board.new_name(&machine)));
+    if let Err(e) = state::apply(Op::Create { machine }) {
+        return crate::toast::error("Couldn't make it", &e);
     }
     state::write(|s| {
-        if s.open.as_ref().is_some_and(|o| s.board.get(o).is_none_or(|w| w.deleted())) {
-            s.open = None;
-        }
+        s.selected = vec![id];
+        s.tab = Tab::Apps;
+        s.trash_open = false;
+    });
+    state::changed();
+}
+
+/// Deletes the selected wadspaces (to Recently deleted) and the pieces
+/// picked, with Undo; the next one along is selected.
+fn delete_selected() {
+    let shown = store().read_now(state::shown);
+    let (ids, picks, row, primary) = state::read(|st| {
+        let ids = state::selected_ids(st, &shown);
+        let row: Vec<String> = st.board.row(&shown).iter().map(|w| w.id.clone()).collect();
+        (ids, st.picked.clone(), row, state::primary(st, &shown))
+    });
+    let mut all: Vec<Pick> = ids.iter().map(|ws| Pick::Wadspace { ws: ws.clone() }).collect();
+    all.extend(picks.iter().cloned());
+    if all.is_empty() {
+        return;
+    }
+    let at = row.iter().position(|w| Some(w) == primary.as_ref()).unwrap_or(0);
+    let next = row[at + 1..].iter().chain(row[..at].iter().rev()).find(|w| !ids.contains(w)).cloned();
+    let one = (ids.len() == 1 && picks.is_empty())
+        .then(|| state::read(|st| st.board.get(&ids[0]).map(|w| w.name().to_string())));
+    let n = all.len();
+    if let Err(e) = state::apply(Op::Delete { picks: all }) {
+        return crate::toast::error("Couldn't delete it", &e);
+    }
+    state::write(|s| {
+        s.selected = next.into_iter().collect();
         s.picked.clear();
     });
     state::changed();
-    let text = match names.as_slice() {
-        [one] if n == 1 => format!("Deleted {one}"),
-        _ => format!("Deleted {n} picked"),
+    let text = match one.flatten() {
+        Some(name) => format!("Deleted {name}"),
+        None => format!("Deleted {n} selected"),
     };
     crate::toast::with_action(&text, crate::toast::Tone::Info, "Undo", state::undo);
 }
 
-/// Ctrl+Z undoes; Delete deletes what's picked; Escape lets go of it, then
-/// closes the sidebar.
+/// Ctrl+Z undoes; Delete deletes what's selected and picked; Escape lets
+/// go of the extra selections and picks.
 fn keys(root: &gtk::Box) {
     let k = gtk::EventControllerKey::new();
     let r = root.downgrade();
@@ -349,23 +308,22 @@ fn keys(root: &gtk::Box) {
             return glib::Propagation::Proceed;
         }
         let ctrl = mods.contains(gtk::gdk::ModifierType::CONTROL_MASK);
-        let picked = state::read(|s| !s.picked.is_empty());
         match key {
             gtk::gdk::Key::z | gtk::gdk::Key::Z if ctrl => {
                 state::undo();
                 glib::Propagation::Stop
             }
-            gtk::gdk::Key::Delete | gtk::gdk::Key::BackSpace if picked => {
-                delete_picked_now();
+            gtk::gdk::Key::Delete => {
+                delete_selected();
                 glib::Propagation::Stop
             }
-            gtk::gdk::Key::Escape if picked => {
-                state::write(|s| s.picked.clear());
+            gtk::gdk::Key::Escape if state::read(|s| s.selected.len() > 1 || !s.picked.is_empty()) => {
+                let shown = store().read_now(state::shown);
+                state::write(|s| {
+                    s.selected = state::primary(s, &shown).into_iter().collect();
+                    s.picked.clear();
+                });
                 state::changed();
-                glib::Propagation::Stop
-            }
-            gtk::gdk::Key::Escape if state::read(|s| s.open.is_some() || s.trash_open) => {
-                close();
                 glib::Propagation::Stop
             }
             _ => glib::Propagation::Proceed,
@@ -385,15 +343,16 @@ fn render(p: &Page) {
         return;
     }
     store().read_now(|s| {
+        let shown = state::shown(s);
         draw_row(s, &p.row);
         ui::clear(&p.machines);
         p.machines.append(&carousel::bar(s));
         draw_side(s, p);
-        let (can_undo, picked, picked_ws, err, gone) = state::read(|st| {
+        let (can_undo, selected, picked, err, gone) = state::read(|st| {
             (
                 st.board.can_undo(),
+                state::selected_ids(st, &shown).len(),
                 st.picked.len(),
-                state::picked_wadspaces(st).len(),
                 st.save_error.clone(),
                 st.board.deleted().len() + st.board.wadspaces.iter().map(|w| w.trash.len()).sum::<usize>(),
             )
@@ -413,23 +372,19 @@ fn render(p: &Page) {
         } else {
             format!("Not built: {}", unbuilt.join(", "))
         }));
-        p.build_picked.set_sensitive(picked_ws > 0);
-        ui::set_text(
-            &p.build_picked,
-            &if picked_ws > 0 { format!("Build selected ({picked_ws})") } else { "Build selected".into() },
-        );
-        p.delete_picked.set_sensitive(picked > 0);
+        p.build_picked.set_sensitive(selected > 0);
+        ui::set_text(&p.build_picked, &format!("Build selected ({selected})"));
+        let n = selected + picked;
+        p.delete_picked.set_sensitive(n > 0);
         if picked > 0 {
             p.delete_picked.add_css_class("armed");
         } else {
             p.delete_picked.remove_css_class("armed");
         }
-        ui::set_text(
-            &p.delete_picked,
-            &if picked > 0 { format!("Delete selected ({picked})") } else { "Delete selected".into() },
-        );
-        p.deleted.set_sensitive(gone > 0 || state::read(|st| st.trash_open));
-        if state::read(|st| st.trash_open) {
+        ui::set_text(&p.delete_picked, &format!("Delete selected ({n})"));
+        let trash_open = state::read(|st| st.trash_open);
+        p.deleted.set_sensitive(gone > 0 || trash_open);
+        if trash_open {
             p.deleted.add_css_class("on");
         } else {
             p.deleted.remove_css_class("on");
@@ -441,138 +396,72 @@ fn render(p: &Page) {
     });
 }
 
-/// The open wadspace's sidebar, or none.
+/// The sidebar on the selected wadspace (or on the empty machine's), or
+/// Recently deleted in its place.
 fn draw_side(s: &AppState, p: &Page) {
     ui::clear(&p.side);
     if state::read(|st| st.trash_open) {
         p.side.append(&trash::panel(s));
-        p.side.set_visible(true);
         return;
     }
-    let open = state::read(|st| st.open.as_ref().and_then(|o| st.board.get(o)).filter(|w| !w.deleted()).cloned());
-    match open {
-        Some(w) => {
-            p.side.append(&sidebar::sidebar(s, &w));
-            p.side.set_visible(true);
-        }
-        None => {
-            p.side.set_visible(false);
-            if state::read(|st| st.open.is_some()) {
-                state::write(|st| st.open = None);
-            }
-            sidebar::closed();
-        }
-    }
-}
-
-/// Another wadspace open: its column marked (each column is in a Width
-/// named after its wadspace) and the sidebar drawn; the rest stays.
-fn show_open(p: &Page) {
-    if state::read(|s| s.renaming) || drag::active() {
-        state::changed();
-        return;
-    }
-    let open = state::read(|s| s.open.clone());
-    let mut c = p.row.first_child();
-    while let Some(x) = c {
-        if let Some(col) = x.first_child() {
-            if open.as_deref() == Some(x.widget_name().as_str()) {
-                col.add_css_class("open");
-            } else {
-                col.remove_css_class("open");
-            }
-        }
-        c = x.next_sibling();
-    }
-    store().read_now(|s| draw_side(s, p));
+    let shown = state::shown(s);
+    let w = state::read(|st| state::primary(st, &shown).and_then(|id| st.board.get(&id).cloned()));
+    p.side.append(&sidebar::sidebar(s, w.as_ref()));
 }
 
 fn draw_row(s: &AppState, row: &gtk::Box) {
     ui::clear(row);
     let shown = state::shown(s);
-    let list: Vec<wad_board::b4::Wadspace> = state::read(|st| st.board.row(&shown).into_iter().cloned().collect());
     if !state::read(|st| st.loaded) {
         let l = gtk::Label::new(Some("Reading your wadspaces…"));
         l.add_css_class("faint");
         l.set_margin_start(24);
         l.set_margin_top(24);
+        l.set_valign(gtk::Align::Start);
         row.append(&l);
         return;
     }
-    // A machine with none: a blank one to fill in.
+    let (list, selected, primary) = state::read(|st| {
+        let list: Vec<wad_board::b::Wadspace> = st.board.row(&shown).into_iter().cloned().collect();
+        (list, state::selected_ids(st, &shown), state::primary(st, &shown))
+    });
+    // A machine with none: an empty one to build from.
     if list.is_empty() {
-        let blank = buckets::blank(&shown);
-        crate::tour::target("create", &blank);
-        row.append(&blank);
+        row.append(&card::blank(&shown));
+        row.append(&card::gap(&shown, None));
         return;
     }
     for w in &list {
-        row.append(&buckets::gap(&shown, &w.id));
-        row.append(&buckets::column(s, w));
+        row.append(&card::gap(&shown, Some(&w.id)));
+        let on = selected.contains(&w.id);
+        row.append(&card::card(s, w, on, primary.as_deref() == Some(w.id.as_str())));
     }
-    let open = buckets::open_board(&shown);
-    crate::tour::target("create", &open);
-    row.append(&open);
+    row.append(&card::gap(&shown, None));
 }
 
 /// Drags made by hand (the snapshots).
 pub mod sim {
     use super::*;
-    use wad_board::b4::Payload as Bp;
+    use wad_board::b::Payload as Bp;
 
-    fn column(id: &str) -> Option<gtk::Widget> {
-        fn find(w: &gtk::Widget, id: &str) -> Option<gtk::Widget> {
-            if w.widget_name() == id {
-                return Some(w.clone());
-            }
-            let mut c = w.first_child();
-            while let Some(x) = c {
-                if let Some(f) = find(&x, id) {
-                    return Some(f);
-                }
-                c = x.next_sibling();
-            }
-            None
+    fn find(w: &gtk::Widget, id: &str) -> Option<gtk::Widget> {
+        if w.widget_name() == id {
+            return Some(w.clone());
         }
+        let mut c = w.first_child();
+        while let Some(x) = c {
+            if let Some(f) = find(&x, id) {
+                return Some(f);
+            }
+            c = x.next_sibling();
+        }
+        None
+    }
+
+    /// A widget by its name (a card's is its wadspace's id).
+    fn named(id: &str) -> Option<gtk::Widget> {
         let root = gtk::Window::list_toplevels().into_iter().next()?;
         find(&root, id)
-    }
-
-    /// A wadspace picked up by its name and held over a machine's card.
-    pub fn wadspace_over_machine(ws: &str, machine: &str) -> bool {
-        let (Some(col), Some(card)) = (column(ws), carousel::card_of(machine)) else { return false };
-        crate::drag::sim::begin(&col, carousel::wadspace_payload(ws), buckets::ghost("", ws));
-        crate::drag::sim::over(&card, 0.0, 20.0);
-        true
-    }
-
-    /// A wadspace's New template field brought into view.
-    pub fn reveal_new_template(ws: &str) {
-        let (Some(col), Some(field)) = (column(ws), column(&format!("newtpl:{ws}"))) else { return };
-        if let Some(sw) = col.ancestor(gtk::ScrolledWindow::static_type()).and_downcast::<gtk::ScrolledWindow>()
-            && let Some(p) = field.compute_point(&col, &gtk::graphene::Point::new(0.0, 0.0))
-        {
-            let adj = sw.vadjustment();
-            adj.set_value((f64::from(p.y()) - adj.page_size() / 2.0).clamp(0.0, adj.upper()));
-        }
-    }
-
-    /// An app from the sidebar held over a wadspace's New template field.
-    pub fn app_over_new_template(app: &str, ws: &str) -> bool {
-        let (Some(col), Some(field)) = (column(ws), column(&format!("newtpl:{ws}"))) else { return false };
-        let p = crate::drag::Payload::B(Bp::CatalogApp { app: app.into() });
-        crate::drag::sim::begin(&col, p, buckets::ghost(&buckets::app_icon(app), &buckets::app_name(app)));
-        crate::drag::sim::over(&field, 0.0, 10.0);
-        true
-    }
-
-    /// An app from the sidebar held over a blank wadspace's template.
-    pub fn app_over_blank(app: &str) -> bool {
-        let Some(t) = column("blank-template") else { return false };
-        let p = crate::drag::Payload::B(Bp::CatalogApp { app: app.into() });
-        crate::drag::sim::begin(&t, p, buckets::ghost(&buckets::app_icon(app), &buckets::app_name(app)));
-        crate::drag::sim::over(&t, 0.0, 20.0);
-        true
     }
 
     /// The first widget under `w` with CSS class `class`.
@@ -590,45 +479,57 @@ pub mod sim {
         None
     }
 
-    /// A wadspace's first template name, as drawn now (a double-click's
-    /// second click must find this same one).
-    pub fn template_name(ws: &str) -> Option<gtk::Widget> {
-        with_class(&column(ws)?, "wbb-tpl-name")
+    /// A card picked up and held over a machine's card.
+    pub fn wadspace_over_machine(ws: &str, machine: &str) -> bool {
+        let (Some(c), Some(m)) = (named(ws), carousel::card_of(machine)) else { return false };
+        crate::drag::sim::begin(&c, carousel::wadspace_payload(ws), card::ghost("", ws));
+        crate::drag::sim::over(&m, 0.0, 20.0);
+        true
     }
 
-    /// A wadspace's first template renamed, then a click away from it:
-    /// whether that cancelled it (nothing renamed, the board drawn again).
-    pub fn rename_then_click_away(ws: &str) -> bool {
-        let Some(name) = template_name(ws).and_downcast::<gtk::Label>() else { return false };
-        let Some(slot) = name.parent().and_downcast::<gtk::Box>() else { return false };
-        let Some((tid, was)) =
-            state::read(|s| s.board.get(ws).and_then(|w| w.templates.first()).map(|t| (t.id.clone(), t.name.clone())))
-        else {
-            return false;
-        };
-        let Some(click) = buckets::rename(&name, &slot, ws, &tid, &was) else { return false };
-        let typing = state::read(|s| s.renaming);
-        click.emit_by_name::<()>("pressed", &[&1i32, &2f64, &2f64]);
-        let name_kept = state::read(|s| s.board.get(ws).and_then(|w| w.templates.first()).map(|t| t.name.clone()));
-        typing && !state::read(|s| s.renaming) && name_kept.as_deref() == Some(was.as_str())
+    /// An app from the sidebar held over a card's Apps.
+    pub fn app_over_apps(app: &str, ws: &str) -> bool {
+        let Some(apps) = named(ws).and_then(|c| with_class(&c, "apps")) else { return false };
+        let p = crate::drag::Payload::B(Bp::CatalogApp { app: app.into() });
+        crate::drag::sim::begin(&apps, p, card::ghost(&card::app_icon(app), &card::app_name(app)));
+        crate::drag::sim::over(&apps, 0.0, 10.0);
+        true
     }
 
-    /// The board scrolled to its top.
-    pub fn board_to_top(ws: &str) {
-        if let Some(sw) = column(ws)
-            .and_then(|c| c.ancestor(gtk::ScrolledWindow::static_type()))
-            .and_downcast::<gtk::ScrolledWindow>()
+    /// A key off one card held over another's Secrets: New secret key shows.
+    pub fn key_over_secrets(from: &str, key: &str, ws: &str) -> bool {
+        let Some(keys) = named(ws).and_then(|c| with_class(&c, "keys")) else { return false };
+        let p = crate::drag::Payload::B(Bp::Key { ws: from.into(), key: key.into() });
+        crate::drag::sim::begin(&keys, p, card::ghost("", key));
+        crate::drag::sim::over(&keys, 0.0, 10.0);
+        true
+    }
+
+    /// An app from the sidebar held over the empty machine's card.
+    pub fn app_over_blank(app: &str) -> bool {
+        let Some(b) = named("blank-card") else { return false };
+        let p = crate::drag::Payload::B(Bp::CatalogApp { app: app.into() });
+        crate::drag::sim::begin(&b, p, card::ghost(&card::app_icon(app), &card::app_name(app)));
+        crate::drag::sim::over(&b, 0.0, 60.0);
+        true
+    }
+
+    /// The board scrolled to its start.
+    pub fn board_to_start(ws: &str) {
+        if let Some(sw) =
+            named(ws).and_then(|c| c.ancestor(gtk::ScrolledWindow::static_type())).and_downcast::<gtk::ScrolledWindow>()
         {
+            sw.hadjustment().set_value(0.0);
             sw.vadjustment().set_value(0.0);
         }
     }
 
     /// A deleted wadspace's background (Recently deleted's part) dropped on
-    /// another's Customizations (it lands once the drop's drawn).
+    /// another's customization (it lands once the drop's drawn).
     pub fn background_from(deleted: &str, ws: &str) -> bool {
-        let Some(customs) = column(ws).and_then(|c| with_class(&c, "wbb-bucket")) else { return false };
+        let Some(customs) = named(ws).and_then(|c| with_class(&c, "customs")) else { return false };
         let p = crate::drag::Payload::B(Bp::Background { ws: deleted.into() });
-        crate::drag::sim::begin(&customs, p, buckets::ghost("", "background"));
+        crate::drag::sim::begin(&customs, p, card::ghost("", "background"));
         crate::drag::sim::over(&customs, 20.0, 20.0);
         crate::drag::sim::end(true);
         true

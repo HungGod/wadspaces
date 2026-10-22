@@ -22,7 +22,7 @@ pub enum Payload {
     /// groups (a wadspace's keys).
     Member { members: Vec<String>, group: String },
     /// Something of the Builder's board, or from its sidebar.
-    B(wad_board::b4::Payload),
+    B(wad_board::b::Payload),
 }
 
 /// What a drop here does ("Copy to VanuaAcademy"), or why it can't.
@@ -82,6 +82,9 @@ struct Active {
 
 type Registered = (glib::WeakRef<gtk::Widget>, Rc<dyn Target>);
 
+/// What hears drags start and end.
+type Watcher = Rc<dyn Fn(Option<&Payload>)>;
+
 /// A widget's key in the targets: where it is (checked against it, in
 /// case another took its place).
 fn key(w: &gtk::Widget) -> usize {
@@ -93,6 +96,20 @@ thread_local! {
     static TARGETS: RefCell<std::collections::HashMap<usize, Registered>> = RefCell::default();
     static SCROLLERS: RefCell<Vec<glib::WeakRef<gtk::ScrolledWindow>>> = const { RefCell::new(Vec::new()) };
     static ACTIVE: RefCell<Option<Rc<Active>>> = const { RefCell::new(None) };
+    static WATCHERS: RefCell<Vec<Watcher>> = const { RefCell::new(Vec::new()) };
+}
+
+/// `f` hears each drag start (what's dragged) and end (None): what shows
+/// only while something is dragged.
+pub fn watch(f: impl Fn(Option<&Payload>) + 'static) {
+    WATCHERS.with(|w| w.borrow_mut().push(Rc::new(f)));
+}
+
+fn tell(p: Option<&Payload>) {
+    let all: Vec<Watcher> = WATCHERS.with(|w| w.borrow().clone());
+    for f in all {
+        f(p);
+    }
 }
 
 /// Where ghosts go: over the app, taking no input.
@@ -233,6 +250,7 @@ fn begin(payload: Payload, ghost: gtk::Widget, origin: (f64, f64), grab: (f64, f
         stale: Cell::new(false),
     });
     ACTIVE.with(|x| x.replace(Some(a.clone())));
+    tell(Some(&a.payload));
     // What could take it lights up (asked with no pointer: NaN).
     let all: Vec<Registered> = TARGETS.with(|ts| ts.borrow().values().cloned().collect());
     for (w, t) in all {
@@ -475,6 +493,7 @@ fn finish(drop: bool) {
         w.remove_css_class("drop-could");
     }
     let hover = a.hover.borrow_mut().take();
+    tell(None);
     if let Some((w, t, _)) = &hover {
         w.remove_css_class("drop-ok");
         w.remove_css_class("drop-no");

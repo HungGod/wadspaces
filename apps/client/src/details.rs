@@ -409,7 +409,7 @@ fn confirm_delete(w: &Value, drawer: Option<&Modal>) {
 
 /// Deleted on the board (it waits in Recently deleted), with Undo.
 fn delete(w: Value, name: String) {
-    use wad_board::b4::{Op, Pick};
+    use wad_board::b::{Op, Pick};
     let id = s(&w, "id").to_string();
     let state = crate::pages::builder::b::state::apply;
     match state(Op::Delete { picks: vec![Pick::Wadspace { ws: id.clone() }] }) {

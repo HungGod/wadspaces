@@ -90,6 +90,11 @@ pub fn tokens(t: Theme) -> &'static str {
   --layer-template: #7fd3ff;
   --layer-extensions: #c6ff1f;
   --layer-customization: #ff3d81;
+  --c-custom: #ffffff;
+  --c-key: #ff3d81;
+  --c-ext: #c6ff1f;
+  --c-app: #7fd3ff;
+  --key-set-fg: #ffc1d6;
   --tpl: #7fd3ff;
   --unbuilt: #ffb36b;
   --glow-ring: rgb(198 255 31 / 0.35);
@@ -124,6 +129,11 @@ pub fn tokens(t: Theme) -> &'static str {
   --layer-template: #3d3d3d;
   --layer-extensions: #0a0a0a;
   --layer-customization: #7a7a7a;
+  --c-custom: #1f1f1f;
+  --c-key: #7a7a7a;
+  --c-ext: #0a0a0a;
+  --c-app: #3d3d3d;
+  --key-set-fg: #7a7a7a;
   --tpl: #0a0a0a;
   --unbuilt: #6e6e6e;
   --glow-ring: rgb(0 0 0 / 0.25);

@@ -1,9 +1,36 @@
 {
   "comment": "The native client's fake state (WADSPACES_FAKE=fixtures/desktop/sample.json): the web app's test sample (wadspaces-client's src/test/sample.ts), signed in, with Cosmic running here, linked as m-surface beside an offline Desk and a Laptop with none: Cosmic, VanuaAcademy and IntelligenceQuest live here, Desk Lab (built) on the Desk; \"wadd\" is the made-up wadd's answers by path (Machines' storage, files, history, diagnostics).",
-  "user": { "uid": "me", "githubId": "4242", "login": "me", "displayName": "Me", "photoUrl": null },
-  "profile": { "username": "me", "displayName": "Me", "color": "#c6ff1f" },
-  "lastSession": { "kind": "wadspace", "wadspaceIds": ["vanua-academy"], "machineId": "local", "at": "2026-10-15T01:00:00.000Z" },
-  "machine": { "name": "surface", "version": "0.1.0", "profile": "system", "startedAt": 1792020000, "screen": { "width": 1368, "height": 912, "scale": 2.0 } },
+  "user": {
+    "uid": "me",
+    "githubId": "4242",
+    "login": "me",
+    "displayName": "Me",
+    "photoUrl": null
+  },
+  "profile": {
+    "username": "me",
+    "displayName": "Me",
+    "color": "#c6ff1f"
+  },
+  "lastSession": {
+    "kind": "wadspace",
+    "wadspaceIds": [
+      "vanua-academy"
+    ],
+    "machineId": "local",
+    "at": "2026-10-15T01:00:00.000Z"
+  },
+  "machine": {
+    "name": "surface",
+    "version": "0.1.0",
+    "profile": "system",
+    "startedAt": 1792020000,
+    "screen": {
+      "width": 1368,
+      "height": 912,
+      "scale": 2.0
+    }
+  },
   "cloud": {
     "linked": true,
     "machineId": "m-surface",
@@ -17,62 +44,146 @@
     "browsers": [],
     "wadspaces": [
       {
-        "version": 4,
+        "version": 5,
         "id": "cosmic-bodybuilding",
         "owner": "me",
         "machine": "m-surface",
         "order": 1,
-        "templates": [{ "id": "writing", "name": "Writing", "apps": [{ "app": "obsidian", "extras": [] }] }],
+        "apps": [
+          {
+            "app": "obsidian"
+          }
+        ],
+        "exts": [
+          {
+            "app": "vscode",
+            "id": "esbenp.prettier-vscode"
+          }
+        ],
         "customization": {
           "name": "Cosmic Bodybuilding",
           "description": "Writing Cosmic Bodybuilding.",
-          "wallpaper": { "type": "texture", "value": "marble" },
+          "wallpaper": {
+            "type": "texture",
+            "value": "marble"
+          },
           "projects": [
-            { "id": "writing", "kind": "github", "repo": "HungGod/Writing", "as": "Writing" },
-            { "id": "mount-thesis", "kind": "mount", "source": { "machineId": "m-surface", "paths": ["/var/home/wad/Thesis"] }, "as": "Thesis" }
+            {
+              "id": "writing",
+              "kind": "github",
+              "repo": "HungGod/Writing",
+              "as": "Writing"
+            },
+            {
+              "id": "mount-thesis",
+              "kind": "mount",
+              "source": {
+                "machineId": "m-surface",
+                "paths": [
+                  "~/Thesis"
+                ]
+              },
+              "as": "Thesis",
+              "make": true
+            }
           ],
-          "secrets": { "bySlot": {}, "groups": [] }
+          "secrets": {
+            "bySlot": {},
+            "groups": []
+          }
         },
         "createdAt": "2026-09-22T00:00:00.000Z",
         "updatedAt": "2026-09-22T00:00:00.000Z"
       },
       {
-        "version": 4,
+        "version": 5,
         "id": "vanua-academy",
         "owner": "me",
         "machine": "m-surface",
         "order": 2,
-        "templates": [
+        "apps": [
           {
-            "id": "dev",
-            "name": "Dev",
-            "apps": [
-              {
-                "app": "wadbrowser",
-                "extras": [
-                  { "id": "github", "name": "GitHub", "url": "https://github.com" },
-                  { "id": "claude", "name": "Claude", "url": "https://claude.ai" },
-                  { "id": "google-firebase", "name": "Google FireBase", "url": "https://firebase.google.com" },
-                  { "id": "gmail", "name": "Gmail", "url": "https://mail.google.com" }
-                ],
-                "mode": "browser"
-              },
-              { "app": "vscode", "extras": [{ "id": "anthropic.claude-code" }] },
-              { "app": "terminal", "extras": [{ "id": "firebase" }] }
-            ]
+            "app": "wadbrowser"
+          },
+          {
+            "app": "vscode"
+          },
+          {
+            "app": "terminal"
+          }
+        ],
+        "exts": [
+          {
+            "app": "wadbrowser",
+            "id": "github",
+            "name": "GitHub",
+            "url": "https://github.com"
+          },
+          {
+            "app": "wadbrowser",
+            "id": "claude",
+            "name": "Claude",
+            "url": "https://claude.ai"
+          },
+          {
+            "app": "wadbrowser",
+            "id": "google-firebase",
+            "name": "Google FireBase",
+            "url": "https://firebase.google.com"
+          },
+          {
+            "app": "wadbrowser",
+            "id": "gmail",
+            "name": "Gmail",
+            "url": "https://mail.google.com"
+          },
+          {
+            "app": "vscode",
+            "id": "anthropic.claude-code"
+          },
+          {
+            "app": "terminal",
+            "id": "firebase"
           }
         ],
         "customization": {
           "name": "VanuaAcademy",
           "description": "Building Vanua Academy.",
-          "wallpaper": { "type": "texture", "value": "contour" },
-          "projects": [{ "id": "vanua-academy", "kind": "github", "repo": "HungGod/VanuaAcademy", "as": "VanuaAcademy", "setup": "npm ci" }],
+          "wallpaper": {
+            "type": "texture",
+            "value": "contour"
+          },
+          "projects": [
+            {
+              "id": "vanua-academy",
+              "kind": "github",
+              "repo": "HungGod/VanuaAcademy",
+              "as": "VanuaAcademy",
+              "setup": "npm ci"
+            }
+          ],
           "secrets": {
-            "bySlot": { "ext:anthropic.claude-code": { "id": "vanua-claude", "name": "VanuaAcademy-claude", "kind": "vscode-claude-code" } },
+            "bySlot": {
+              "ext:anthropic.claude-code": {
+                "id": "vanua-claude",
+                "name": "VanuaAcademy-claude",
+                "kind": "vscode-claude-code"
+              }
+            },
             "groups": [
               {
-                "members": ["browser", "web:github", "web:claude", "web:google-firebase", "web:gmail"],
-                "key": { "id": "work-web", "name": "Work", "kind": "web" }
+                "members": [
+                  "browser",
+                  "web:github",
+                  "web:claude",
+                  "web:google-firebase",
+                  "web:gmail"
+                ],
+                "key": {
+                  "id": "work-web",
+                  "name": "Work",
+                  "kind": "web"
+                }
               }
             ]
           }
@@ -81,79 +192,170 @@
         "updatedAt": "2026-09-26T00:00:00.000Z"
       },
       {
-        "version": 4,
+        "version": 5,
         "id": "old-site",
         "owner": "me",
         "machine": "m-surface",
         "order": 3,
-        "templates": [{ "id": "dev", "name": "Dev", "apps": [{ "app": "wadbrowser", "extras": [], "mode": "browser" }, { "app": "vscode", "extras": [] }] }],
+        "apps": [
+          {
+            "app": "wadbrowser"
+          },
+          {
+            "app": "vscode"
+          }
+        ],
+        "exts": [],
         "customization": {
           "name": "Old site",
           "description": "",
-          "wallpaper": { "type": "texture", "value": "grid" },
+          "wallpaper": {
+            "type": "texture",
+            "value": "grid"
+          },
           "projects": [],
-          "secrets": { "bySlot": {}, "groups": [] }
+          "secrets": {
+            "bySlot": {},
+            "groups": []
+          }
         },
         "createdAt": "2026-08-01T00:00:00.000Z",
         "updatedAt": "2026-10-12T09:00:00.000Z",
         "deletedAt": "2026-10-12T09:00:00.000Z"
       },
       {
-        "version": 4,
+        "version": 5,
         "id": "intelligencequest",
         "owner": "me",
         "machine": "m-surface",
         "order": 4,
-        "templates": [
+        "apps": [
           {
-            "id": "dev",
-            "name": "Dev",
-            "apps": [
-              {
-                "app": "wadbrowser",
-                "mode": "focus",
-                "extras": [{ "id": "github", "name": "GitHub", "url": "https://github.com" }, { "id": "docs-rs", "name": "Docs.rs", "url": "https://docs.rs" }]
-              },
-              { "app": "vscode", "extras": [{ "id": "anthropic.claude-code" }] }
-            ]
+            "app": "wadbrowser"
           },
           {
-            "id": "rust",
-            "name": "C++ to Rust",
-            "apps": [
-              { "app": "vscode", "extras": [{ "id": "rust-lang.rust-analyzer" }] },
-              { "app": "terminal", "extras": [{ "id": "cpp" }, { "id": "rust" }] }
-            ]
+            "app": "vscode"
           },
-          { "id": "art", "name": "Game art", "apps": [{ "app": "libresprite" }, { "app": "tiled" }] }
+          {
+            "app": "terminal"
+          },
+          {
+            "app": "libresprite"
+          },
+          {
+            "app": "tiled"
+          }
+        ],
+        "exts": [
+          {
+            "app": "wadbrowser",
+            "id": "focus",
+            "name": "Focus"
+          },
+          {
+            "app": "wadbrowser",
+            "id": "github",
+            "name": "GitHub",
+            "url": "https://github.com"
+          },
+          {
+            "app": "wadbrowser",
+            "id": "docs-rs",
+            "name": "Docs.rs",
+            "url": "https://docs.rs"
+          },
+          {
+            "app": "vscode",
+            "id": "anthropic.claude-code"
+          },
+          {
+            "app": "vscode",
+            "id": "rust-lang.rust-analyzer"
+          },
+          {
+            "app": "terminal",
+            "id": "cpp"
+          },
+          {
+            "app": "terminal",
+            "id": "rust"
+          }
         ],
         "customization": {
           "name": "IntelligenceQuest",
           "description": "Moving the game from C++ to Rust.",
-          "wallpaper": { "type": "texture", "value": "stars" },
-          "autostart": ["app:vscode"],
-          "projects": [{ "id": "iq", "kind": "github", "repo": "HungGod/IntelligenceQuest", "as": "IntelligenceQuest" }],
+          "wallpaper": {
+            "type": "texture",
+            "value": "stars"
+          },
+          "autostart": [
+            "app:vscode"
+          ],
+          "projects": [
+            {
+              "id": "iq",
+              "kind": "github",
+              "repo": "HungGod/IntelligenceQuest",
+              "as": "IntelligenceQuest"
+            }
+          ],
           "secrets": {
-            "bySlot": { "ext:anthropic.claude-code": { "id": "vanua-claude", "name": "VanuaAcademy-claude", "kind": "vscode-claude-code" } },
-            "groups": []
+            "bySlot": {
+              "ext:anthropic.claude-code": {
+                "id": "vanua-claude",
+                "name": "VanuaAcademy-claude",
+                "kind": "vscode-claude-code"
+              }
+            },
+            "groups": [
+              {
+                "id": "g1",
+                "members": [
+                  "browser",
+                  "web:github"
+                ],
+                "key": {
+                  "id": "hunggod",
+                  "name": "hunggod",
+                  "kind": "web"
+                }
+              }
+            ]
           }
         },
         "createdAt": "2026-10-21T00:00:00.000Z",
         "updatedAt": "2026-10-21T00:00:00.000Z"
       },
       {
-        "version": 4,
+        "version": 5,
         "id": "desk-lab",
         "owner": "me",
         "machine": "m-desk",
         "order": 5,
-        "templates": [{ "id": "lab", "name": "Lab", "apps": [{ "app": "obsidian" }] }],
+        "apps": [
+          {
+            "app": "obsidian"
+          }
+        ],
+        "exts": [],
         "customization": {
           "name": "Desk Lab",
           "description": "Lives on the desk.",
-          "wallpaper": { "type": "texture", "value": "marble" },
+          "wallpaper": {
+            "type": "texture",
+            "value": "marble"
+          },
           "projects": [],
-          "secrets": { "bySlot": {}, "groups": [] }
+          "secrets": {
+            "bySlot": {
+              "app:obsidian": {
+                "id": "notes-vault",
+                "name": "Notes vault",
+                "kind": "obsidian"
+              }
+            },
+            "groups": []
+          }
         },
         "createdAt": "2026-10-21T00:00:00.000Z",
         "updatedAt": "2026-10-21T00:00:00.000Z"
@@ -175,8 +377,21 @@
         "daemonVersion": "0.1.0",
         "lastSeen": "2026-10-14T18:30:00.000Z",
         "view": "home",
-        "metrics": { "cpu": 3.0, "mem": 22.0, "gpu": "AMD Radeon 780M" },
-        "workspaces": [{ "id": "vanua-academy", "container": "exited", "phase": "idle", "error": null, "hotkey": null, "port": null }],
+        "metrics": {
+          "cpu": 3.0,
+          "mem": 22.0,
+          "gpu": "AMD Radeon 780M"
+        },
+        "workspaces": [
+          {
+            "id": "vanua-academy",
+            "container": "exited",
+            "phase": "idle",
+            "error": null,
+            "hotkey": null,
+            "port": null
+          }
+        ],
         "images": [
           {
             "layer": "base",
@@ -198,7 +413,14 @@
           }
         ]
       },
-      { "id": "m-laptop", "hostname": "laptop", "name": "Laptop", "daemonVersion": "0.1.0", "lastSeen": "2026-10-13T09:00:00.000Z", "workspaces": [] }
+      {
+        "id": "m-laptop",
+        "hostname": "laptop",
+        "name": "Laptop",
+        "daemonVersion": "0.1.0",
+        "lastSeen": "2026-10-13T09:00:00.000Z",
+        "workspaces": []
+      }
     ]
   },
   "workspaces": [
@@ -271,8 +493,12 @@
         "kind": "gamepad",
         "attachable": true,
         "present": true,
-        "attached": ["cosmic-bodybuilding"],
-        "remembered": ["cosmic-bodybuilding"],
+        "attached": [
+          "cosmic-bodybuilding"
+        ],
+        "remembered": [
+          "cosmic-bodybuilding"
+        ],
         "new": false
       },
       {
@@ -283,7 +509,9 @@
         "attachable": true,
         "present": true,
         "attached": [],
-        "remembered": ["vanua-academy"],
+        "remembered": [
+          "vanua-academy"
+        ],
         "new": false
       },
       {
@@ -294,7 +522,10 @@
         "attachable": true,
         "present": false,
         "attached": [],
-        "remembered": ["cosmic-bodybuilding", "vanua-academy"],
+        "remembered": [
+          "cosmic-bodybuilding",
+          "vanua-academy"
+        ],
         "new": false
       },
       {
@@ -304,8 +535,12 @@
         "kind": "storage",
         "attachable": true,
         "present": true,
-        "attached": ["cosmic-bodybuilding"],
-        "remembered": ["cosmic-bodybuilding"],
+        "attached": [
+          "cosmic-bodybuilding"
+        ],
+        "remembered": [
+          "cosmic-bodybuilding"
+        ],
         "new": false
       },
       {
@@ -336,7 +571,14 @@
       "powered": true,
       "discovering": false,
       "devices": [
-        { "address": "11:22:33:44:55:66", "name": "WH-1000XM5", "kind": "audio", "paired": true, "connected": true, "busy": false },
+        {
+          "address": "11:22:33:44:55:66",
+          "name": "WH-1000XM5",
+          "kind": "audio",
+          "paired": true,
+          "connected": true,
+          "busy": false
+        },
         {
           "address": "A0:AB:51:12:34:56",
           "name": "DualSense Wireless Controller",
@@ -410,7 +652,9 @@
         "wadspaceName": "Cosmic Bodybuilding",
         "mode": "local",
         "user": "me",
-        "projects": ["writing"],
+        "projects": [
+          "writing"
+        ],
         "startedAt": 1792020000,
         "endedAt": null
       },
@@ -420,7 +664,9 @@
         "wadspaceName": "VanuaAcademy",
         "mode": "local",
         "user": "me",
-        "projects": ["vanua-academy"],
+        "projects": [
+          "vanua-academy"
+        ],
         "startedAt": 1792008000,
         "endedAt": 1792015200
       },
@@ -436,34 +682,127 @@
       }
     ],
     "/v1/storage": {
-      "disk": { "path": "/var/lib/containers", "freeBytes": 48000000000, "totalBytes": 120000000000 },
-      "base": { "ref": "localhost/wadspaces-base:trixie", "id": "base", "bytes": 3100000000 },
+      "disk": {
+        "path": "/var/lib/containers",
+        "freeBytes": 48000000000,
+        "totalBytes": 120000000000
+      },
+      "base": {
+        "ref": "localhost/wadspaces-base:trixie",
+        "id": "base",
+        "bytes": 3100000000
+      },
       "layers": [
-        { "layer": "set:eda3cf2abd20", "id": "i-writing", "from": "base", "bytes": 5200000000, "ownBytes": 2100000000 },
-        { "layer": "set:d719e2d6b3ec", "id": "i-vanua", "from": "base", "bytes": 5300000000, "ownBytes": 2200000000 }
+        {
+          "layer": "set:eda3cf2abd20",
+          "id": "i-writing",
+          "from": "base",
+          "bytes": 5200000000,
+          "ownBytes": 2100000000
+        },
+        {
+          "layer": "set:d719e2d6b3ec",
+          "id": "i-vanua",
+          "from": "base",
+          "bytes": 5300000000,
+          "ownBytes": 2200000000
+        }
       ],
       "leftovers": [
-        { "layer": "set:eda3cf2abd20", "id": "i-writing-old", "from": "base", "bytes": 5100000000, "ownBytes": 2300000000 },
-        { "layer": "package:audacity", "id": "i-audacity", "from": "", "bytes": 310000000, "ownBytes": 310000000 },
-        { "layer": "template:writing", "id": "i-old-writing", "from": "base", "bytes": 4300000000, "ownBytes": 1200000000 },
-        { "layer": "step", "id": "i-step", "from": "i-old-writing", "bytes": 4300000000, "ownBytes": 0 }
+        {
+          "layer": "set:eda3cf2abd20",
+          "id": "i-writing-old",
+          "from": "base",
+          "bytes": 5100000000,
+          "ownBytes": 2300000000
+        },
+        {
+          "layer": "package:audacity",
+          "id": "i-audacity",
+          "from": "",
+          "bytes": 310000000,
+          "ownBytes": 310000000
+        },
+        {
+          "layer": "template:writing",
+          "id": "i-old-writing",
+          "from": "base",
+          "bytes": 4300000000,
+          "ownBytes": 1200000000
+        },
+        {
+          "layer": "step",
+          "id": "i-step",
+          "from": "i-old-writing",
+          "bytes": 4300000000,
+          "ownBytes": 0
+        }
       ],
       "packages": [
-        { "id": "vscode", "name": "VS Code", "version": "c600edf6ce07", "bytes": 1020000000, "sets": ["set:d719e2d6b3ec"] },
-        { "id": "obsidian", "name": "Obsidian", "version": "4e2295dd929e", "bytes": 380000000, "sets": ["set:eda3cf2abd20"] },
-        { "id": "nodejs", "name": "Node.js", "version": "81df1af4ed72", "bytes": 210000000, "sets": ["set:d719e2d6b3ec"] },
-        { "id": "firebase", "name": "Firebase CLI", "version": "618b8c8de24c", "bytes": 150000000, "sets": ["set:d719e2d6b3ec"] },
-        { "id": "ext-anthropic.claude-code", "name": "Claude Code", "version": "71462c4a1413", "bytes": 60000000, "sets": ["set:d719e2d6b3ec"] },
+        {
+          "id": "vscode",
+          "name": "VS Code",
+          "version": "c600edf6ce07",
+          "bytes": 1020000000,
+          "sets": [
+            "set:d719e2d6b3ec"
+          ]
+        },
+        {
+          "id": "obsidian",
+          "name": "Obsidian",
+          "version": "4e2295dd929e",
+          "bytes": 380000000,
+          "sets": [
+            "set:eda3cf2abd20"
+          ]
+        },
+        {
+          "id": "nodejs",
+          "name": "Node.js",
+          "version": "81df1af4ed72",
+          "bytes": 210000000,
+          "sets": [
+            "set:d719e2d6b3ec"
+          ]
+        },
+        {
+          "id": "firebase",
+          "name": "Firebase CLI",
+          "version": "618b8c8de24c",
+          "bytes": 150000000,
+          "sets": [
+            "set:d719e2d6b3ec"
+          ]
+        },
+        {
+          "id": "ext-anthropic.claude-code",
+          "name": "Claude Code",
+          "version": "71462c4a1413",
+          "bytes": 60000000,
+          "sets": [
+            "set:d719e2d6b3ec"
+          ]
+        },
         {
           "id": "electron-deps",
           "name": "Electron's libraries",
           "version": "cf861de042f3",
           "bytes": 80000,
-          "sets": ["set:d719e2d6b3ec", "set:eda3cf2abd20"]
+          "sets": [
+            "set:d719e2d6b3ec",
+            "set:eda3cf2abd20"
+          ]
         }
       ],
       "imagesBytes": 13030080000,
-      "homes": [{ "workspaceId": "cosmic-bodybuilding", "volume": "wad-cosmic-bodybuilding-config", "bytes": 900000000 }],
+      "homes": [
+        {
+          "workspaceId": "cosmic-bodybuilding",
+          "volume": "wad-cosmic-bodybuilding-config",
+          "bytes": 900000000
+        }
+      ],
       "copies": [],
       "other": [
         {
@@ -495,7 +834,13 @@
               "bytes": 4100000000,
               "deletable": true
             },
-            { "id": "dd44", "label": "A build step", "detail": "Left by a build; nothing names it.", "bytes": 500000000, "deletable": true }
+            {
+              "id": "dd44",
+              "label": "A build step",
+              "detail": "Left by a build; nothing names it.",
+              "bytes": 500000000,
+              "deletable": true
+            }
           ],
           "deletable": false
         },
@@ -536,28 +881,97 @@
       "measuring": false
     },
     "/v1/files/roots": [
-      { "id": "home", "label": "Your files", "detail": "On the machine itself." },
-      { "id": "ws:cosmic-bodybuilding", "label": "Cosmic Bodybuilding's home", "detail": "The wadspace's own files." }
+      {
+        "id": "home",
+        "label": "Your files",
+        "detail": "On the machine itself."
+      },
+      {
+        "id": "ws:cosmic-bodybuilding",
+        "label": "Cosmic Bodybuilding's home",
+        "detail": "The wadspace's own files."
+      }
     ],
     "/v1/files?root=home&path=": {
       "root": "home",
       "path": "",
       "entries": [
-        { "name": "Documents", "dir": true, "bytes": 0, "modified": 1792000000, "text": false },
-        { "name": "Downloads", "dir": true, "bytes": 0, "modified": 1792010000, "text": false },
-        { "name": "notes.txt", "dir": false, "bytes": 2048, "modified": 1792015000, "text": true }
+        {
+          "name": "Documents",
+          "dir": true,
+          "bytes": 0,
+          "modified": 1792000000,
+          "text": false
+        },
+        {
+          "name": "Downloads",
+          "dir": true,
+          "bytes": 0,
+          "modified": 1792010000,
+          "text": false
+        },
+        {
+          "name": "notes.txt",
+          "dir": false,
+          "bytes": 2048,
+          "modified": 1792015000,
+          "text": true
+        }
       ]
     },
-    "/v1/files/text?root=home&path=notes.txt": { "text": "Things to try on the Surface:\n- Super+Tab\n- a stick update\n" },
+    "/v1/files/text?root=home&path=notes.txt": {
+      "text": "Things to try on the Surface:\n- Super+Tab\n- a stick update\n"
+    },
     "/v1/diagnostics": {
-      "wadd": { "version": "0.1.0", "uptimeS": 7300, "pid": 812, "profile": "system" },
-      "podman": { "connected": true, "version": "5.6.1", "graphRoot": "/var/lib/containers/storage", "storageDriver": "overlay", "images": 6, "error": null },
-      "disk": { "path": "/var/lib/containers", "freeBytes": 48000000000, "totalBytes": 120000000000 },
-      "network": { "available": true, "state": "connected", "connectivity": "full", "wifiEnabled": true, "wifiDevice": "wlp1s0", "ssid": "Home", "signal": 72 },
-      "view": { "view": { "kind": "workspace", "id": "cosmic-bodybuilding" }, "pending": null, "nativeDisplay": true },
-      "keys": { "enabled": true, "grabbing": true, "keyboards": ["Surface Keyboard"], "note": null },
+      "wadd": {
+        "version": "0.1.0",
+        "uptimeS": 7300,
+        "pid": 812,
+        "profile": "system"
+      },
+      "podman": {
+        "connected": true,
+        "version": "5.6.1",
+        "graphRoot": "/var/lib/containers/storage",
+        "storageDriver": "overlay",
+        "images": 6,
+        "error": null
+      },
+      "disk": {
+        "path": "/var/lib/containers",
+        "freeBytes": 48000000000,
+        "totalBytes": 120000000000
+      },
+      "network": {
+        "available": true,
+        "state": "connected",
+        "connectivity": "full",
+        "wifiEnabled": true,
+        "wifiDevice": "wlp1s0",
+        "ssid": "Home",
+        "signal": 72
+      },
+      "view": {
+        "view": {
+          "kind": "workspace",
+          "id": "cosmic-bodybuilding"
+        },
+        "pending": null,
+        "nativeDisplay": true
+      },
+      "keys": {
+        "enabled": true,
+        "grabbing": true,
+        "keyboards": [
+          "Surface Keyboard"
+        ],
+        "note": null
+      },
       "secrets": [],
-      "logUnits": ["wadd.service", "client-session.service"],
+      "logUnits": [
+        "wadd.service",
+        "client-session.service"
+      ],
       "workspaces": [
         {
           "id": "cosmic-bodybuilding",
@@ -569,7 +983,14 @@
           "since": 1792020000
         }
       ],
-      "recentProblems": [{ "time": 1792019000000, "level": "warn", "target": "wadd::network", "message": "Wi-Fi dropped for 4 s" }]
+      "recentProblems": [
+        {
+          "time": 1792019000000,
+          "level": "warn",
+          "target": "wadd::network",
+          "message": "Wi-Fi dropped for 4 s"
+        }
+      ]
     },
     "/v1/images": [
       {
@@ -599,7 +1020,10 @@
         "builtAt": 1789000000,
         "sizeMb": 1650,
         "from": "base",
-        "pkgs": ["electron-deps@cf861de042f3", "obsidian@4e2295dd929e"]
+        "pkgs": [
+          "electron-deps@cf861de042f3",
+          "obsidian@4e2295dd929e"
+        ]
       },
       {
         "layer": "set:d719e2d6b3ec",
@@ -627,25 +1051,36 @@
         "createdAt": 1791000000000,
         "size": 2400000,
         "changedAt": 1792015000000,
-        "usedBy": ["vanua-academy"],
+        "usedBy": [
+          "vanua-academy"
+        ],
         "inUse": []
       },
       {
         "id": "vanua-claude",
         "name": "VanuaAcademy-claude",
         "app": "vscode-claude-code",
-        "paths": [".claude/", ".claude.json"],
+        "paths": [
+          ".claude/",
+          ".claude.json"
+        ],
         "createdAt": 1791000000000,
         "size": 48213,
         "changedAt": 1791990000000,
-        "usedBy": ["vanua-academy"],
+        "usedBy": [
+          "vanua-academy"
+        ],
         "inUse": []
       },
       {
         "id": "old-steam",
         "name": "Steam",
         "app": "steam",
-        "paths": [".steam/", ".local/share/Steam/config/", ".local/share/Steam/userdata/"],
+        "paths": [
+          ".steam/",
+          ".local/share/Steam/config/",
+          ".local/share/Steam/userdata/"
+        ],
         "createdAt": 1790000000000,
         "size": 0,
         "changedAt": null,
@@ -653,12 +1088,20 @@
         "inUse": []
       }
     ],
-    "/v1/secrets": [{ "name": "github_token", "origin": "local" }],
+    "/v1/secrets": [
+      {
+        "name": "github_token",
+        "origin": "local"
+      }
+    ],
     "/v1/tailnet": {
       "available": true,
       "state": "running",
       "hostname": "wadspaces-surface",
-      "ips": ["100.101.102.103", "fd7a:115c:a1e0::a01:2b03"],
+      "ips": [
+        "100.101.102.103",
+        "fd7a:115c:a1e0::a01:2b03"
+      ],
       "dnsName": "wadspaces-surface.tail1234.ts.net",
       "tailnet": "owner@example.com",
       "user": "owner@example.com",
@@ -675,9 +1118,22 @@
           "trustedAt": 1792015200000,
           "lastUsed": 1792021800000
         },
-        { "id": "nLaptop1CNTRL", "name": "work-laptop", "os": "windows", "online": false, "trusted": false }
+        {
+          "id": "nLaptop1CNTRL",
+          "name": "work-laptop",
+          "os": "windows",
+          "online": false,
+          "trusted": false
+        }
       ],
-      "asks": [{ "id": "nTablet1CNTRL", "name": "Galaxy Tab S9", "os": "android", "at": 1792021900000 }]
+      "asks": [
+        {
+          "id": "nTablet1CNTRL",
+          "name": "Galaxy Tab S9",
+          "os": "android",
+          "at": 1792021900000
+        }
+      ]
     },
     "/v1/tunnel": {
       "cloudflaredInstalled": true,
@@ -711,8 +1167,18 @@
       "password": "Hq7mZp3kRt9wXc2vNb6Y"
     },
     "/v1/logs": [
-      { "time": 1792020000000, "level": "info", "target": "wadd::view", "message": "showing cosmic-bodybuilding" },
-      { "time": 1792020005000, "level": "info", "target": "wadd::storage", "message": "measured in 1.8 s" }
+      {
+        "time": 1792020000000,
+        "level": "info",
+        "target": "wadd::view",
+        "message": "showing cosmic-bodybuilding"
+      },
+      {
+        "time": 1792020005000,
+        "level": "info",
+        "target": "wadd::storage",
+        "message": "measured in 1.8 s"
+      }
     ]
   }
 }

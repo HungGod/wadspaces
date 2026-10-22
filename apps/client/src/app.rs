@@ -132,124 +132,126 @@ fn follow_hud(w: &gtk::ApplicationWindow) {
     }
 }
 
-/// Builder B's snapshots: a wadspace open (its apps, a template open;
-/// its customization, its secrets shown), an app dragged onto a New
-/// template field, a wadspace copied onto another machine, that machine's
-/// row, and things picked.
+/// The Builder's snapshots: a wadspace selected, on each tab of the
+/// sidebar; an app dragged onto a card's Apps and dropped (its part
+/// flashes); a key held over another card (New secret key shows); a card
+/// copied onto another machine, that machine's row; an empty machine's card
+/// and an app dropped on it; more selected and a piece picked; Recently
+/// deleted.
 async fn builder_b(w: &gtk::ApplicationWindow, dir: &std::path::Path) {
     use crate::pages::builder::b::{self, carousel, sim, state};
+    use wad_board::b::{Op, Pick};
     let display = WidgetExt::display(w);
     let settle = |ms| glib::timeout_future(std::time::Duration::from_millis(ms));
     let iq = "intelligencequest";
-    state::write(|s| {
-        s.opened.push((iq.into(), "rust".into()));
-        s.secrets_shown.push(iq.into());
-    });
-    b::open_on(iq, state::Tab::Apps);
+    let tab = |t: state::Tab| {
+        state::write(|s| s.tab = t);
+        state::select(iq, false);
+    };
+    tab(state::Tab::Apps);
     for t in [wad_gtk::Theme::Dark, wad_gtk::Theme::Light] {
         wad_gtk::theme::set(&display, t);
         settle(1200).await;
-        shot(w, &dir.join(format!("builder-b-apps-{}.png", t.name())));
+        shot(w, &dir.join(format!("builder-apps-{}.png", t.name())));
+    }
+    wad_gtk::theme::set(&display, wad_gtk::Theme::Dark);
+    for (t, name) in [(state::Tab::AddOns, "addons"), (state::Tab::Secrets, "secrets")] {
+        tab(t);
+        settle(900).await;
+        shot(w, &dir.join(format!("builder-{name}-dark.png")));
     }
     // Scrolled down, then the board drawn again (as the library's news does
     // every half minute): the sidebar stays where it was.
-    wad_gtk::theme::set(&display, wad_gtk::Theme::Dark);
-    settle(600).await;
     sim::scroll_side_to_end();
     settle(300).await;
     state::changed();
     settle(900).await;
-    shot(w, &dir.join("builder-b-scroll-kept-dark.png"));
-    // Opening a wadspace leaves the board's widgets be: a double-click's
-    // second click lands on the template name its first one did.
-    b::close();
-    settle(600).await;
-    let name = sim::template_name(iq);
-    b::open(iq);
-    settle(600).await;
-    let kept = name.is_some_and(|n| n.root().is_some());
-    tracing::info!("builder-b: template name kept across open: {kept}");
-    let cancelled = sim::rename_then_click_away(iq);
-    tracing::info!("builder-b: a click away cancels a rename: {cancelled}");
-    settle(600).await;
-    b::open_on(iq, state::Tab::Customization);
+    shot(w, &dir.join("builder-scroll-kept-dark.png"));
+    tab(state::Tab::Customization);
     for t in [wad_gtk::Theme::Dark, wad_gtk::Theme::Light] {
         wad_gtk::theme::set(&display, t);
         settle(1800).await;
-        shot(w, &dir.join(format!("builder-b-custom-{}.png", t.name())));
+        shot(w, &dir.join(format!("builder-custom-{}.png", t.name())));
     }
     wad_gtk::theme::set(&display, wad_gtk::Theme::Dark);
     // Its projects: GitHub's repositories to clone in, or mount.
     settle(600).await;
     sim::scroll_side_to_end();
     settle(600).await;
-    shot(w, &dir.join("builder-b-projects-dark.png"));
-    b::close();
+    shot(w, &dir.join("builder-projects-dark.png"));
+    tab(state::Tab::Apps);
     settle(600).await;
-    sim::reveal_new_template(iq);
-    settle(400).await;
-    if sim::app_over_new_template("obsidian", iq) {
+    if sim::app_over_apps("obsidian", iq) {
         settle(500).await;
-        shot(w, &dir.join("builder-b-drag-app-dark.png"));
+        shot(w, &dir.join("builder-drag-app-dark.png"));
         sim::drop_it();
-        settle(900).await;
-        shot(w, &dir.join("builder-b-dropped-dark.png"));
+        settle(300).await;
+        shot(w, &dir.join("builder-dropped-dark.png"));
+    }
+    settle(900).await;
+    if sim::key_over_secrets("desk-lab", "notes-vault", iq) {
+        settle(600).await;
+        shot(w, &dir.join("builder-drag-key-dark.png"));
+        crate::drag::sim::end(false);
+        settle(600).await;
     }
     if sim::wadspace_over_machine(iq, "m-desk") {
         settle(500).await;
-        shot(w, &dir.join("builder-b-drag-machine-dark.png"));
+        shot(w, &dir.join("builder-drag-machine-dark.png"));
         sim::drop_it();
         settle(900).await;
-        shot(w, &dir.join("builder-b-copied-dark.png"));
+        shot(w, &dir.join("builder-copied-dark.png"));
     }
     carousel::show("m-desk");
     settle(900).await;
-    shot(w, &dir.join("builder-b-desk-dark.png"));
-    // A machine with none: a blank one; an app dropped in it makes it.
+    shot(w, &dir.join("builder-desk-dark.png"));
+    // A machine with none: an empty card; an app dropped on it makes it.
     carousel::show("m-laptop");
     settle(900).await;
-    shot(w, &dir.join("builder-b-blank-dark.png"));
+    shot(w, &dir.join("builder-blank-dark.png"));
     if sim::app_over_blank("obsidian") {
         settle(500).await;
-        shot(w, &dir.join("builder-b-blank-drag-dark.png"));
+        shot(w, &dir.join("builder-blank-drag-dark.png"));
         sim::drop_it();
         settle(1200).await;
-        shot(w, &dir.join("builder-b-blank-made-dark.png"));
+        shot(w, &dir.join("builder-blank-made-dark.png"));
     }
     // The HUD out: the machines keep clear of it.
     w.add_css_class("hud-room");
     settle(500).await;
-    shot(w, &dir.join("builder-b-hud-dark.png"));
+    shot(w, &dir.join("builder-hud-dark.png"));
     w.remove_css_class("hud-room");
+    // Two selected, and a project picked.
     carousel::show("m-surface");
-    state::toggle_pick(wad_board::b4::Pick::Wadspace { ws: iq.into() });
+    state::select(iq, false);
+    state::select("cosmic-bodybuilding", true);
+    state::toggle_pick(Pick::Project { ws: iq.into(), id: "iq".into() });
     for t in [wad_gtk::Theme::Dark, wad_gtk::Theme::Light] {
         wad_gtk::theme::set(&display, t);
         settle(900).await;
-        shot(w, &dir.join(format!("builder-b-picked-{}.png", t.name())));
+        shot(w, &dir.join(format!("builder-picked-{}.png", t.name())));
     }
     state::write(|s| s.picked.clear());
-    // Recently deleted: a template and a project taken out of
+    // Recently deleted: VS Code's add-ons and a project taken out of
     // IntelligenceQuest, Desk Lab deleted (its parts to drag back out).
-    use wad_board::b4::{Op, Pick};
     let out =
-        vec![Pick::Template { ws: iq.into(), id: "art".into() }, Pick::Project { ws: iq.into(), id: "iq".into() }];
+        vec![Pick::Exts { ws: iq.into(), app: "vscode".into() }, Pick::Project { ws: iq.into(), id: "iq".into() }];
     let _ = state::apply(Op::Delete { picks: out });
     let _ = state::apply(Op::Delete { picks: vec![Pick::Wadspace { ws: "desk-lab".into() }] });
     b::show_trash(true);
     for t in [wad_gtk::Theme::Dark, wad_gtk::Theme::Light] {
         wad_gtk::theme::set(&display, t);
         settle(900).await;
-        shot(w, &dir.join(format!("builder-b-trash-{}.png", t.name())));
+        shot(w, &dir.join(format!("builder-trash-{}.png", t.name())));
     }
-    sim::board_to_top(iq);
+    sim::board_to_start(iq);
     settle(400).await;
     sim::background_from("desk-lab", iq);
     settle(900).await;
     let wallpaper = |id: &str| state::read(|s| s.board.get(id).and_then(|w| w.customization.get("wallpaper").cloned()));
     let took = wallpaper(iq).is_some() && wallpaper(iq) == wallpaper("desk-lab");
-    tracing::info!("builder-b: a deleted wadspace's part drags into another: {took}");
-    b::close();
+    tracing::info!("builder: a deleted wadspace's part drags into another: {took}");
+    b::show_trash(false);
     wad_gtk::theme::set(&display, wad_gtk::Theme::Dark);
 }
 
@@ -273,7 +275,7 @@ fn follow_wadd() {
     });
 }
 
-/// The theme version 4 wadspaces take at their next start: wadd draws
+/// The theme wadspaces take at their next start: wadd draws
 /// their backgrounds and web app icons in it.
 fn tell_wadd_theme(t: wad_gtk::Theme) {
     let theme = match t {

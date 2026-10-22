@@ -1441,8 +1441,11 @@ fn new_wadspace(
     c["secrets"]["bySlot"] = by_slot;
     // Every wadspace's id is taken, deleted ones too.
     let mut taken = wadspaces.to_vec();
-    if let Some(l) = store().read_now(|st| st.library.as_ref().map(|l| l.wadspaces.clone())) {
+    if let Some((l, other)) =
+        store().read_now(|st| st.library.as_ref().map(|l| (l.wadspaces.clone(), l.reserved.clone())))
+    {
         taken.extend(l);
+        taken.extend(other.into_iter().map(|id| json!({ "id": id })));
     }
     let order = wadspaces.iter().filter_map(|x| x["order"].as_f64()).fold(0.0f64, f64::max) + 1.0;
     let now = launch::now_iso();
@@ -1465,8 +1468,8 @@ mod tests {
 
     #[test]
     fn a_saved_run_is_a_new_wadspace_at_the_boards_end() {
-        let w = json!({ "id": "vanua", "version": 4, "order": 2, "owner": "me", "machine": "m1",
-            "templates": [{ "id": "dev", "name": "Dev", "apps": [] }],
+        let w = json!({ "id": "vanua", "version": 5, "order": 2, "owner": "me", "machine": "m1",
+            "apps": [{ "app": "vscode" }], "exts": [],
             "customization": { "name": "Vanua", "secrets": { "bySlot": {}, "groups": [] }, "projects": [] } });
         let others = vec![w.clone(), json!({ "id": "cosmic", "order": 5 })];
         let doc = new_wadspace(
@@ -1480,8 +1483,8 @@ mod tests {
         assert_eq!(doc["id"], "vanua-late");
         assert_eq!(doc["order"], 6.0);
         assert_eq!(
-            (&doc["version"], &doc["machine"], &doc["templates"][0]["id"]),
-            (&json!(4), &json!("m1"), &json!("dev"))
+            (&doc["version"], &doc["machine"], &doc["apps"][0]["app"]),
+            (&json!(5), &json!("m1"), &json!("vscode"))
         );
         assert_eq!(doc["customization"]["name"], "Vanua Late");
         assert_eq!(doc["customization"]["secrets"]["bySlot"]["k"], 1);

@@ -528,7 +528,11 @@ fn add_ons_by_their_app_with_their_names_and_pictures() {
     w.exts.push(Ext::focus());
     let order: Vec<(String, usize)> = w.exts_by_app().iter().map(|(a, xs)| (a.clone(), xs.len())).collect();
     assert_eq!(order, [("wadbrowser".to_string(), 2), ("vscode".to_string(), 2), ("terminal".to_string(), 2)]);
-    use crate::catalog::{ext_face, ext_what, site_webapp};
+    use crate::catalog::{ext_face, ext_what, exts_of, site_webapp};
+    assert_eq!(
+        (exts_of("vscode"), exts_of("terminal")),
+        ("VS Code's extensions".into(), "Command line's tools".into())
+    );
     assert_eq!(ext_face(&Ext::focus()), ("Focus".to_string(), String::new()));
     assert_eq!(ext_face(&Ext::plain("vscode", "anthropic.claude-code")).1, "/icons/claude.png");
     assert_eq!(ext_face(&Ext::plain("terminal", "rust")), ("Rust".to_string(), String::new()));

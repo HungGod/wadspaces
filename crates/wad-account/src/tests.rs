@@ -165,8 +165,8 @@ async fn the_library_is_read_as_them_and_kept() {
         .and(path(format!("{DOCS}:runQuery")))
         .and(body_partial_json(json!({"structuredQuery": {"where": {"fieldFilter": {"field": {"fieldPath": "owner"}, "value": {"stringValue": "u1"}}}}})))
         .respond_with(ResponseTemplate::new(200).set_body_json(json!([
-            {"document": doc("wadspaces/w1", json!({"version": {"integerValue": "3"}, "template": {"stringValue": "dev"}}))},
-            {"document": doc("wadspaces/w2", json!({"version": {"integerValue": "4"}, "machine": {"stringValue": "m1"}}))},
+            {"document": doc("wadspaces/w1", json!({"version": {"integerValue": "4"}, "templates": {"arrayValue": {}}}))},
+            {"document": doc("wadspaces/w2", json!({"version": {"integerValue": "5"}, "machine": {"stringValue": "m1"}}))},
         ])))
         .mount(&s)
         .await;
@@ -178,7 +178,8 @@ async fn the_library_is_read_as_them_and_kept() {
     a.sign_in_github("t").await.unwrap();
     let lib = a.library().await.unwrap();
     assert_eq!(lib.browsers, [json!({"name": "Mail", "id": "b1"})]);
-    // An old (version 3) wadspace is never shown.
-    assert_eq!(lib.wadspaces, [json!({"version": 4, "machine": "m1", "id": "w2"})]);
+    // An older (version 4) wadspace is never shown; its id is still taken.
+    assert_eq!(lib.wadspaces, [json!({"version": 5, "machine": "m1", "id": "w2"})]);
+    assert_eq!(lib.reserved, ["w1"]);
     assert_eq!(a.cached_library(), Some(lib.clone()));
 }

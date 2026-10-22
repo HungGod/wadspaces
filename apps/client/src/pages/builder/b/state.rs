@@ -1,16 +1,16 @@
-//! Builder B's board in the app: the account's version 4 wadspaces (the
-//! library's `v4`) on wad_board::b4's Board, each edit saved behind it as the
-//! old board's are (../state.rs): the library at once, the account after; a
-//! change made elsewhere taken in when none of the board's writes are out.
-//! What's built comes from this machine's images and the others'
-//! heartbeats.
+//! The Builder's board in the app: the account's version 5 wadspaces on
+//! wad_board::b's Board, each edit saved behind it: the library at once,
+//! the account after; a change made elsewhere taken in when none of the
+//! board's writes are out. What's built comes from this machine's images
+//! and the others' heartbeats. One wadspace of the machine shown is always
+//! selected (the sidebar's); Ctrl+click selects more.
 
 use std::cell::RefCell;
 use std::collections::HashMap;
 
 use gtk::glib;
 use serde_json::Value;
-use wad_board::b4::{Board, Machine, Op, Pick, Wadspace};
+use wad_board::b::{Board, Machine, Op, Payload, Pick, Wadspace};
 use wad_proto::v1::ImageRow;
 
 use crate::launch;
@@ -22,7 +22,21 @@ use crate::store::{AppState, Topic, store};
 pub enum Tab {
     #[default]
     Apps,
+    AddOns,
+    Secrets,
     Customization,
+}
+
+impl Tab {
+    /// The card's part it's for ("<ws>:<part>" flashes).
+    pub fn part(self) -> &'static str {
+        match self {
+            Tab::Apps => "apps",
+            Tab::AddOns => "exts",
+            Tab::Secrets => "keys",
+            Tab::Customization => "custom",
+        }
+    }
 }
 
 #[derive(Default)]
@@ -40,20 +54,21 @@ pub struct State {
     stale: bool,
     /// The machine whose wadspaces are shown (None: this one).
     pub shown: Option<String>,
-    /// The wadspace open in the sidebar, and its tab.
-    pub open: Option<String>,
+    /// Wadspaces selected, the sidebar's last (one is, whatever this says:
+    /// see [`primary`]).
+    pub selected: Vec<String>,
+    /// The sidebar's tab.
     pub tab: Tab,
-    /// Ctrl+clicked, for Build selected and Delete selected.
+    /// Pieces Ctrl+clicked, for Delete selected.
     pub picked: Vec<Pick>,
-    /// Templates opened to their apps' windows: (wadspace, template).
-    pub opened: Vec<(String, String)>,
-    /// Secrets shown under a wadspace's desktop.
-    pub secrets_shown: Vec<String>,
+    /// A card's part something just landed in ("<ws>:<part>"), and which
+    /// landing it was: it flashes once.
+    pub flash: Option<(String, u32)>,
     /// This machine's images, by layer.
     pub images: HashMap<String, ImageRow>,
     /// A name being typed: the board isn't drawn again under it.
     pub renaming: bool,
-    /// The sidebar shows Recently deleted (no wadspace open).
+    /// The sidebar shows Recently deleted.
     pub trash_open: bool,
     redraw: Vec<Box<dyn Fn()>>,
     scheduled: bool,
@@ -123,7 +138,13 @@ fn from_library(s: &AppState) -> Vec<Wadspace> {
         .library
         .iter()
         .flat_map(|l| l.wadspaces.iter())
-        .filter_map(|d| serde_json::from_value(d.clone()).ok())
+        .filter_map(|d| match serde_json::from_value(d.clone()) {
+            Ok(w) => Some(w),
+            Err(e) => {
+                tracing::warn!("wadspace {}: not on the board: {e}", d["id"]);
+                None
+            }
+        })
         .collect();
     ws.sort_by(|a, b| (a.order, &a.id).cmp(&(b.order, &b.id)));
     ws
@@ -137,8 +158,10 @@ pub fn take_library(s: &AppState) {
     }
     let machines = machines(s);
     let docs = from_library(s);
+    let reserved = s.library.as_ref().map(|l| l.reserved.clone()).unwrap_or_default();
     write(|st| {
         st.board.machines = machines;
+        st.board.reserved = reserved;
         if st.pending > 0 || st.stale {
             return;
         }
@@ -422,18 +445,84 @@ pub fn toggle_pick(p: Pick) {
     changed();
 }
 
-/// The wadspaces picked: those picked whole, and those something in is.
-pub fn picked_wadspaces(st: &State) -> Vec<String> {
-    let mut out: Vec<String> = vec![];
-    for p in &st.picked {
-        let ws = match p {
-            Pick::Wadspace { ws } | Pick::Template { ws, .. } | Pick::Project { ws, .. } | Pick::Background { ws } => {
-                ws
+// ─────────────────────────────── selecting ───────────────────────────────
+
+/// The sidebar's wadspace: the last selected that's in the machine's row,
+/// else the row's first (None: the row's empty).
+pub fn primary(st: &State, machine: &str) -> Option<String> {
+    let row = st.board.row(machine);
+    st.selected
+        .iter()
+        .rev()
+        .find(|id| row.iter().any(|w| w.id == **id))
+        .cloned()
+        .or_else(|| row.first().map(|w| w.id.clone()))
+}
+
+/// Every wadspace selected (at least the sidebar's).
+pub fn selected_ids(st: &State, machine: &str) -> Vec<String> {
+    let row = st.board.row(machine);
+    let ok: Vec<String> = st.selected.iter().filter(|id| row.iter().any(|w| w.id == **id)).cloned().collect();
+    if ok.is_empty() { primary(st, machine).into_iter().collect() } else { ok }
+}
+
+/// A click selects it alone; Ctrl+click (`more`) adds it, or takes it out
+/// (never the last one).
+pub fn select(id: &str, more: bool) {
+    let machine = store().read_now(shown);
+    write(|st| {
+        let now = selected_ids(st, &machine);
+        if !more {
+            st.selected = vec![id.to_string()];
+            st.trash_open = false;
+        } else if now.iter().any(|x| x == id) {
+            if now.len() > 1 {
+                st.selected = now.into_iter().filter(|x| x != id).collect();
             }
-        };
-        if !out.contains(ws) {
-            out.push(ws.clone());
+        } else {
+            st.selected = now.into_iter().chain([id.to_string()]).collect();
+            st.trash_open = false;
+        }
+    });
+    changed();
+}
+
+/// A card's part flashes: something landed in it.
+pub fn flash(ws: &str, part: &str) {
+    write(|st| {
+        let n = st.flash.as_ref().map_or(1, |(_, n)| n + 1);
+        st.flash = Some((format!("{ws}:{part}"), n));
+    });
+    changed();
+}
+
+/// Edits of the sidebar's wadspace (on an empty machine, a new one made
+/// first, the same Undo): `ops` for its id. Then it's the one selected.
+pub fn edit_selected(ops: impl FnOnce(&str) -> Vec<Op>) -> Option<String> {
+    let machine = store().read_now(shown);
+    let (ws, mut all) = read(|st| match primary(st, &machine) {
+        Some(ws) => (ws, vec![]),
+        None => (st.board.free_id(&st.board.new_name(&machine)), vec![Op::Create { machine: machine.clone() }]),
+    });
+    all.extend(ops(&ws));
+    match apply_all(all) {
+        Ok(()) => {
+            write(|st| st.selected = vec![ws.clone()]);
+            changed();
+            Some(ws)
+        }
+        Err(e) => {
+            crate::toast::error("Couldn't do that", &e);
+            None
         }
     }
-    out
+}
+
+/// An app or add-on from the sidebar into the sidebar's wadspace; its part
+/// flashes.
+pub fn add_from_sidebar(p: Payload) {
+    let part = if matches!(p, Payload::CatalogExt { .. }) { "exts" } else { "apps" };
+    if let Some(ws) = edit_selected(|ws| vec![Op::Drop { payload: p, into: ws.to_string() }]) {
+        flash(&ws, part);
+    }
 }

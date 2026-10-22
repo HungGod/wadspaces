@@ -285,11 +285,9 @@ mod tests {
     fn state() -> AppState {
         let lib = wad_account::Library {
             wadspaces: vec![json!({
-                "version": 4, "id": "vanua", "order": 1,
-                "templates": [{ "id": "dev", "name": "Dev", "apps": [
-                    { "app": "wadbrowser", "extras": [] },
-                    { "app": "vscode", "extras": [{ "id": "anthropic.claude-code" }] },
-                ] }],
+                "version": 5, "id": "vanua", "order": 1,
+                "apps": [{ "app": "wadbrowser" }, { "app": "vscode" }],
+                "exts": [{ "app": "vscode", "id": "anthropic.claude-code" }],
                 "customization": { "name": "Vanua", "secrets": {
                     "bySlot": { "ext:anthropic.claude-code": { "id": "k1", "name": "Claude", "kind": "vscode-claude-code" } },
                     "groups": [{ "members": ["browser"], "key": { "id": "k2", "name": "Work", "kind": "web" } }],

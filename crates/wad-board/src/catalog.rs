@@ -193,6 +193,17 @@ pub fn ext_kind(app: &str) -> &'static str {
     }
 }
 
+/// An app's add-ons, all of them: "VS Code's extensions"…
+pub fn exts_of(app: &str) -> String {
+    let name = self::app(app).map(|a| a.name).unwrap_or_else(|| app.to_string());
+    match app {
+        "wadbrowser" => format!("{name}'s web apps"),
+        "vscode" => format!("{name}'s extensions"),
+        "terminal" => format!("{name}'s tools"),
+        _ => format!("{name}'s add-ons"),
+    }
+}
+
 /// What an add-on is called, and its own picture: "" when it has none
 /// (Focus, VS Code extensions without one, command-line tools).
 pub fn ext_face(x: &Ext) -> (String, String) {
