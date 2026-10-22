@@ -397,7 +397,7 @@ fn keys_tab(w: Option<&Wadspace>, body: &gtk::Box) {
     };
     let (side, _, k) = open_parts(&w.id);
     let kb = gtk::Box::new(gtk::Orientation::Vertical, 10);
-    kb.add_css_class("keys");
+    kb.add_css_class("key-list");
     let kh: Rc<dyn keys::Host> = side;
     keys::fill(&kh, &k, &kb);
     k.show_in(&kb);
@@ -518,15 +518,11 @@ impl projects::Host for Side {
         }
     }
 
-    fn elsewhere(&self) -> Vec<Value> {
-        state::read(|s| {
-            s.board
-                .wadspaces
-                .iter()
-                .filter(|w| w.id != self.ws && !w.deleted())
-                .flat_map(|w| w.projects().to_vec())
-                .collect()
-        })
+    fn machine(&self) -> (String, bool) {
+        let here = crate::store::store().read_now(state::here);
+        let m = self.wadspace().map(|w| w.machine).unwrap_or_default();
+        let on = m == here;
+        (m, on)
     }
 
     fn redraw(&self) {
@@ -596,6 +592,15 @@ impl keys::Host for Side {
         let name = self.wadspace().map(|w| w.name().to_string()).unwrap_or_default();
         let base: String = name.chars().filter(|c| !c.is_whitespace()).collect();
         format!("{}-{app_id}", if base.is_empty() { "Wadspace" } else { &base })
+    }
+
+    fn on_this_machine(&self) -> bool {
+        let here = crate::store::store().read_now(state::here);
+        self.wadspace().is_some_and(|w| w.machine == here)
+    }
+
+    fn mint_key(&self, name: &str, kind: &str, known: &[Value]) -> Value {
+        state::read(|s| s.board.new_key(name, kind, known))
     }
 }
 

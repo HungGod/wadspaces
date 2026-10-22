@@ -1,7 +1,10 @@
-//! A wadspace's keys (the Customization editor's Secrets, and Builder B's
-//! sidebar's): one per app that signs in, or per group of WadBrowser's apps,
-//! new or picked from the keys there are of the same kind. A key's name
-//! renames it, wherever it's kept and on this machine.
+//! A wadspace's keys (the Builder sidebar's Secrets), laid out downward:
+//! each app that signs in, then a card for each thing of it that keeps a key
+//! (WadBrowser: each group of its apps), what signs in on top and its key
+//! underneath, full width. A click on the key lists the choices under it: a
+//! new key, the keys there are of the same kind, or none. ✎ renames a key,
+//! wherever it's kept and on this machine. WadBrowser's apps drag between
+//! groups (Ctrl+click picks several to drag together).
 
 use std::cell::{Cell, RefCell};
 use std::rc::{Rc, Weak};
@@ -12,7 +15,7 @@ use wad_board::catalog::{BrowserItem, KeyApp, KeyLine};
 use wad_gtk::Icon;
 use wad_wadd_client::Method;
 
-use super::{ghost, group_label, img, menu_opened};
+use super::{ghost, group_label, img};
 use crate::drag::{self, Mods, Payload, Target, Verdict};
 use crate::pages::machines::send;
 use crate::signins;
@@ -34,12 +37,19 @@ pub trait Host {
     fn keys_of_kind(&self, known: &[Value], kind: &str) -> Vec<Value>;
     /// A new key's name: <Wadspace>-<what signs in with it>.
     fn new_key_name(&self, app_id: &str) -> String;
+    /// The wadspace is on this machine: a new key is made here at once.
+    fn on_this_machine(&self) -> bool;
+    /// A new key for the wadspace's machine, only in its document (that
+    /// machine makes it when the wadspace next starts there).
+    fn mint_key(&self, name: &str, kind: &str, known: &[Value]) -> Value;
 }
 
 /// The part's own state: WadBrowser's apps Ctrl+clicked to move together.
 #[derive(Default)]
 pub struct Keys {
     picked: RefCell<Vec<String>>,
+    /// The slot whose key's choices are open.
+    open: RefCell<Option<String>>,
     view: RefCell<glib::WeakRef<gtk::Box>>,
 }
 
@@ -83,18 +93,9 @@ fn regroup(host: &Rc<dyn Host>, keys: &Keys, members: &[String], to: Option<&str
     host.regroup(members, to);
 }
 
-fn wire(on: bool) -> gtk::Box {
-    let w = gtk::Box::new(gtk::Orientation::Horizontal, 0);
-    w.add_css_class("wire");
-    if on {
-        w.add_css_class("on");
-    }
-    w.set_hexpand(true);
-    w.set_valign(gtk::Align::Center);
-    w
-}
-
-/// The keys, by app: each line what signs in, a wire, and its key.
+/// The keys, by app, downward: each app that signs in, then a card for
+/// each thing of it that keeps a key (WadBrowser: each group of its apps),
+/// what signs in on top and its key underneath, full width.
 pub fn fill(host: &Rc<dyn Host>, keys: &Rc<Keys>, b: &gtk::Box) {
     let apps = host.key_map();
     if apps.is_empty() {
@@ -105,86 +106,80 @@ pub fn fill(host: &Rc<dyn Host>, keys: &Rc<Keys>, b: &gtk::Box) {
         return;
     }
     for a in apps {
-        let app = gtk::Box::new(gtk::Orientation::Horizontal, 10);
+        let app = gtk::Box::new(gtk::Orientation::Vertical, 6);
         app.add_css_class("key-app");
-        let head = gtk::Box::new(gtk::Orientation::Vertical, 5);
+        let head = gtk::Box::new(gtk::Orientation::Horizontal, 8);
         head.add_css_class("key-app-head");
-        let i = img(&a.icon, 34);
-        i.set_halign(gtk::Align::Center);
-        head.append(&i);
-        let n = gtk::Label::new(Some(&a.name));
-        n.set_wrap(true);
-        n.set_justify(gtk::Justification::Center);
-        head.append(&n);
-        app.append(&wad_gtk::Width::new(&head, 96));
-        let lines = gtk::Box::new(gtk::Orientation::Vertical, 6);
-        lines.add_css_class("key-lines");
-        lines.set_hexpand(true);
+        head.append(&img(&a.icon, 18));
+        head.append(&gtk::Label::new(Some(&a.name)));
+        app.append(&head);
         for l in &a.lines {
             let value = host.key_of(l);
-            let line = gtk::Box::new(gtk::Orientation::Horizontal, 8);
+            let line = gtk::Box::new(gtk::Orientation::Vertical, 6);
             line.add_css_class("key-line");
             let (w, l2) = (Rc::downgrade(host), l.clone());
             let on_set = move |k: Option<Value>| with(&w, |h| h.set_key(&l2, k));
-            if let (Some(g), Some(members)) = (&l.group, &l.members) {
-                line.add_css_class("group");
-                let src = gtk::FlowBox::new();
-                src.add_css_class("members");
-                src.set_selection_mode(gtk::SelectionMode::None);
-                src.set_max_children_per_line(8);
-                src.set_column_spacing(4);
-                src.set_row_spacing(4);
-                src.set_hexpand(false);
-                src.set_valign(gtk::Align::Center);
-                for m in members {
-                    src.insert(&member(host, keys, m, &g.id), -1);
+            match (&l.group, &l.members) {
+                (Some(g), Some(members)) => {
+                    line.add_css_class("group");
+                    let src = gtk::FlowBox::new();
+                    src.add_css_class("members");
+                    src.set_selection_mode(gtk::SelectionMode::None);
+                    src.set_max_children_per_line(8);
+                    src.set_column_spacing(4);
+                    src.set_row_spacing(4);
+                    for m in members {
+                        src.insert(&member(host, keys, m, &g.id), -1);
+                    }
+                    line.append(&src);
+                    line.append(&key_control(host, keys, &l.slot, "web", value.clone(), l.app_id.clone(), on_set));
+                    drag::target(
+                        &line,
+                        GroupTarget {
+                            host: Rc::downgrade(host),
+                            keys: keys.clone(),
+                            id: g.id.clone(),
+                            members: g.members.clone(),
+                            key: value.as_ref().map(|k| k["name"].as_str().unwrap_or_default().to_string()),
+                        },
+                    );
                 }
-                line.append(&src);
-                line.append(&wire(value.is_some()));
-                line.append(&key_picker(host, "web", value.clone(), l.app_id.clone(), on_set));
-                drag::target(
-                    &line,
-                    GroupTarget {
-                        host: Rc::downgrade(host),
-                        keys: keys.clone(),
-                        id: g.id.clone(),
-                        members: g.members.clone(),
-                        key: value.as_ref().map(|k| k["name"].as_str().unwrap_or_default().to_string()),
-                    },
-                );
-            } else {
-                let src = gtk::Box::new(gtk::Orientation::Horizontal, 6);
-                src.add_css_class("key-src");
-                src.append(&img(&l.icon, 18));
-                src.append(&gtk::Label::new(Some(&l.label)));
-                line.append(&src);
-                line.append(&wire(value.is_some()));
-                line.append(&key_picker(host, &l.kind, value, l.app_id.clone(), on_set));
+                _ => {
+                    let src = gtk::Box::new(gtk::Orientation::Horizontal, 6);
+                    src.add_css_class("key-src");
+                    src.append(&img(&l.icon, 16));
+                    let n = gtk::Label::new(Some(&l.label));
+                    n.set_wrap(true);
+                    n.set_xalign(0.0);
+                    src.append(&n);
+                    line.append(&src);
+                    line.append(&key_control(host, keys, &l.slot, &l.kind, value, l.app_id.clone(), on_set));
+                }
             }
-            lines.append(&line);
+            app.append(&line);
         }
         if a.id == "wadbrowser" {
             // A key always has something on it: a group is made by dragging
             // apps into it.
             let ng = gtk::Box::new(gtk::Orientation::Horizontal, 6);
-            ng.add_css_class("key-line");
-            ng.add_css_class("new-group");
+            ng.add_css_class("key-new-group");
             let r = gtk::Box::new(gtk::Orientation::Horizontal, 6);
             r.set_halign(gtk::Align::Center);
             r.set_hexpand(true);
             r.append(&Icon::new("plus", 13));
             r.append(&gtk::Label::new(Some("Drag apps here for a key of their own")));
             ng.append(&r);
+            ng.set_tooltip_text(Some("Drag WadBrowser's apps here to give them a key of their own"));
             drag::target(&ng, NewGroupTarget { host: Rc::downgrade(host), keys: keys.clone() });
-            lines.append(&ng);
+            app.append(&ng);
         }
-        app.append(&lines);
         b.append(&app);
     }
-    let n = gtk::Label::new(Some("No key: that app is signed out when the wadspace stops."));
+    let n = gtk::Label::new(Some("No key: that's signed out when the wadspace stops."));
     n.add_css_class("faint");
     n.add_css_class("small");
     n.set_xalign(0.0);
+    n.set_wrap(true);
     b.append(&n);
 }
 
@@ -237,18 +232,20 @@ fn member(host: &Rc<dyn Host>, keys: &Rc<Keys>, m: &BrowserItem, group: &str) ->
     f.upcast()
 }
 
-/// A key: "No key", or its name. Click it for a new key or one of the same
-/// kind; click its name to rename it (everywhere it's kept).
-fn key_picker(
+/// A thing's key, full width: its name (whole), ✎ to rename it; a click
+/// lists the choices underneath (a new key, the keys of its kind there
+/// are, or none).
+fn key_control(
     host: &Rc<dyn Host>,
+    keys: &Rc<Keys>,
+    slot: &str,
     kind: &str,
     value: Option<Value>,
     app_id: String,
     on_set: impl Fn(Option<Value>) + 'static,
 ) -> gtk::Widget {
-    let slot = gtk::Box::new(gtk::Orientation::Vertical, 2);
-    slot.add_css_class("key-pick");
-    slot.set_valign(gtk::Align::Center);
+    let ctl = gtk::Box::new(gtk::Orientation::Vertical, 4);
+    ctl.add_css_class("key-ctl");
     let known = known();
     let id = value.as_ref().and_then(|v| v["id"].as_str()).map(String::from);
     // The machine's name for it (renamed on the Secrets page, a wadspace may keep the old one).
@@ -259,107 +256,110 @@ fn key_picker(
         .and_then(|k| k["name"].as_str())
         .unwrap_or_default()
         .to_string();
-    let btn = gtk::MenuButton::new();
-    btn.add_css_class("key-btn");
+    let open = keys.open.borrow().as_deref() == Some(slot);
+    let current = gtk::Box::new(gtk::Orientation::Horizontal, 4);
+    current.add_css_class("key-current");
     if value.is_some() {
-        btn.add_css_class("set");
+        current.add_css_class("set");
     }
+    if open {
+        current.add_css_class("open");
+    }
+    let pick = gtk::Button::new();
+    pick.add_css_class("key-pick");
+    pick.set_hexpand(true);
     let row = gtk::Box::new(gtk::Orientation::Horizontal, 6);
     row.append(&Icon::new("key-round", 13));
     let name = gtk::Label::new(Some(if value.is_some() { &shown } else { "No key" }));
-    name.add_css_class("secret-name");
-    name.set_ellipsize(gtk::pango::EllipsizeMode::End);
-    name.set_max_width_chars(22);
+    name.add_css_class("key-name");
+    name.set_wrap(true);
+    name.set_wrap_mode(gtk::pango::WrapMode::WordChar);
+    name.set_xalign(0.0);
+    name.set_hexpand(true);
     row.append(&name);
-    btn.set_child(Some(&row));
-    btn.set_always_show_arrow(false);
-    btn.set_tooltip_text(Some(&if value.is_some() {
-        format!("{} · click the name to rename it, the key for more", signins::kind_label(kind))
-    } else {
-        signins::kind_label(kind)
-    }));
-    let on_set: Rc<dyn Fn(Option<Value>)> = Rc::new(on_set);
-
-    // The menu: a new key, the keys there are of this kind, no key (made
-    // as it opens: names and keys as they are then).
-    let pop = gtk::Popover::new();
-    pop.add_css_class("wad-menu");
-    pop.add_css_class("key-menu");
-    pop.set_has_arrow(false);
-    pop.set_position(gtk::PositionType::Bottom);
-    let (w, kind_s, id2, has) = (Rc::downgrade(host), kind.to_string(), id.clone(), value.is_some());
-    pop.connect_show(move |p| {
-        menu_opened(p);
-        with(&w, |h| fill_menu(p, h, &kind_s, id2.as_deref(), has, &app_id, &on_set));
+    row.append(&Icon::new(if open { "chevron-up" } else { "chevron-down" }, 13));
+    pick.set_child(Some(&row));
+    pick.set_tooltip_text(Some(if value.is_some() { "Another key, a new one, or none" } else { "Give it a key" }));
+    let (w, k, s) = (Rc::downgrade(host), keys.clone(), slot.to_string());
+    pick.connect_clicked(move |_| {
+        {
+            let mut o = k.open.borrow_mut();
+            *o = if o.as_deref() == Some(s.as_str()) { None } else { Some(s.clone()) };
+        }
+        with(&w, |h| k.redraw(h));
     });
-    btn.set_popover(Some(&pop));
-    slot.append(&btn);
-
-    // Its name renames it, in place.
-    if let Some(id) = id {
-        let click = gtk::GestureClick::new();
-        click.set_propagation_phase(gtk::PropagationPhase::Capture);
-        let (w, sw, bw) = (Rc::downgrade(host), slot.downgrade(), btn.downgrade());
-        let nw = name.downgrade();
-        click.connect_pressed(move |g, _, x, y| {
-            let (Some(host), Some(slot), Some(btn), Some(name)) =
-                (w.upgrade(), sw.upgrade(), bw.upgrade(), nw.upgrade())
-            else {
-                return;
-            };
-            // Only on the name (the key icon opens the menu).
-            let on_name = btn
-                .compute_point(&name, &gtk::graphene::Point::new(x as f32, y as f32))
-                .is_some_and(|p| name.contains(p.x() as f64, p.y() as f64));
-            if !on_name {
-                return;
+    current.append(&pick);
+    ctl.append(&current);
+    if let Some(id) = id.clone() {
+        let rename = ui::icon_button("pencil", "Rename this key (everywhere it's kept)", 13);
+        rename.add_css_class("key-rename-btn");
+        let (w, cw, ctlw) = (Rc::downgrade(host), current.downgrade(), ctl.downgrade());
+        rename.connect_clicked(move |_| {
+            if let (Some(host), Some(current), Some(ctl)) = (w.upgrade(), cw.upgrade(), ctlw.upgrade()) {
+                renaming(&host, &ctl, current.upcast_ref(), &id, &shown);
             }
-            g.set_state(gtk::EventSequenceState::Claimed);
-            renaming(&host, &slot, &btn, &id, &shown);
         });
-        btn.add_controller(click);
+        current.append(&rename);
     }
-    slot.upcast()
+    if open {
+        ctl.append(&choices(host, keys, kind, id.as_deref(), value.is_some(), &app_id, Rc::new(on_set)));
+    }
+    ctl.upcast()
 }
 
-/// The key menu's choices, as they are now.
-fn fill_menu(
-    pop: &gtk::Popover,
+/// The key's choices, under it: a new key, the keys of its kind there are,
+/// no key.
+fn choices(
     host: &Rc<dyn Host>,
+    keys: &Rc<Keys>,
     kind: &str,
     id: Option<&str>,
     has: bool,
     app_id: &str,
-    on_set: &Rc<dyn Fn(Option<Value>)>,
-) {
+    on_set: Rc<dyn Fn(Option<Value>)>,
+) -> gtk::Box {
     let col = gtk::Box::new(gtk::Orientation::Vertical, 2);
-    let item = |icon: &'static str, text: &str, extra: Option<&str>| {
+    col.add_css_class("key-choices");
+    let item = |icon: &'static str, text: &str, sub: Option<&str>| {
         let b = gtk::Button::new();
-        b.add_css_class("menu-item");
+        b.add_css_class("key-choice");
         let r = gtk::Box::new(gtk::Orientation::Horizontal, 8);
-        r.append(&Icon::new(icon, 12));
+        r.append(&Icon::new(icon, 13));
+        let texts = gtk::Box::new(gtk::Orientation::Vertical, 0);
         let l = gtk::Label::new(Some(text));
         l.set_xalign(0.0);
-        r.append(&l);
-        if let Some(x) = extra {
+        l.set_wrap(true);
+        l.set_wrap_mode(gtk::pango::WrapMode::WordChar);
+        texts.append(&l);
+        if let Some(x) = sub {
             let f = gtk::Label::new(Some(x));
             f.add_css_class("faint");
-            f.set_ellipsize(gtk::pango::EllipsizeMode::End);
-            r.append(&f);
+            f.add_css_class("small");
+            f.set_xalign(0.0);
+            f.set_wrap(true);
+            f.set_wrap_mode(gtk::pango::WrapMode::WordChar);
+            texts.append(&f);
         }
+        r.append(&texts);
         b.set_child(Some(&r));
         b
     };
-    let default = host.new_key_name(app_id);
-    let new = item("plus", "New key", Some(&default));
-    let (os, pw, kind_s, w) = (on_set.clone(), pop.downgrade(), kind.to_string(), Rc::downgrade(host));
-    new.connect_clicked(move |_| {
-        if let Some(p) = pw.upgrade() {
-            p.popdown();
+    // Each choice closes them.
+    let close = {
+        let (w, k) = (Rc::downgrade(host), keys.clone());
+        move || {
+            k.open.replace(None);
+            with(&w, |h| k.redraw(h));
         }
-        let (os, kind, def, w) = (os.clone(), kind_s.clone(), default.clone(), w.clone());
+    };
+    let fresh = host.new_key_name(app_id);
+    let new = item("plus", "New key", Some(&fresh));
+    let (os, kind_s, w, c) = (on_set.clone(), kind.to_string(), Rc::downgrade(host), close.clone());
+    new.connect_clicked(move |_| {
+        c();
+        let (os, kind, fresh, w) = (os.clone(), kind_s.clone(), fresh.clone(), w.clone());
         glib::spawn_future_local(async move {
-            match create_key(&kind, &def, &w).await {
+            match create_key(&kind, &fresh, &w).await {
                 Ok(k) => os(Some(k)),
                 Err(e) => crate::toast::error("Couldn't make the key", &e),
             }
@@ -370,17 +370,15 @@ fn fill_menu(
         host.keys_of_kind(&known(), kind).into_iter().filter(|k| id.is_none_or(|i| k["id"] != i)).collect();
     if !existing.is_empty() {
         let g = group_label(&format!("Your {} keys", signins::kind_label(kind)));
-        g.set_margin_top(6);
-        g.set_margin_start(8);
+        g.set_margin_top(4);
+        g.set_margin_start(6);
         col.append(&g);
     }
     for k in existing {
         let b = item("key-round", k["name"].as_str().unwrap_or_default(), None);
-        let (os, pw) = (on_set.clone(), pop.downgrade());
+        let (os, c) = (on_set.clone(), close.clone());
         b.connect_clicked(move |_| {
-            if let Some(p) = pw.upgrade() {
-                p.popdown();
-            }
+            c();
             os(Some(k.clone()));
         });
         col.append(&b);
@@ -388,26 +386,26 @@ fn fill_menu(
     if has {
         let b = item("x", "No key", None);
         b.add_css_class("danger");
-        let (os, pw) = (on_set.clone(), pop.downgrade());
+        let (os, c) = (on_set.clone(), close.clone());
         b.connect_clicked(move |_| {
-            if let Some(p) = pw.upgrade() {
-                p.popdown();
-            }
+            c();
             os(None);
         });
         col.append(&b);
     }
-    pop.set_child(Some(&col));
+    col
 }
 
-/// A new key (a saved sign-in on this machine) of a kind, named after
-/// `base` (made free).
+/// A new key of a kind, named after `base` (made free): a saved sign-in on
+/// this machine when the wadspace is here, else only in its document.
 async fn create_key(kind: &str, base: &str, host: &Weak<dyn Host>) -> Result<Value, String> {
     let known = known();
-    let mut taken: Vec<String> = known.iter().filter_map(|k| k["name"].as_str()).map(str::to_lowercase).collect();
-    if let Some(h) = host.upgrade() {
-        taken.extend(h.keys_of_kind(&[], kind).iter().filter_map(|k| k["name"].as_str()).map(str::to_lowercase));
+    let Some(h) = host.upgrade() else { return Err("it's gone".into()) };
+    if !h.on_this_machine() || crate::fake::on() {
+        return Ok(h.mint_key(base, kind, &known));
     }
+    let mut taken: Vec<String> = known.iter().filter_map(|k| k["name"].as_str()).map(str::to_lowercase).collect();
+    taken.extend(h.keys_of_kind(&[], kind).iter().filter_map(|k| k["name"].as_str()).map(str::to_lowercase));
     let mut name = base.to_string();
     let mut n = 2;
     while taken.contains(&name.to_lowercase()) {
@@ -420,7 +418,7 @@ async fn create_key(kind: &str, base: &str, host: &Weak<dyn Host>) -> Result<Val
 
 /// The key's name as a field: Enter saves; clicking away saves too, unless
 /// the name's taken; Esc lets go.
-fn renaming(host: &Rc<dyn Host>, slot: &gtk::Box, btn: &gtk::MenuButton, id: &str, shown: &str) {
+fn renaming(host: &Rc<dyn Host>, slot: &gtk::Box, btn: &gtk::Widget, id: &str, shown: &str) {
     btn.set_visible(false);
     let edit = gtk::Box::new(gtk::Orientation::Horizontal, 6);
     edit.add_css_class("key-edit");
@@ -428,7 +426,8 @@ fn renaming(host: &Rc<dyn Host>, slot: &gtk::Box, btn: &gtk::MenuButton, id: &st
     let e = gtk::Entry::new();
     e.add_css_class("esc-local");
     e.set_text(shown);
-    e.set_width_chars(22);
+    e.set_hexpand(true);
+    e.set_width_chars(8);
     edit.append(&e);
     slot.append(&edit);
     let problem = gtk::Label::new(None);
@@ -478,9 +477,13 @@ fn renaming(host: &Rc<dyn Host>, slot: &gtk::Box, btn: &gtk::MenuButton, id: &st
                 }
                 Err(_) => stop(),
                 Ok(()) => {
-                    // On this machine too, where it's one.
+                    // On this machine too, where it's one of its sign-ins.
                     let (id2, to2) = (id.clone(), to.clone());
+                    let mine = store().read_now(|s| s.signins.iter().flatten().any(|x| x.id == id2));
                     glib::spawn_future_local(async move {
+                        if !mine {
+                            return;
+                        }
                         let r = send::<Value>(Method::PUT, format!("/v1/signins/{id2}"), Some(json!({ "name": to2 })));
                         match r.await {
                             Ok(_) => signins::load(),

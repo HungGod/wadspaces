@@ -1369,8 +1369,8 @@ button.text-accent:disabled { color: var(--faint); text-decoration: none; }
 .shared { font-size: 12px; color: var(--accent); }
 
 /* ------------------------------------------------------------- builder */
-/* The Builder's shared parts (pages/builder/parts: keys, drag ghosts),
-   from the old board's look (the web app's builder.css). */
+/* The Builder's page and shared parts (pages/builder/parts: keys,
+   projects, drag ghosts). */
 .wb {
   --ok: #c6ff1f;
   --no: #ff5d7a;
@@ -1378,25 +1378,6 @@ button.text-accent:disabled { color: var(--faint); text-decoration: none; }
   font-size: 13px;
 }
 window.theme-light .wb { --ok: #4d7a00; --unbuilt: #b8640f; }
-/* A desktop is drawn as it looks, on its dark wallpaper, in either theme. */
-window.theme-light .wb .screen, window.theme-light .wb .win, window.theme-light .wb .chip {
-  --bg: #0a0614;
-  --bg-2: #0e0919;
-  --surface: #140d22;
-  --surface-2: #1b132d;
-  --surface-3: #241a39;
-  --line: rgb(240 234 250 / 0.09);
-  --line-strong: rgb(240 234 250 / 0.18);
-  --fg: #f5f2fa;
-  --muted: rgb(245 242 250 / 0.62);
-  --faint: rgb(245 242 250 / 0.4);
-  --accent: #c6ff1f;
-  --layer-template: #7fd3ff;
-  --layer-extensions: #c6ff1f;
-  --layer-customization: #ff3d81;
-  color: var(--fg);
-}
-
 .wb .topbar {
   padding: 10px 18px;
   border-bottom: 1px solid var(--line);
@@ -1422,118 +1403,7 @@ flowbox.hints > flowboxchild { padding: 0; }
 button.btn.wb-ghost { box-shadow: inset 0 0 0 1px var(--line-strong); }
 button.btn.not-saved { color: var(--unbuilt); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--unbuilt) 50%, transparent); }
 
-.wb .board {
-  background:
-    radial-gradient(ellipse 1200px 600px at 30% 0%, rgb(59 29 94 / 0.4), transparent 70%),
-    radial-gradient(ellipse 800px 500px at 100% 100%, rgb(255 61 129 / 0.07), transparent 70%),
-    var(--bg);
-}
-window.theme-light .wb .board {
-  background:
-    radial-gradient(ellipse 1200px 600px at 30% 0%, rgb(120 90 160 / 0.25), transparent 70%),
-    radial-gradient(ellipse 800px 500px at 100% 100%, rgb(255 61 129 / 0.07), transparent 70%),
-    var(--bg);
-}
-.wb .stacks { padding: 22px 50px 18px 28px; }
-
-.wb .stack {
-  padding: 8px 4px;
-  border-radius: 20px;
-  border: 1.5px dashed transparent;
-  transition: border-color 150ms, background-color 150ms;
-}
-.wb .stack.fresh { border-color: var(--accent); background: var(--accent-soft); }
-.wb .stack.drop-could { border-color: rgb(198 255 31 / 0.25); }
-.wb .stack.drop-ok { border-color: var(--ok); background: var(--accent-soft); }
-.wb .stack.drop-no { border-color: var(--no); background: rgb(255 93 122 / 0.08); }
-
-.wb .mod {
-  border-radius: 12px;
-  background: var(--surface);
-  border: 1px solid color-mix(in srgb, var(--kc) 32%, var(--line));
-  box-shadow: 0 12px 28px -18px rgb(0 0 0 / 0.9);
-  transition: border-color 150ms, box-shadow 150ms;
-}
-
-.wb .mod.unbuilt, .wb .mod.building { border: 1.5px dashed var(--unbuilt); }
-
-.wb .screen { border-radius: 0 0 11px 11px; }
-
-.wb .desk { margin: 12px 10px 34px 10px; }
-
-.wb .wins { margin: 8px; }
-.wb .win {
-  border-radius: 7px;
-  background: rgb(20 13 34 / 0.94);
-  border: 1px solid var(--line-strong);
-  box-shadow: 0 6px 14px -8px rgb(0 0 0 / 0.9);
-  color: var(--fg);
-}
-.wb .win.warn { border: 1px dashed var(--no); }
-
-.wb .ext { font-size: 10px; }
-
-.wb .term { font-family: monospace; font-size: 10px; color: #b9f56d; }
-.wb .win.blank {
-  background: rgb(20 13 34 / 0.45);
-  border: 1px dashed color-mix(in srgb, var(--layer-extensions) 40%, transparent);
-  box-shadow: none;
-}
-
-.wb .tray {
-  padding: 2px 7px 2px 5px;
-  border-radius: 6px;
-  background: rgb(255 255 255 / 0.08);
-  border: 1px solid transparent;
-  font-size: 10.5px;
-  color: #f5f2fa;
-}
-
-.wb .tray.prompt {
-  border: 1px dashed color-mix(in srgb, var(--layer-customization) 55%, transparent);
-  background: rgb(10 6 20 / 0.55);
-  color: color-mix(in srgb, var(--layer-customization) 80%, #f5f2fa);
-  font-weight: 600;
-}
-
-.wb .swatch { min-width: 12px; min-height: 12px; border-radius: 3px; border: 1px solid rgb(255 255 255 / 0.3); }
-
-.wb .chip {
-  padding: 3px 8px 3px 4px;
-  border-radius: 8px;
-  background: var(--surface-2);
-  border: 1px solid var(--kc);
-  font-size: 11.5px;
-  color: var(--fg);
-}
-
-.wb .status {
-  padding: 2px 8px;
-  border-radius: 99px;
-  border: 1px solid var(--line-strong);
-  color: var(--muted);
-  font-size: 11px;
-}
-
 .rail-note { font-size: 12px; color: var(--muted); }
-
-button.bucket {
-  all: unset;
-  min-width: 380px;
-  min-height: 48px;
-  padding: 0 16px;
-  border-radius: 14px;
-  border: 1.5px dashed var(--line-strong);
-  color: var(--muted);
-  transition: background-color 150ms, border-color 150ms;
-}
-button.bucket:hover { border-color: color-mix(in srgb, var(--fg) 30%, transparent); }
-
-button.bucket.armed {
-  border-style: solid;
-  border-color: var(--danger);
-  background: rgb(255 93 122 / 0.14);
-}
 
 .empty-note { font-size: 11.5px; color: var(--faint); font-style: italic; }
 
@@ -1552,15 +1422,6 @@ button.bucket.armed {
 .drag-hint.no { background: #3a1020; color: #ff9db1; box-shadow: inset 0 0 0 1px #ff5d7a; }
 window.theme-light .drag-hint.ok { background: #ffffff; color: #0a0a0a; box-shadow: inset 0 0 0 1px #0a0a0a; }
 window.theme-light .drag-hint.no { background: #ededed; color: #3a3a3a; box-shadow: inset 0 0 0 1px #6e6e6e; }
-.wb .gap { transition: min-width 220ms; }
-.wb .gap.open { padding: 90px 0 60px 0; }
-
-window.is-dragging button.bucket { min-height: 84px; background: rgb(20 10 24 / 0.94); }
-window.theme-light.is-dragging button.bucket { background: rgb(255 255 255 / 0.94); }
-
-button.bucket.drop-ok { border-style: solid; }
-
-button.bucket.drop-no { border-color: var(--no); opacity: 0.7; }
 
 /* ------------------------------------------------------------- editors */
 
@@ -1584,7 +1445,6 @@ button.bucket.drop-no { border-color: var(--no); opacity: 0.7; }
 
 .wb scrolledwindow.panel { padding: 0; }
 .wb scrolledwindow.panel > viewport > box { padding: 14px; }
-.wb .field { margin-bottom: 10px; }
 
 .wb .group-label { font-size: 11px; color: var(--faint); letter-spacing: 0.06em; font-weight: 600; }
 
@@ -1594,120 +1454,111 @@ button.bucket.drop-no { border-color: var(--no); opacity: 0.7; }
 .wb scrolledwindow.palette.drop-ok { outline: 2px solid var(--ok); outline-offset: -2px; }
 .wb scrolledwindow.palette.drop-no { outline: 2px solid var(--no); outline-offset: -2px; }
 .wb scrolledwindow.palette.drop-could { outline: 1.5px dashed rgb(198 255 31 / 0.45); outline-offset: -2px; }
-.wb .desktop {
-  border-radius: 14px;
-  box-shadow: inset 0 0 0 1px var(--line-strong);
-  background:
-    radial-gradient(circle 420px at 15% 0%, rgb(127 211 255 / 0.22), transparent 60%),
-    linear-gradient(160deg, #0d1a2b, #090d18);
-  color: #f5f2fa;
-}
-.wb .desktop.drop-ok { outline: 2px solid var(--layer-template); outline-offset: -2px; }
-
-.wb .facts { margin: 6px 0 12px 0; font-size: 12px; }
 
 .wb flowbox.members > flowboxchild,
 .wb flowbox.suggest > flowboxchild { padding: 0; }
-
-.wb .item { padding: 4px 6px; font-size: 12px; }
-.wb .drag-ghost .item, .drag-ghost .wb .item {
-  border-radius: 8px;
-  background: var(--surface-2);
-  box-shadow: inset 0 0 0 1px var(--layer-extensions);
-}
 
 .wb .cz-row { padding: 7px 9px; border-radius: 9px; border: 1px solid var(--line); background: var(--surface); }
 .wb .mount-face { font-size: 12px; }
 .wb .proj-name { font-weight: 600; }
 .wb .proj-note { margin-bottom: 4px; }
-.wb button.gh-proj {
-  all: unset;
-  padding: 7px 10px;
+.wb .gh-proj {
+  min-height: 34px;
+  padding: 3px 3px 3px 10px;
   border-radius: 9px;
   border: 1px solid var(--line);
   background: var(--surface);
   font-size: 12.5px;
 }
-.wb button.gh-proj:hover { border-color: var(--layer-customization); }
-.wb button.gh-proj.on { opacity: 0.55; }
+.wb .gh-proj:hover { border-color: color-mix(in srgb, var(--c-custom) 50%, var(--line)); }
+.wb .gh-proj.on > .gh-name, .wb .gh-proj.on > wad-icon { opacity: 0.55; }
 .wb .gh-name { font-weight: 600; }
-.wb .gh-private { font-size: 10px; padding: 0 6px; border-radius: 99px; border: 1px solid var(--line-strong); color: var(--faint); }
-.wb .gh-meta { color: var(--faint); font-size: 11px; }
-.wb .gh-act { min-width: 44px; color: var(--layer-customization); font-weight: 600; font-size: 11.5px; }
-.wb button.gh-proj.on .gh-act { color: var(--faint); }
-.wb button.btn.sug { min-height: 24px; padding: 0 8px; border-radius: 99px; box-shadow: inset 0 0 0 1px var(--line-strong); font-size: 11.5px; color: var(--muted); }
-.wb button.btn.sug:hover { box-shadow: inset 0 0 0 1px var(--layer-customization); color: var(--fg); }
-.wb .picker { margin-top: 8px; border: 1px solid var(--line-strong); border-radius: 12px; background: var(--bg-2); }
-.wb .picker-head { padding: 8px 10px; border-bottom: 1px solid var(--line); font-weight: 600; }
-.wb .picker-path { font-family: monospace; font-weight: 400; font-size: 11.5px; color: var(--faint); }
-.wb .picker-list { padding: 4px; }
-.wb button.picker-row, .wb checkbutton.picker-row { padding: 6px 8px; border-radius: 8px; background: none; box-shadow: none; }
-.wb button.picker-row:hover, .wb checkbutton.picker-row:hover { background: var(--surface-2); }
-.wb .picker-foot { padding: 8px 10px; border-top: 1px solid var(--line); }
+.wb button.gh-opt {
+  padding: 4px 10px;
+  border-radius: 7px;
+  background: none;
+  box-shadow: none;
+  color: var(--c-custom);
+  font-size: 11.5px;
+  font-weight: 600;
+}
+.wb button.gh-opt:hover { background: color-mix(in srgb, var(--c-custom) 14%, transparent); }
+.wb .gh-done { padding: 0 10px; color: var(--faint); font-size: 11.5px; font-weight: 600; }
+.wb .local-list { padding: 4px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); }
+.wb button.local-row { padding: 7px 8px; border-radius: 8px; background: none; box-shadow: none; font-size: 12.5px; }
+.wb button.local-row:hover { background: var(--surface-2); }
+.wb button.local-row:disabled { opacity: 0.55; }
+.wb button.on { background: var(--surface-2); color: var(--fg); }
 
-.wb .key-app { padding: 10px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface); }
-.wb .key-app-head { padding-top: 4px; font-size: 12px; font-weight: 600; }
-.wb .key-line { min-height: 38px; padding: 5px 6px 5px 8px; border-radius: 10px; border: 1px solid transparent; }
-.wb .key-line.group { border-color: var(--line); background: rgb(255 255 255 / 0.02); }
-.wb .key-line.group.empty { border-style: dashed; }
-.wb .key-line.group.drop-could { border: 1px dashed rgb(255 61 129 / 0.5); outline: none; }
-.wb .key-line.group.drop-ok { border: 1px solid var(--layer-customization); background: rgb(255 61 129 / 0.1); outline: none; }
-.wb .key-src { font-size: 12.5px; }
+/* A wadspace's keys, downward: a card per thing that keeps one, its key
+   full width underneath. */
+.wb .key-list { border-spacing: 14px; }
+.wb .key-app { border-spacing: 6px; }
+.wb .key-app-head { font-size: 13px; font-weight: 600; }
+.wb .key-line { padding: 10px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface); }
+.wb .key-line.drop-could { border: 1px dashed color-mix(in srgb, var(--c-key) 60%, transparent); }
+.wb .key-line.drop-ok { border: 1px solid var(--c-key); background: color-mix(in srgb, var(--c-key) 10%, var(--surface)); }
+.wb .key-src { font-size: 13px; }
 .wb .member {
-  padding: 3px 8px 3px 4px;
-  border-radius: 99px;
+  padding: 3px 9px 3px 5px;
+  border-radius: 8px;
   border: 1px solid var(--line-strong);
   background: var(--surface-2);
-  font-size: 11.5px;
+  font-size: 12px;
 }
-.wb .member:hover { border-color: var(--layer-customization); }
-.wb .member.picked { border-color: var(--layer-customization); background: rgb(255 61 129 / 0.22); }
-.wb .member-more { padding: 0 5px; border-radius: 99px; background: var(--layer-customization); color: #fff; font-size: 10px; font-weight: 700; }
-.wb .drop-here { color: var(--faint); font-size: 12px; font-style: italic; }
-.wb .wire { min-width: 24px; min-height: 0; border-top: 2px dashed var(--line-strong); }
-.wb .wire.on { border-top: 2px solid var(--layer-customization); }
-.wb menubutton.key-btn > button {
-  all: unset;
-  padding: 5px 10px;
+.wb .member:hover { border-color: var(--c-key); }
+.wb .member.picked { border-color: var(--c-key); background: color-mix(in srgb, var(--c-key) 22%, transparent); }
+.wb .member-more { padding: 0 5px; border-radius: 99px; background: var(--c-key); color: #fff; font-size: 10px; font-weight: 700; }
+.wb button.key-pick {
+  min-height: 34px;
+  padding: 4px 10px;
   border-radius: 9px;
   border: 1.5px dashed var(--line-strong);
+  background: none;
+  box-shadow: none;
   color: var(--faint);
-  font-size: 12px;
+  font-size: 12.5px;
   font-weight: 600;
 }
-.wb menubutton.key-btn > button:hover { border-color: var(--layer-customization); color: var(--fg); }
-.wb menubutton.key-btn.set > button {
-  border: 1.5px solid var(--layer-customization);
-  background: var(--accent-2-soft);
-  color: #ffc1d6;
+.wb button.key-pick:hover, .wb .key-current.open > button.key-pick { border-color: var(--c-key); color: var(--fg); }
+.wb .key-current.set > button.key-pick {
+  border: 1.5px solid var(--c-key);
+  background: color-mix(in srgb, var(--c-key) 16%, transparent);
+  color: var(--key-set-fg);
 }
-window.theme-light .wb menubutton.key-btn.set > button { color: var(--layer-customization); }
+.wb button.icon-button.key-rename-btn { min-width: 34px; border-radius: 9px; box-shadow: inset 0 0 0 1px var(--line-strong); }
+.wb button.icon-button.key-rename-btn:hover { box-shadow: inset 0 0 0 1px var(--c-key); color: var(--fg); }
+.wb .key-choices { padding: 6px; border-radius: 10px; background: var(--surface-2); box-shadow: inset 0 0 0 1px var(--line-strong); }
+.wb button.key-choice {
+  padding: 7px 8px;
+  border-radius: 8px;
+  background: none;
+  box-shadow: none;
+  font-size: 12.5px;
+  font-weight: 500;
+}
+.wb button.key-choice:hover { background: var(--surface-3); }
+.wb button.key-choice.danger { color: var(--danger); }
 .wb .key-edit {
-  padding: 2px 4px 2px 10px;
+  min-height: 34px;
+  padding: 0 10px;
   border-radius: 9px;
-  border: 1.5px solid var(--layer-customization);
-  background: var(--accent-2-soft);
-  color: #ffc1d6;
+  border: 1.5px solid var(--c-key);
+  background: color-mix(in srgb, var(--c-key) 16%, transparent);
+  color: var(--key-set-fg);
 }
-.wb .key-edit > entry { min-height: 26px; border: none; box-shadow: none; background: transparent; color: var(--fg); font-size: 12px; font-weight: 600; }
+.wb .key-edit > entry { min-height: 26px; border: none; box-shadow: none; background: transparent; color: var(--fg); font-size: 12.5px; font-weight: 600; }
 .wb .key-edit > entry.clash { color: var(--danger); }
-.wb .key-line.new-group {
-  all: unset;
+.wb .key-new-group {
   min-height: 34px;
   border-radius: 10px;
-  border: 1.5px dashed color-mix(in srgb, var(--layer-customization) 45%, transparent);
-  color: color-mix(in srgb, var(--layer-customization) 80%, var(--fg));
+  border: 1.5px dashed color-mix(in srgb, var(--c-key) 45%, transparent);
+  color: color-mix(in srgb, var(--c-key) 80%, var(--fg));
   font-size: 12px;
   font-weight: 600;
 }
-.wb .key-line.new-group:hover, window.is-dragging .wb .key-line.new-group {
-  border-color: var(--layer-customization);
-  background: rgb(255 61 129 / 0.06);
-}
-.wb .key-line.new-group.drop-ok { border-style: solid; background: rgb(255 61 129 / 0.14); outline: none; }
-popover.key-menu .group-label { font-size: 11px; color: var(--faint); letter-spacing: 0.06em; }
-popover.key-menu .faint { color: var(--faint); }
-popover.key-menu button.menu-item { font-size: 12.5px; }
+.wb .key-new-group.drop-could { border-color: var(--c-key); background: color-mix(in srgb, var(--c-key) 6%, transparent); }
+.wb .key-new-group.drop-ok { border-style: solid; background: color-mix(in srgb, var(--c-key) 14%, transparent); }
 
 /* ---------------------------------------------------- the HUD's room */
 /* The HUD's bar is out along the bottom right: what's there sits above it. */

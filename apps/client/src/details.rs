@@ -187,8 +187,8 @@ fn actions(st: &AppState, w: &Value, m: &Modal) -> gtk::Widget {
     grid.upcast()
 }
 
-/// Its templates (top first), the packages its image adds to the base,
-/// and how its image stands.
+/// Its apps, the packages its image adds to the base, and how its image
+/// stands.
 fn built_on(st: &AppState, w: &Value) -> gtk::Widget {
     let sec = section("Built on");
     let card = gtk::Box::new(gtk::Orientation::Horizontal, 12);
@@ -198,9 +198,11 @@ fn built_on(st: &AppState, w: &Value) -> gtk::Widget {
     card.append(&i);
     let texts = gtk::Box::new(gtk::Orientation::Vertical, 4);
     texts.set_hexpand(true);
-    let r = wad_core::layers::resolve_stack(w);
-    let names: Vec<&str> = r["chain"].as_array().into_iter().flatten().map(|t| s(t, "name")).collect();
-    let names = if names.is_empty() { "No template yet".to_string() } else { names.join(" › ") };
+    let names: Vec<String> = wad_core::v5::apps_of(w)
+        .iter()
+        .map(|e| wad_board::catalog::app(s(e, "app")).map(|a| a.name).unwrap_or_else(|| s(e, "app").to_string()))
+        .collect();
+    let names = if names.is_empty() { "No apps yet".to_string() } else { names.join(", ") };
     let l = gtk::Label::new(Some(&names));
     l.add_css_class("strong");
     l.set_xalign(0.0);

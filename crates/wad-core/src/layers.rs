@@ -80,14 +80,11 @@ pub fn webapp_id(name: &str) -> String {
 
 // --------------------------------------------------------------- wadspaces
 
-/// What a wadspace is made of: `{chain, template, setup}`: its templates
-/// (`{id, name}`, top first), and [`v5::as_template_setup`]'s template and
-/// setup (what the image and the desktop are made from).
+/// What a wadspace is made of: `{template, setup}`, [`v5::as_template_setup`]'s
+/// (what the image and the desktop are made from).
 pub fn resolve_stack(w: &Value) -> Value {
     let (template, setup) = v5::as_template_setup(w);
-    let chain: Vec<Value> =
-        js::arr(w, "templates").iter().map(|t| json!({ "id": s(t, "id"), "name": s(t, "name") })).collect();
-    json!({ "chain": chain, "template": template, "setup": setup })
+    json!({ "template": template, "setup": setup })
 }
 
 /// The image a wadspace runs: its set's ("set:<key>"), or "base".

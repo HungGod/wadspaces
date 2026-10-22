@@ -4,17 +4,10 @@
 pub mod keys;
 pub mod projects;
 
-use std::cell::RefCell;
-
-use gtk::{glib, prelude::*};
+use gtk::prelude::*;
 
 use crate::images;
 use crate::ui;
-
-thread_local! {
-    /// A menu open in the Builder (Esc closes it first).
-    static MENU: RefCell<glib::WeakRef<gtk::Popover>> = RefCell::default();
-}
 
 /// Small print, faint.
 pub fn faint(text: &str) -> gtk::Label {
@@ -55,20 +48,4 @@ pub fn ghost(w: &impl IsA<gtk::Widget>) -> gtk::Widget {
     b.add_css_class("wb");
     b.append(w);
     b.upcast()
-}
-
-/// A menu opened in the Builder: Esc closes it first.
-pub fn menu_opened(p: &gtk::Popover) {
-    MENU.with(|m| m.borrow().set(Some(p)));
-}
-
-/// Esc: a menu open in the Builder closes (whether it did).
-pub fn escape() -> bool {
-    match MENU.with(|m| m.borrow().upgrade()).filter(|p| p.is_visible()) {
-        Some(p) => {
-            p.popdown();
-            true
-        }
-        None => false,
-    }
 }

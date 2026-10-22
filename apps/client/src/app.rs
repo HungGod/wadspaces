@@ -68,11 +68,11 @@ fn window(app: &gtk::Application, args: &Args) -> gtk::ApplicationWindow {
         w.fullscreen();
         follow_hud(&w);
     }
-    // Esc closes the top dialog (or the Builder's editor).
+    // Esc closes the top dialog.
     let keys = gtk::EventControllerKey::new();
     keys.set_propagation_phase(gtk::PropagationPhase::Capture);
     keys.connect_key_pressed(|_, key, _, _| {
-        if key == gtk::gdk::Key::Escape && (crate::modal::escape() || crate::pages::builder::parts::escape()) {
+        if key == gtk::gdk::Key::Escape && crate::modal::escape() {
             return glib::Propagation::Stop;
         }
         glib::Propagation::Proceed
