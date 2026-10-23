@@ -24,14 +24,9 @@
 //! update, not a different set. Web apps, the desktop's layout and the
 //! wallpaper go in when it starts (/run/wadspaces-extra), not into the image.
 //!
-//! Version 4's wadspaces (templates, each a list of apps with their extras)
-//! read as their [`upgrade`]: every reader here takes either.
-//!
 //! [`as_template_setup`] gives the (template, setup) pair version 3's helpers
 //! take (slots_for, desktop_for, layout_json_for, its sign-ins), so they
 //! serve every version.
-
-use std::borrow::Cow;
 
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
@@ -78,11 +73,6 @@ pub fn is_v5(w: &Value) -> bool {
     w.get("version").and_then(Value::as_u64) == Some(VERSION)
 }
 
-/// A version 4 wadspace (design B's templates), to [`upgrade`].
-pub fn is_v4(w: &Value) -> bool {
-    w.get("version").and_then(Value::as_u64) == Some(4)
-}
-
 /// A machine's id, as the account names it.
 pub fn is_machine_id(m: &str) -> bool {
     !m.is_empty() && m.len() <= 64 && m.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_')
@@ -101,11 +91,6 @@ pub fn focus() -> Value {
 /// The apps add-ons are for: VS Code, the command line, WadBrowser.
 pub fn takes_addons(app: &str) -> bool {
     matches!(app, "vscode" | "wadbrowser" | TERMINAL)
-}
-
-/// It as version 5: a version 4 one upgraded, anything else as it is.
-pub fn read(w: &Value) -> Cow<'_, Value> {
-    if is_v4(w) { Cow::Owned(upgrade(w)) } else { Cow::Borrowed(w) }
 }
 
 fn name_ok(what: &str, name: &str) -> Result<(), String> {
@@ -197,10 +182,9 @@ pub fn check(w: &Value) -> Result<(), String> {
 /// mode): `[{app, mode?, extras}]`. Add-ons whose app isn't in it are left
 /// out.
 pub fn apps_of(w: &Value) -> Vec<Value> {
-    let w = read(w);
-    let exts = js::arr(&w, "exts");
+    let exts = js::arr(w, "exts");
     let mut out: Vec<Value> = vec![];
-    for a in js::arr(&w, "apps") {
+    for a in js::arr(w, "apps") {
         let app = s(a, "app");
         if app.is_empty() || out.iter().any(|e| s(e, "app") == app) {
             continue;
@@ -274,9 +258,8 @@ pub fn image_ref(key: &str, base: &str) -> String {
 /// Version 3's (template, setup) for it: the template its apps, the setup
 /// its web apps, extensions, tools and what opens at start.
 pub fn as_template_setup(w: &Value) -> (Value, Value) {
-    let w = read(w);
-    let id = s(&w, "id");
-    let apps = apps_of(&w);
+    let id = s(w, "id");
+    let apps = apps_of(w);
     let extras = |app: &str| -> Vec<Value> {
         apps.iter().find(|e| s(e, "app") == app).map(|e| js::arr(e, "extras").to_vec()).unwrap_or_default()
     };
@@ -317,16 +300,15 @@ pub fn as_template_setup(w: &Value) -> (Value, Value) {
 /// base), its name and wallpaper, a /config of its own, its sign-ins and its
 /// projects. `opts`: `{tz, secrets?: [podman secret names], base?}`.
 pub fn workspace_for(w: &Value, opts: &Value) -> Value {
-    let w = read(w);
-    let (template, setup) = as_template_setup(&w);
+    let (template, setup) = as_template_setup(w);
     let own = &w["customization"];
     let base = match s(opts, "base") {
         "" => DEFAULT_BASE_IMAGE,
         b => b,
     };
-    let image = image_ref(&image_key(&w), base);
-    let signins = layers::signins_v3(&w, &template, &setup);
-    layers::workspace_value(s(&w, "id"), own, image, signins, Some(layers::workspace_projects(own)), opts)
+    let image = image_ref(&image_key(w), base);
+    let signins = layers::signins_v3(w, &template, &setup);
+    layers::workspace_value(s(w, "id"), own, image, signins, Some(layers::workspace_projects(own)), opts)
 }
 
 /// What wadd puts in its /run/wadspaces-extra when it's installed, for the
@@ -346,8 +328,7 @@ pub fn extras(w: &Value) -> Value {
 /// Its desktop's icons, as its image draws them (what the switcher shows):
 /// version 3's, from its apps, web apps and projects.
 pub fn desktop(w: &Value) -> Vec<Value> {
-    let w = read(w);
-    let (template, setup) = as_template_setup(&w);
+    let (template, setup) = as_template_setup(w);
     let projects: Vec<Value> =
         js::arr(&w["customization"], "projects").iter().map(|p| json!({ "id": p["id"], "name": p["as"] })).collect();
     layers::desktop_for(&template, &setup, &projects)
@@ -384,198 +365,6 @@ pub fn view(w: &Value) -> Value {
     o.insert("imageKey".into(), image_key(w).into());
     o.insert("wallpaper".into(), c.get("wallpaper").cloned().unwrap_or(Value::Null));
     Value::Object(o)
-}
-
-// ----------------------------------------------------------------- upgrade
-
-/// An app as version 4's templates give it: (app, mode, extras).
-type Entry = (String, Option<String>, Vec<Value>);
-
-/// Version 4's templates merged: every app once, where it first is, with
-/// all the extras they give it; the first template with an app gives its
-/// mode.
-fn merged(templates: &[Value]) -> Vec<Entry> {
-    let mut apps: Vec<Entry> = vec![];
-    for t in templates {
-        for e in js::arr(t, "apps") {
-            let app = s(e, "app");
-            if app.is_empty() {
-                continue;
-            }
-            let i = match apps.iter().position(|a| a.0 == app) {
-                Some(i) => i,
-                None => {
-                    apps.push((app.to_string(), e.get("mode").and_then(Value::as_str).map(String::from), vec![]));
-                    apps.len() - 1
-                }
-            };
-            for x in js::arr(e, "extras") {
-                if !apps[i].2.iter().any(|y| s(y, "id") == s(x, "id")) {
-                    apps[i].2.push(x.clone());
-                }
-            }
-        }
-    }
-    apps
-}
-
-/// An app's extra as its add-on (`{app, …extra}`), a web app called "focus"
-/// given `focus_to`.
-fn addon(app: &str, x: &Value, focus_to: Option<&str>) -> Value {
-    let mut o = Obj::new();
-    o.insert("app".into(), app.into());
-    for (k, v) in js::obj(x) {
-        if k != "app" {
-            o.insert(k, v);
-        }
-    }
-    if let Some(to) = focus_to.filter(|_| app == "wadbrowser" && s(x, "id") == FOCUS) {
-        o.insert("id".into(), to.into());
-    }
-    Value::Object(o)
-}
-
-/// Merged apps as version 5's apps and add-ons: WadBrowser's focus mode as
-/// Focus, the extras of apps that take none dropped.
-fn flatten(entries: &[Entry], focus_to: Option<&str>) -> (Vec<Value>, Vec<Value>) {
-    let (mut apps, mut exts) = (vec![], vec![]);
-    for (app, mode, extras) in entries {
-        apps.push(json!({ "app": app }));
-        if app == "wadbrowser" && mode.as_deref() == Some(FOCUS) {
-            exts.push(focus());
-        }
-        if takes_addons(app) {
-            exts.extend(extras.iter().map(|x| addon(app, x, focus_to)));
-        }
-    }
-    (apps, exts)
-}
-
-/// What version 4's Recently deleted kept, as version 5's pieces: a
-/// template's or an app's entries each an app and (with any) its add-ons.
-fn pieces(k: &Value, focus_to: Option<&str>) -> Vec<Value> {
-    let entries = match s(k, "kind") {
-        "template" => merged(std::slice::from_ref(&k["template"])),
-        "app" => merged(&[json!({ "apps": [k["entry"]] })]),
-        "project" => return vec![json!({ "kind": "project", "project": k["project"] })],
-        "background" => return vec![json!({ "kind": "background", "wallpaper": k["wallpaper"] })],
-        _ => return vec![],
-    };
-    let mut out = vec![];
-    for e in &entries {
-        let (apps, exts) = flatten(std::slice::from_ref(e), focus_to);
-        out.extend(apps.into_iter().map(|a| json!({ "kind": "app", "app": a })));
-        if !exts.is_empty() {
-            out.push(json!({ "kind": "exts", "app": e.0, "exts": exts }));
-        }
-    }
-    out
-}
-
-/// Every web app id version 4's templates (and what it kept) give WadBrowser.
-fn web_ids(w: &Value) -> Vec<String> {
-    let kept = js::arr(w, "trash").iter().flat_map(|k| {
-        let t = if s(k, "kind") == "app" { json!({ "apps": [k["entry"]] }) } else { k["template"].clone() };
-        merged(&[t])
-    });
-    merged(js::arr(w, "templates"))
-        .into_iter()
-        .chain(kept)
-        .filter(|e| e.0 == "wadbrowser")
-        .flat_map(|e| e.2.into_iter().map(|x| s(&x, "id").to_string()))
-        .collect()
-}
-
-/// Its customization, its web app "focus" renamed `to` where it signs in
-/// and opens at start.
-fn rename_web(c: &Value, to: &str) -> Value {
-    let from = format!("web:{FOCUS}");
-    let to = format!("web:{to}");
-    let swap = |v: &mut Value| {
-        if v.as_str() == Some(&from) {
-            *v = to.clone().into();
-        }
-    };
-    let mut c = c.clone();
-    if let Some(groups) = c.pointer_mut("/secrets/groups").and_then(Value::as_array_mut) {
-        for m in groups.iter_mut().filter_map(|g| g.get_mut("members")).filter_map(Value::as_array_mut) {
-            m.iter_mut().for_each(swap);
-        }
-    }
-    if let Some(slots) = c.pointer_mut("/secrets/bySlot").and_then(Value::as_object_mut) {
-        *slots = std::mem::take(slots).into_iter().map(|(k, v)| (if k == from { to.clone() } else { k }, v)).collect();
-    }
-    if let Some(a) = c.get_mut("autostart").and_then(Value::as_array_mut) {
-        a.iter_mut().for_each(swap);
-    }
-    c
-}
-
-/// A version 4 wadspace as version 5 (anything else as it is): its apps
-/// where its templates first have them, each once, their extras as add-ons
-/// (focus mode, the top template's, as Focus), and what it kept as apps and
-/// add-ons (the newest KEEP_MOST). A web app called "focus" gets another id.
-pub fn upgrade(w: &Value) -> Value {
-    if !is_v4(w) {
-        return w.clone();
-    }
-    let web = web_ids(w);
-    let focus_to = web.iter().any(|id| id == FOCUS).then(|| {
-        let base = layers::webapp_id(FOCUS);
-        (1..).map(|n| if n == 1 { base.clone() } else { format!("{base}-{n}") }).find(|id| !web.contains(id)).unwrap()
-    });
-    let focus_to = focus_to.as_deref();
-    let (apps, exts) = flatten(&merged(js::arr(w, "templates")), focus_to);
-    let mut kept: Vec<Value> = vec![];
-    for k in js::arr(w, "trash") {
-        for p in pieces(k, focus_to) {
-            let mut o = Obj::new();
-            o.insert("at".into(), k["at"].clone());
-            o.extend(js::obj(&p));
-            kept.push(Value::Object(o));
-        }
-    }
-    let skip = kept.len().saturating_sub(KEEP_MOST);
-    let mut kept: Vec<Value> = kept
-        .into_iter()
-        .skip(skip)
-        .enumerate()
-        .map(|(i, k)| {
-            let mut o = Obj::new();
-            o.insert("id".into(), format!("k{}", i + 1).into());
-            o.extend(js::obj(&k));
-            Value::Object(o)
-        })
-        .collect();
-    let mut out = Obj::new();
-    let mut flat = Some((apps, exts));
-    for (k, v) in js::obj(w) {
-        match k.as_str() {
-            "version" => {
-                out.insert(k, VERSION.into());
-            }
-            "templates" => {
-                if let Some((apps, exts)) = flat.take() {
-                    out.insert("apps".into(), apps.into());
-                    out.insert("exts".into(), exts.into());
-                }
-            }
-            "customization" => {
-                out.insert(k, focus_to.map(|to| rename_web(&v, to)).unwrap_or(v));
-            }
-            "trash" => {
-                out.insert(k, Value::Array(std::mem::take(&mut kept)));
-            }
-            _ => {
-                out.insert(k, v);
-            }
-        }
-    }
-    if let Some((apps, exts)) = flat {
-        out.insert("apps".into(), apps.into());
-        out.insert("exts".into(), exts.into());
-    }
-    Value::Object(out)
 }
 
 #[cfg(test)]

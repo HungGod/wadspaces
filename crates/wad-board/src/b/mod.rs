@@ -3,7 +3,7 @@
 //! projects), its secrets (its keys, each with what signs in with it), its
 //! add-ons (VS Code's extensions, command-line tools, WadBrowser's web apps
 //! and its Focus, by the app they're for) and its apps. The edits are the
-//! cards' (ui-mockup-builder):
+//! cards':
 //!
 //! - A drag takes the card (all of it) or one piece: its customization, its
 //!   secrets, a key with what signs in with it, one thing that does, its

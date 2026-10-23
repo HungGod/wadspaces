@@ -494,12 +494,6 @@ impl Server {
             Ok(n) => tracing::info!("removed {n} of the old Builder's document(s)"),
             Err(e) => tracing::warn!("library: {e}"),
         }
-        // Wadspaces installed as version 4 are version 5's now.
-        match crate::sets::upgrade_installed(&self.state.store.dir) {
-            Ok(0) => {}
-            Ok(n) => tracing::info!("upgraded {n} installed wadspace(s) to version 5"),
-            Err(e) => tracing::warn!("installed wadspaces: {e}"),
-        }
         // Runs left over from before (wadd or the machine restarted).
         let sweep = registry.clone();
         tokio::spawn(async move {

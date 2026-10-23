@@ -416,7 +416,7 @@ async fn the_old_builders_commands_are_refused_and_launches_run() {
 }
 
 #[tokio::test]
-async fn a_version_4_wadspace_builds_by_its_id_on_its_own_machine() {
+async fn a_wadspace_builds_by_its_id_on_its_own_machine() {
     let e = linked().await;
     let base = "localhost/wadspaces-base:trixie";
     e.fake.with(|m| {

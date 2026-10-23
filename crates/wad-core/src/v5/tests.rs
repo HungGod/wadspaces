@@ -33,25 +33,6 @@ fn customization() -> Value {
     })
 }
 
-/// The same wadspace as version 4 made it: a Dev template, a C++/Rust one
-/// (an app in two templates), and game art.
-fn iq_v4() -> Value {
-    json!({
-        "version": 4, "id": "iq", "owner": "u1", "machine": "surface", "order": 1,
-        "templates": [
-            {"id": "dev", "name": "Dev", "apps": [
-                {"app": "wadbrowser", "mode": "focus", "extras": [{"id": "github", "name": "GitHub", "url": "https://github.com"}]},
-                {"app": "vscode", "extras": [{"id": "anthropic.claude-code"}]}]},
-            {"id": "lang", "name": "C++ and Rust", "apps": [
-                {"app": "vscode", "extras": [{"id": "ms-vscode.cpptools"}, {"id": "rust-lang.rust-analyzer"}, {"id": "anthropic.claude-code"}]},
-                {"app": "terminal", "extras": [{"id": "cpp"}, {"id": "rust"}]},
-                {"app": "wadbrowser", "extras": [{"id": "learnopengl", "name": "LearnOpenGL", "url": "https://learnopengl.com", "iconUrl": "/i.png"}]}]},
-            {"id": "art", "name": "Game art", "apps": [{"app": "libresprite"}, {"app": "tiled"}]}
-        ],
-        "customization": customization()
-    })
-}
-
 fn with(mut w: Value, f: impl FnOnce(&mut Value)) -> Value {
     f(&mut w);
     w
@@ -73,7 +54,7 @@ fn a_good_wadspace_checks() {
 #[test]
 fn what_check_refuses() {
     let bad = |f: fn(&mut Value)| check(&with(iq(), f)).unwrap_err();
-    assert_eq!(check(&iq_v4()).unwrap_err(), "it isn't a version 5 wadspace");
+    assert_eq!(check(&with(iq(), |w| w["version"] = json!(4))).unwrap_err(), "it isn't a version 5 wadspace");
     assert_eq!(bad(|w| w["templates"] = json!([])), "it still has version 4's templates");
     assert_eq!(bad(|w| w["machine"] = json!("")), "it isn't on a machine");
     assert_eq!(bad(|w| w["apps"][3]["app"] = json!("photoshop")), "there's no app \"photoshop\"");
@@ -293,92 +274,4 @@ fn the_readers_of_what_a_wadspace_is_made_of_read_it() {
     images.insert(key.clone(), row("s2", "b2"));
     assert_eq!(layers::image_state(&key, &images), layers::ImageState::Built);
     assert_eq!(layers::image_state("base", &images), layers::ImageState::Built);
-}
-
-// ----------------------------------------------------------------- upgrade
-
-#[test]
-fn version_4_upgrades_to_its_apps_and_add_ons() {
-    let up = upgrade(&iq_v4());
-    assert_eq!(up, iq());
-    assert_eq!(check(&up), Ok(()));
-    // Its keys' order: templates gone, apps and add-ons where they were.
-    let keys: Vec<&str> = up.as_object().unwrap().keys().map(String::as_str).collect();
-    assert_eq!(keys, ["version", "id", "owner", "machine", "order", "apps", "exts", "customization"]);
-    assert_eq!(upgrade(&up), up, "upgrading twice changes nothing");
-    assert!(matches!(read(&up), Cow::Borrowed(_)));
-    assert_eq!(*read(&iq_v4()), up);
-    // Every reader reads version 4 as its upgrade.
-    assert_eq!(image_key(&iq_v4()), image_key(&iq()));
-    assert_eq!(apps_of(&iq_v4()), apps_of(&iq()));
-    assert_eq!(workspace_for(&iq_v4(), &json!({})), workspace_for(&iq(), &json!({})));
-}
-
-#[test]
-fn the_top_template_with_wadbrowser_decides_focus() {
-    let w = json!({"version": 4, "id": "w", "machine": "m", "customization": {"name": "W"}, "templates": [
-        {"id": "a", "name": "A", "apps": [{"app": "wadbrowser"}]},
-        {"id": "b", "name": "B", "apps": [{"app": "wadbrowser", "mode": "focus"}, {"app": "tiled", "extras": [{"id": "x"}]}]}]});
-    let up = upgrade(&w);
-    assert_eq!(up["apps"], json!([{"app": "wadbrowser"}, {"app": "tiled"}]));
-    assert_eq!(up["exts"], json!([]), "no Focus, and Tiled takes nothing");
-    let top = with(w, |w| w["templates"].as_array_mut().unwrap().reverse());
-    assert_eq!(upgrade(&top)["exts"], json!([focus()]));
-}
-
-#[test]
-fn a_web_app_called_focus_gets_another_id_where_it_signs_in_too() {
-    let site = |id: &str| json!({"id": id, "name": id, "url": format!("https://{id}.example")});
-    let w = json!({"version": 4, "id": "w", "machine": "m", "templates": [
-        {"id": "a", "name": "A", "apps": [{"app": "wadbrowser", "extras": [site("focus"), site("focus-app")]}]}],
-        "customization": {"name": "W", "autostart": ["web:focus"],
-            "secrets": {"bySlot": {"web:focus": {"id": "k"}}, "groups": [{"id": "g1", "members": ["browser", "web:focus"]}]}}});
-    let up = upgrade(&w);
-    assert_eq!(check(&up), Ok(()));
-    assert_eq!(ids(up["exts"].as_array().unwrap(), "id"), ["focus-app-2", "focus-app"]);
-    let c = &up["customization"];
-    assert_eq!(
-        (c["autostart"][0].as_str(), c["secrets"]["groups"][0]["members"][1].as_str()),
-        (Some("web:focus-app-2"), Some("web:focus-app-2"))
-    );
-    assert!(
-        c["secrets"]["bySlot"].get("web:focus-app-2").is_some() && c["secrets"]["bySlot"].get("web:focus").is_none()
-    );
-    assert_eq!(layers::webapp_id("Focus"), "focus-app");
-}
-
-#[test]
-fn what_it_kept_comes_back_as_apps_and_add_ons() {
-    let template = json!({"id": "t", "name": "T", "apps": [
-        {"app": "wadbrowser", "mode": "focus", "extras": [{"id": "gh", "name": "GH", "url": "https://github.com"}]},
-        {"app": "tiled"}]});
-    let w = json!({"version": 4, "id": "w", "machine": "m", "templates": [], "customization": {"name": "W"}, "trash": [
-        {"id": "k1", "at": "t1", "kind": "template", "template": template, "place": 0},
-        {"id": "k2", "at": "t2", "kind": "app", "template": "t", "entry": {"app": "vscode", "extras": [{"id": "rust-lang.rust-analyzer"}]}},
-        {"id": "k3", "at": "t3", "kind": "project", "project": {"id": "p"}},
-        {"id": "k4", "at": "t4", "kind": "background", "wallpaper": {"type": "texture", "value": "grid"}},
-        {"id": "k5", "at": "t5", "kind": "draft"}]});
-    let up = upgrade(&w);
-    assert_eq!(check(&up), Ok(()));
-    assert_eq!(
-        up["trash"],
-        json!([
-            {"id": "k1", "at": "t1", "kind": "app", "app": {"app": "wadbrowser"}},
-            {"id": "k2", "at": "t1", "kind": "exts", "app": "wadbrowser", "exts": [focus(), {"app": "wadbrowser", "id": "gh", "name": "GH", "url": "https://github.com"}]},
-            {"id": "k3", "at": "t1", "kind": "app", "app": {"app": "tiled"}},
-            {"id": "k4", "at": "t2", "kind": "app", "app": {"app": "vscode"}},
-            {"id": "k5", "at": "t2", "kind": "exts", "app": "vscode", "exts": [{"app": "vscode", "id": "rust-lang.rust-analyzer"}]},
-            {"id": "k6", "at": "t3", "kind": "project", "project": {"id": "p"}},
-            {"id": "k7", "at": "t4", "kind": "background", "wallpaper": {"type": "texture", "value": "grid"}}
-        ])
-    );
-    // Many kept templates: the newest KEEP_MOST pieces stay.
-    let many = with(w, |w| {
-        w["trash"] = (0..20)
-            .map(|i| json!({"id": format!("k{i}"), "at": format!("t{i:02}"), "kind": "template", "template": template}))
-            .collect();
-    });
-    let kept = upgrade(&many)["trash"].as_array().unwrap().clone();
-    assert_eq!(kept.len(), KEEP_MOST);
-    assert_eq!((kept[0]["id"].as_str(), kept[29]["at"].as_str()), (Some("k1"), Some("t19")));
 }

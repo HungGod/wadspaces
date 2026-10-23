@@ -1333,7 +1333,7 @@ pub struct ImageRow {
     pub pkgs: Vec<String>,
 }
 
-/// POST /v1/wadspaces/{id}/build: a version 4 wadspace's image (its set),
+/// POST /v1/wadspaces/{id}/build: a wadspace's image (its set),
 /// built now, or built already.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -1355,7 +1355,7 @@ pub enum Theme {
     Light,
 }
 
-/// PUT /v1/machine/theme: the theme version 4 wadspaces take at their next
+/// PUT /v1/machine/theme: the theme wadspaces take at their next
 /// start (their background's tone and their web apps' icons).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

@@ -10,7 +10,7 @@ builds.
 | `localhost/wadspaces-stream:trixie` (`stream/`) | The stream sidecar: linuxserver's Selkies (pinned), its compositor, encoder and web client behind nginx's login. A streamed wadspace draws on it through a display volume they share (the same `/run/wadspaces-display`), and plays its sound through it; wadd publishes it behind its proxy (`host/STREAMS.md`). It won't start without `CUSTOM_USER` and `PASSWORD`. |
 | `localhost/wadspaces-pkg-<id>:<image id>` | A package: one app's, tool's or VS Code extension's files on their own, `FROM scratch` (`crates/wad-core/src/packages.rs`). CI builds them on the base (`.github/workflows/packages.yml`) and publishes them, privately, as `ghcr.io/hunggod/wadspaces-pkg-<id>:<abi>` with an index (`index.json` on the `packages` release); wadd gets one when a build needs it, or ahead of time (`GET /v1/packages`, `POST /v1/packages/fetch`): the one here, else downloaded with the machine's GitHub token, else built here. Named by image id, which the drive's copies keep. |
 | `localhost/wadspaces-chain:<sha12>` | Packages stacked on the base, one per image, each `FROM` the one under it and named by the base and the packages so far (`packages::chain_ref`, labelled `io.wadspaces.chain`): a set build starts from the longest one stored, so taking an app out stacks again only what was above it. |
-| `localhost/wadspaces-set-<key>:latest` | A wadspace's image, its set: its packages on the base (the top chain, then `wadspaces-pkg assemble`), named by its packages alone (`v4::set_key`), so every wadspace with the same apps, tools and extensions shares it. Labelled `io.wadspaces.layer="set:<key>"`, `io.wadspaces.from` (the base it was built on: a newer base makes it an update) and `io.wadspaces.pkgs`. A wadspace with no packages runs on the base. |
+| `localhost/wadspaces-set-<key>:latest` | A wadspace's image, its set: its packages on the base (the top chain, then `wadspaces-pkg assemble`), named by its packages alone (`v5::set_key`), so every wadspace with the same apps, tools and extensions shares it. Labelled `io.wadspaces.layer="set:<key>"`, `io.wadspaces.from` (the base it was built on: a newer base makes it an update) and `io.wadspaces.pkgs`. A wadspace with no packages runs on the base. |
 
 A wadspace's customization has no image: its saved sign-ins are handed over
 when it starts, and its projects aren't mounted at all (but for the ones
@@ -21,7 +21,7 @@ copies in what wadd copied from the machine; the base says so with
 `io.wadspaces.projects="2"`. Its start-up log opens with the WadSpaces banner
 (`base/root/etc/s6-overlay/s6-rc.d/init-adduser/branding`).
 
-A wadspace (a version 4 document: `crates/wad-core/src/v4.rs`) is
+A wadspace (a version 5 document: `crates/wad-core/src/v5.rs`) is
 installed with `PUT /v1/wadspaces/{id}` and its set built with
 `POST /v1/wadspaces/{id}/build` (`apps/wadd/src/sets.rs`). Its web apps (with
 the icons wadd made), desktop layout, WadBrowser's mode and background aren't
@@ -40,7 +40,7 @@ images/base/try-signins.sh         # each sign-in kind's files kept across runs
 apps/wadd/dev/try-projects.sh      # projects cloned and copied into a wadspace, fast-forwarded, a throwaway run
 apps/wadd/dev/try-packages.sh      # packages captured and assembled, timed, in a podman store of its own
 GITHUB_TOKEN=… apps/wadd/dev/try-fetch.sh [ids]  # wadd downloading packages from CI's registry, in a store of its own
-apps/wadd/dev/try-sets.sh          # version 4 wadspaces' sets built by wadd, timed, in a store of its own
+apps/wadd/dev/try-sets.sh          # wadspaces' sets built by wadd, timed, in a store of its own
 ```
 
 A machine gets the base and the stream sidecar from its drive: `host/build.sh

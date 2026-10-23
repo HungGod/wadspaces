@@ -144,7 +144,7 @@ pub fn tone() -> wad_wallpaper::Tone {
     }
 }
 
-/// A texture background (version 4's), drawn `wide` pixels wide (16:9) in
+/// A texture background (a wadspace's), drawn `wide` pixels wide (16:9) in
 /// a theme's tone.
 fn texture_wallpaper(id: &str, wide: u32, tone: wad_wallpaper::Tone, on: impl FnOnce(gdk::Texture) + 'static) {
     let id = id.to_string();

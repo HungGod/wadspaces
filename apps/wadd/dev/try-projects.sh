@@ -101,7 +101,7 @@ printf '{"paths":["/etc/passwd"]}' | send POST /v1/copies | grep -q "isn't insid
 
 echo "== install the wadspace"
 stack=$(cat <<JSON
-{"version":4,"id":"trypj","owner":"me","sharedWith":[],"machine":"local","order":1,"templates":[],
+{"version":5,"id":"trypj","owner":"me","sharedWith":[],"machine":"local","order":1,"apps":[],"exts":[],
  "customization":{"name":"Try projects","description":"","wallpaper":{"type":"texture","value":"stars"},"secrets":{"bySlot":{}},
   "projects":[
    {"id":"hello","kind":"github","repo":"octocat/Hello-World","as":"Hello"},

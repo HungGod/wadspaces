@@ -131,24 +131,22 @@ for _ in $(seq 50); do [ -S "$dir/wadd.sock" ] && [ -S "$dir/podman.sock" ] && b
 api() { curl -sS --fail-with-body --unix-socket "$dir/wadd.sock" "$@"; }
 echo "  packages: $([ "$pull" = true ] && echo "downloaded with GITHUB_TOKEN" || echo "built here (no GITHUB_TOKEN)")"
 
-# A version 4 wadspace: id, name, Tiled or not, the extra tools.
+# A wadspace: id, name, Tiled or not, the extra tools.
 doc() {
   python3 -I - "$@" <<'EOF'
 import json, sys
 wid, name, tiled, full = sys.argv[1], sys.argv[2], sys.argv[3] == "1", sys.argv[4] == "1"
-tools = [{"id": "cpp"}] + ([{"id": "rust"}] if full else [])
-art = ([{"app": "tiled"}] if tiled else []) + ([{"app": "libresprite"}] if full else [])
-templates = [
-    {"id": "dev", "name": "Dev", "apps": [
-        {"app": "wadbrowser", "mode": "focus", "extras": [
-            {"id": "github", "name": "GitHub", "url": "https://github.com"},
-            {"id": "docs-rs", "name": "Docs.rs", "url": "https://docs.rs"}]},
-        {"app": "vscode", "extras": [{"id": "rust-lang.rust-analyzer"}]},
-        {"app": "terminal", "extras": tools}]}]
-if art:
-    templates.append({"id": "art", "name": "Game art", "apps": art})
+tools = ["cpp"] + (["rust"] if full else [])
+art = (["tiled"] if tiled else []) + (["libresprite"] if full else [])
+apps = [{"app": a} for a in ["wadbrowser", "vscode", "terminal"] + art]
+exts = [
+    {"app": "wadbrowser", "id": "focus", "name": "Focus"},
+    {"app": "wadbrowser", "id": "github", "name": "GitHub", "url": "https://github.com"},
+    {"app": "wadbrowser", "id": "docs-rs", "name": "Docs.rs", "url": "https://docs.rs"},
+    {"app": "vscode", "id": "rust-lang.rust-analyzer"},
+] + [{"app": "terminal", "id": t} for t in tools]
 print(json.dumps({"wadspace": {
-    "version": 4, "id": wid, "owner": "try", "machine": "try", "order": 1, "templates": templates,
+    "version": 5, "id": wid, "owner": "try", "machine": "try", "order": 1, "apps": apps, "exts": exts,
     "customization": {"name": name, "wallpaper": {"type": "texture", "value": "stars"}, "autostart": ["app:vscode"],
                       "projects": [], "secrets": {"bySlot": {}, "groups": []}}},
     "tz": "America/Denver"}))

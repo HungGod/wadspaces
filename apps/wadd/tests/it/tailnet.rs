@@ -484,7 +484,7 @@ async fn a_trusted_device_builds_opens_and_streams_the_owners_wadspace() {
     let e = start_with(RUNNING, true).await;
     e.trust_the_phone().await;
     put_library(&e.fb);
-    // A base that takes version 4 wadspaces' extras at start.
+    // A base that takes wadspaces' extras at start.
     e.fake.with(|m| {
         m.image_labels.insert(BASE.into(), json!({"io.wadspaces.extras": "1"}).as_object().unwrap().clone());
     });

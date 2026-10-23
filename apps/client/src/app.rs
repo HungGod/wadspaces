@@ -340,7 +340,7 @@ fn snapshot(w: &gtk::ApplicationWindow, dir: std::path::PathBuf) {
             shot(&w, &dir.join(format!("launcher-{}.png", t.name())));
         }
         crate::modal::escape();
-        // (A version 4 one's picker draws a dozen textures, in each theme.)
+        // (A wadspace's picker draws a dozen textures, in each theme.)
         for (entry, name, ms) in
             [("w:intelligencequest", "launcher-customize", 2500), ("b:wadbrowser", "launcher-browser", 900)]
         {

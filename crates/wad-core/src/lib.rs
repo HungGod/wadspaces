@@ -109,7 +109,6 @@ pub fn call(name: &str, args: &[Value]) -> Result<Value, String> {
             Ok(()) => Value::Null,
             Err(e) => e.into(),
         },
-        "v5Upgrade" => v5::upgrade(a(0)),
         "v5Apps" => Value::Array(v5::apps_of(a(0))),
         "v5Packages" => json!(v5::packages_of(a(0))),
         "v5ImageKey" => v5::image_key(a(0)).into(),

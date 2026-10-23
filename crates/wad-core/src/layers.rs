@@ -486,8 +486,8 @@ pub(crate) fn signins_v3(w: &Value, template: &Value, setup: &Value) -> Vec<Valu
     out
 }
 
-/// The workspace JSON every version installs as (workspace_for's, and
-/// version 4's): `own` has its name, wallpaper and title bars.
+/// The workspace JSON a wadspace installs as (v5::workspace_for's): `own`
+/// has its name, wallpaper and title bars.
 pub(crate) fn workspace_value(
     id: &str,
     own: &Value,

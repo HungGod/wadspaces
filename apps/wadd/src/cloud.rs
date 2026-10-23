@@ -588,8 +588,8 @@ impl CloudRelay {
 
     /// One of the owner's wadspaces (wadspaces/{id}): what the remote API and
     /// the relay build from. Only the owner's own (the rules let a machine
-    /// read wadspaces shared with its owner too), a version 5 one (a version
-    /// 4 one upgraded), and not one that's deleted.
+    /// read wadspaces shared with its owner too), a version 5 one, and not
+    /// one that's deleted.
     pub async fn wadspace_doc(&self, ws_id: &str) -> Result<Value, ApiError> {
         let (uid, _) =
             self.ids().ok_or_else(|| ApiError::new(ErrorCode::Offline, "This machine isn't linked to an account."))?;
@@ -605,10 +605,10 @@ impl CloudRelay {
         if w.get("deletedAt").is_some_and(|d| !d.is_null()) {
             return Err(ApiError::new(ErrorCode::NotFound, "That wadspace is deleted."));
         }
-        if !(wad_core::v5::is_v5(&w) || wad_core::v5::is_v4(&w)) {
+        if !wad_core::v5::is_v5(&w) {
             return Err(ApiError::new(ErrorCode::BadRequest, "That wadspace is from the old Builder: make it again."));
         }
-        Ok(wad_core::v5::upgrade(&w))
+        Ok(w)
     }
 
     /// Whether an ID token is the machine owner's: Firebase is asked (it

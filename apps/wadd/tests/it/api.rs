@@ -288,11 +288,11 @@ async fn builds() {
     // wadspace's set is (POST /v1/wadspaces/{id}/build, sets.rs).
     assert_eq!(send(&sock, "POST", "/v1/images/build", r#"{"layer":"template:tryb"}"#).await.0, 405);
     assert_eq!(send(&sock, "POST", "/v1/builds", r#"{"design":{"id":"x"}}"#).await.0, 405);
-    // Only a version 4 wadspace installs.
+    // Only a version 5 wadspace installs (not the templates' version 4).
     let (status, body) =
-        send(&sock, "PUT", "/v1/wadspaces/old", r#"{"wadspace":{"version":3,"id":"old","template":"dev"}}"#).await;
+        send(&sock, "PUT", "/v1/wadspaces/old", r#"{"wadspace":{"version":4,"id":"old","templates":[]}}"#).await;
     assert_eq!(status, 400, "{body}");
-    assert!(body.contains("version 4"), "{body}");
+    assert!(body.contains("version 5"), "{body}");
     let _ = stop.send(());
 }
 

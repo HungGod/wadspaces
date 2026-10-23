@@ -243,31 +243,9 @@ fn doc_path(state_dir: &Path, id: &str) -> PathBuf {
     state_dir.join("wadspaces").join(format!("{id}.json"))
 }
 
-/// The document a wadspace here was installed from (version 5: one
-/// installed as version 4 upgraded).
+/// The document a wadspace here was installed from.
 pub fn installed_doc(state_dir: &Path, id: &str) -> Option<Value> {
-    let w: Value = serde_json::from_slice(&std::fs::read(doc_path(state_dir, id)).ok()?).ok()?;
-    Some(v5::upgrade(&w))
-}
-
-/// Wadspaces installed here as version 4, written again as version 5 (at
-/// start: their sets keep their names, so what's built stays built); how
-/// many.
-pub fn upgrade_installed(state_dir: &Path) -> std::io::Result<usize> {
-    let dir = state_dir.join("wadspaces");
-    let mut n = 0;
-    for e in std::fs::read_dir(&dir).into_iter().flatten().flatten() {
-        let name = e.file_name().to_string_lossy().into_owned();
-        let Some(w) = name.strip_suffix(".json").and_then(|id| {
-            let w: Value = serde_json::from_slice(&std::fs::read(e.path()).ok()?).ok()?;
-            (v5::is_v4(&w) && w["id"] == id).then_some(w)
-        }) else {
-            continue;
-        };
-        put(&dir, &name, &serde_json::to_vec_pretty(&v5::upgrade(&w))?)?;
-        n += 1;
-    }
-    Ok(n)
+    serde_json::from_slice(&std::fs::read(doc_path(state_dir, id)).ok()?).ok()
 }
 
 /// The machine's theme (PUT /v1/machine/theme): dark unless it's light.
@@ -287,14 +265,12 @@ fn put(dir: &Path, name: &str, bytes: &[u8]) -> std::io::Result<()> {
     std::fs::rename(&tmp, dir.join(name))
 }
 
-/// PUT /v1/wadspaces/{id} with a version 5 wadspace (a version 4 one is
-/// upgraded): installed, or updated, as a workspace on its set, with what it
-/// takes at start.
+/// PUT /v1/wadspaces/{id} with a version 5 wadspace: installed, or updated,
+/// as a workspace on its set, with what it takes at start.
 pub async fn install(h: &Here<'_>, id: &str, w: &Value, tz: Option<&str>) -> Result<Installed, ApiError> {
     if w.get("id").and_then(Value::as_str) != Some(id) {
         return Err(bad(format!("{id:?}: the wadspace sent is another")));
     }
-    let w = &v5::upgrade(w);
     v5::check(w).map_err(bad)?;
     if let Some(m) = &h.machine
         && w["machine"].as_str() != Some(m)

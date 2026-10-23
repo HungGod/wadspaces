@@ -345,7 +345,7 @@ mod tests {
         let p = wallpaper_upload(&json!({"type": "image", "value": data})).unwrap();
         assert_eq!(p["ext"], "jpg");
         assert!(wallpaper_upload(&json!({"type": "image", "value": "/wallpapers/x.png"})).is_err());
-        // A texture (a version 4 run's): drawn, in the app's theme.
+        // A texture (a wadspace's): drawn, in the app's theme.
         assert_eq!(wallpaper_upload(&json!({"type": "texture", "value": "stars"})).unwrap()["ext"], "png");
         assert!(wallpaper_upload(&json!({"type": "texture", "value": "nope"})).is_err());
     }

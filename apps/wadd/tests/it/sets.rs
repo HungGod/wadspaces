@@ -362,40 +362,6 @@ async fn a_wadspace_with_no_packages_runs_on_the_base() {
     assert!(e.extra("web", "wallpaper.png").is_file());
 }
 
-/// IntelligenceQuest as the templates' Builder made it (version 4).
-fn iq_v4() -> Value {
-    with(iq(), |w| {
-        let o = w.as_object_mut().unwrap();
-        o.shift_remove("apps");
-        o.shift_remove("exts");
-        o.insert("version".into(), 4.into());
-        o.insert(
-            "templates".into(),
-            json!([{"id": "dev", "name": "Dev", "apps": [
-                {"app": "wadbrowser", "mode": "focus", "extras": [{"id": "notes", "name": "Notes", "url": "http://127.0.0.1:9/"}]},
-                {"app": "vscode", "extras": [{"id": "rust-lang.rust-analyzer"}]},
-                {"app": "terminal", "extras": [{"id": "cpp"}, {"id": "rust"}]}]}]),
-        );
-    })
-}
-
-#[tokio::test]
-async fn a_version_4_wadspace_installs_as_version_5_on_the_same_set() {
-    let e = env().await;
-    sets::install(&e.here(), "iq", &iq_v4(), None).await.unwrap();
-    let doc = sets::installed_doc(&e.state, "iq").unwrap();
-    assert_eq!((doc["version"].as_u64(), doc.get("templates")), (Some(5), None));
-    assert_eq!(doc["exts"], iq()["exts"]);
-    assert_eq!(e.reg.workspace("iq").unwrap().image, set_ref(&iq()));
-    // One installed as version 4 by the wadd before: upgraded at start.
-    let file = e.state.join("wadspaces/old.json");
-    std::fs::write(&file, serde_json::to_vec(&with(iq_v4(), |w| w["id"] = "old".into())).unwrap()).unwrap();
-    assert_eq!(sets::upgrade_installed(&e.state).unwrap(), 1);
-    let old: Value = serde_json::from_slice(&std::fs::read(&file).unwrap()).unwrap();
-    assert_eq!((old["version"].as_u64(), wad_core::v5::image_key(&old)), (Some(5), wad_core::v5::image_key(&iq())));
-    assert_eq!(sets::upgrade_installed(&e.state).unwrap(), 0, "once");
-}
-
 #[tokio::test]
 async fn an_old_base_another_machine_and_a_bad_wadspace_are_refused() {
     let e = env().await;
@@ -411,6 +377,9 @@ async fn an_old_base_another_machine_and_a_bad_wadspace_are_refused() {
     assert!(err.message.contains("another machine"), "{}", err.message);
     let bad = with(iq(), |w| w["customization"]["wallpaper"] = json!({"type": "image", "value": "/x.png"}));
     assert_eq!(sets::install(&e.here(), "iq", &bad, None).await.err().unwrap().code, ErrorCode::BadRequest);
+    // A wadspace from before the cards (version 4) isn't one any more.
+    let old = with(iq(), |w| w["version"] = 4.into());
+    assert_eq!(sets::install(&e.here(), "iq", &old, None).await.err().unwrap().code, ErrorCode::BadRequest);
     let err = sets::build_installed(&e.here(), "nope").await.unwrap_err();
     assert_eq!(err.code, ErrorCode::NotFound);
 }
