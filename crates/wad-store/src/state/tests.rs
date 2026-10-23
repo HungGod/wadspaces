@@ -138,15 +138,8 @@ fn session_link_library_and_secrets() {
 
     write(dir, "library/browsers/x.json", &json!({"id": "x", "name": "Mail"}).to_string());
     assert_eq!(st.library("browsers").unwrap().len(), 1);
-    // The old Builder's: not collections now, and removed.
-    write(dir, "library/drafts/x.json", &json!({"id": "x", "name": "Draft"}).to_string());
-    write(dir, "library/templates/dev.json", &json!({"id": "dev", "name": "Dev"}).to_string());
-    write(dir, "library/wadspaces/w.json", &json!({"version": 3, "id": "w"}).to_string());
-    assert!(st.library("drafts").is_none() && st.library("templates").is_none() && st.library("wadspaces").is_none());
-    assert_eq!(st.discard_old_builder().unwrap(), 3);
-    assert!(!dir.join("library/drafts").exists() && !dir.join("library/templates").exists());
-    assert!(dir.join("library/browsers/x.json").exists());
-    assert_eq!(st.discard_old_builder().unwrap(), 0);
+    // Only the collections kept here (wadspaces live in the account).
+    assert!(st.library("wadspaces").is_none());
     assert!(st.library("../etc").is_none());
 
     write(dir, "seeded-secrets.json", &json!({"github_token": "abc"}).to_string());

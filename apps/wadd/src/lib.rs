@@ -488,12 +488,6 @@ impl Server {
             tracing::warn!("workspace units: {e}");
         }
         self.state.view.restore_session();
-        // The old Builder's documents kept here go.
-        match self.state.store.discard_old_builder() {
-            Ok(0) => {}
-            Ok(n) => tracing::info!("removed {n} of the old Builder's document(s)"),
-            Err(e) => tracing::warn!("library: {e}"),
-        }
         // Runs left over from before (wadd or the machine restarted).
         let sweep = registry.clone();
         tokio::spawn(async move {
